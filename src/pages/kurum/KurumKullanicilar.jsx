@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
 import {
-  collection, onSnapshot, doc, setDoc, updateDoc,
-  serverTimestamp, query, orderBy,
+  collection, onSnapshot, doc, updateDoc,
+  query, orderBy,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useAuth } from '../../contexts/AuthContext'
+import { kullaniciOlustur } from '../../services/kullaniciOlustur'
 
 const ROL_ETİKET = {
   kurum_admin: { etiket: 'Kurum Admin', renk: '#0369A1', bg: '#E0F2FE' },
   ogretmen:    { etiket: 'Öğretmen',    renk: '#065F46', bg: '#D1FAE5' },
 }
 
-const BOŞ_FORM = { ad: '', email: '', rol: 'ogretmen', telefon: '' }
+const BOŞ_FORM = { ad: '', email: '', sifre: '', rol: 'ogretmen', telefon: '' }
 
 export default function KurumKullanicilar() {
   const { kurumId } = useAuth()
@@ -33,7 +34,7 @@ export default function KurumKullanicilar() {
 
   function modalAc(k = null) {
     setDuzenlenen(k)
-    setForm(k ? { ad: k.ad || '', email: k.email, rol: k.rol, telefon: k.telefon || '' } : BOŞ_FORM)
+    setForm(k ? { ad: k.ad || '', email: k.email, sifre: '', rol: k.rol, telefon: k.telefon || '' } : BOŞ_FORM)
     setHata('')
     setModal(true)
   }
@@ -43,21 +44,28 @@ export default function KurumKullanicilar() {
   async function kaydet(e) {
     e.preventDefault()
     if (!form.ad.trim() || !form.email.trim()) { setHata('Ad ve e-posta zorunludur.'); return }
+    if (!duzenlenen && form.sifre.length < 6) { setHata('Şifre en az 6 karakter olmalıdır.'); return }
     setKaydediyor(true)
+    setHata('')
     try {
       if (duzenlenen) {
         await updateDoc(doc(db, 'kurumlar', kurumId, 'kullanicilar', duzenlenen.id), {
           ad: form.ad, rol: form.rol, telefon: form.telefon,
         })
       } else {
-        const id = form.email.replace(/[^a-zA-Z0-9]/g, '_')
-        await setDoc(doc(db, 'kurumlar', kurumId, 'kullanicilar', id), {
-          ...form, kurumId, durum: 'davet_bekliyor', olusturmaTarihi: serverTimestamp(),
+        await kullaniciOlustur({
+          ad: form.ad, email: form.email, sifre: form.sifre,
+          rol: form.rol, kurumId,
         })
       }
       modalKapat()
     } catch (err) {
-      setHata('Kayıt hatası: ' + err.message)
+      const mesajlar = {
+        'auth/email-already-in-use': 'Bu e-posta zaten kullanımda.',
+        'auth/invalid-email':        'Geçersiz e-posta adresi.',
+        'auth/weak-password':        'Şifre çok zayıf.',
+      }
+      setHata(mesajlar[err.code] || err.message)
     } finally {
       setKaydediyor(false)
     }
@@ -117,7 +125,7 @@ export default function KurumKullanicilar() {
                   </td>
                   <td style={s.td}>
                     <span style={{ fontSize: '0.75rem', color: k.durum === 'aktif' ? '#065F46' : '#92400E' }}>
-                      {k.durum === 'aktif' ? 'Aktif' : 'Davet Bekliyor'}
+                      {k.durum === 'aktif' ? 'Aktif' : '—'}
                     </span>
                   </td>
                   <td style={s.td}>
@@ -135,7 +143,7 @@ export default function KurumKullanicilar() {
           onClick={e => e.target === e.currentTarget && modalKapat()}>
           <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '1.5rem' }}>
-              {duzenlenen ? 'Kullanıcıyı Düzenle' : 'Kullanıcı Ekle'}
+              {duzenlenen ? 'Kullanıcıyı Düzenle' : 'Yeni Kullanıcı Oluştur'}
             </h2>
             <form onSubmit={kaydet}>
               <div style={s.alan}>
@@ -144,8 +152,18 @@ export default function KurumKullanicilar() {
               </div>
               <div style={s.alan}>
                 <label style={s.etiket}>E-posta *</label>
-                <input style={s.girdi} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} disabled={!!duzenlenen} />
+                <input style={s.girdi} type="email" value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  disabled={!!duzenlenen} />
               </div>
+              {!duzenlenen && (
+                <div style={s.alan}>
+                  <label style={s.etiket}>Şifre *</label>
+                  <input style={s.girdi} type="password" value={form.sifre}
+                    onChange={e => setForm(f => ({ ...f, sifre: e.target.value }))}
+                    placeholder="En az 6 karakter" />
+                </div>
+              )}
               <div style={s.alan}>
                 <label style={s.etiket}>Telefon</label>
                 <input style={s.girdi} value={form.telefon} onChange={e => setForm(f => ({ ...f, telefon: e.target.value }))} placeholder="0555 000 00 00" />
@@ -161,7 +179,7 @@ export default function KurumKullanicilar() {
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={modalKapat} style={{ padding: '0.6rem 1.25rem', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#374151' }}>İptal</button>
                 <button type="submit" disabled={kaydediyor} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-                  {kaydediyor ? 'Kaydediliyor...' : 'Kaydet'}
+                  {kaydediyor ? 'Oluşturuluyor...' : duzenlenen ? 'Kaydet' : 'Kullanıcı Oluştur'}
                 </button>
               </div>
             </form>
