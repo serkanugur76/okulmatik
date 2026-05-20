@@ -21,6 +21,7 @@ export default function PlatformKullanicilar() {
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [kaydediyor, setKaydediyor]     = useState(false)
   const [hata, setHata]                 = useState('')
+  const [basari, setBasari]             = useState('')
   const [uidModu, setUidModu]           = useState(false)
   const [manuelUid, setManuelUid]       = useState('')
 
@@ -41,6 +42,7 @@ export default function PlatformKullanicilar() {
     setDuzenlenen(null)
     setForm(BOŞ_FORM)
     setHata('')
+    setBasari('')
     setUidModu(false)
     setManuelUid('')
     setModal(true)
@@ -78,7 +80,8 @@ export default function PlatformKullanicilar() {
           rol: form.rol, kurumId: form.kurumId || null,
         })
       }
-      modalKapat()
+      setBasari(`${form.ad} başarıyla oluşturuldu.`)
+      setTimeout(modalKapat, 1500)
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
         setUidModu(true)
@@ -208,6 +211,7 @@ export default function PlatformKullanicilar() {
                     placeholder="Örn: 3POG8Fc6x3fUHcqs0rDOCJ0ji5X2" autoFocus />
                 </div>
               )}
+              {basari && <p style={{ fontSize: '0.875rem', color: '#065F46', background: '#D1FAE5', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{basari}</p>}
               {hata && <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{hata}</p>}
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={modalKapat} style={{ padding: '0.6rem 1.25rem', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#374151' }}>İptal</button>
