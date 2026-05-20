@@ -6,32 +6,36 @@ import {
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
-const BOŞ_FORM = { ad: '', seviye: '', sube: '', ogretmenId: '' }
+const BOŞ_FORM = { ad: '', seviye: '', sube: '' }
 
 export default function KurumSiniflar() {
-  const { secilenKurumId: kurumId, secilenKurum } = useKurumYonetim()
-  const kurumSecilmedi = !secilenKurum?.parentId // Root seçiliyse veya seçim yok
-  const [siniflar, setSiniflar]     = useState([])
-  const [form, setForm]             = useState(BOŞ_FORM)
-  const [modal, setModal]           = useState(false)
-  const [duzenlenen, setDuzenlenen] = useState(null)
-  const [kaydediyor, setKaydediyor] = useState(false)
-  const [hata, setHata]             = useState('')
+  const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
+
+  // Seçilebilir kurumlar (kampüs + alt kurum)
+  const secilebilir = erisimKurumlar.filter(k => k.parentId)
+
+  // Modal için kurum: sidebar'dan seçiliyse onu al, yoksa boş
+  const [modalKurumId, setModalKurumId] = useState('')
+  const [siniflar, setSiniflar]         = useState([])
+  const [form, setForm]                 = useState(BOŞ_FORM)
+  const [modal, setModal]               = useState(false)
+  const [duzenlenen, setDuzenlenen]     = useState(null)
+  const [kaydediyor, setKaydediyor]     = useState(false)
+  const [hata, setHata]                 = useState('')
+
+  // Liste: seçili kurum kampüs/altKurum ise onun sınıfları
+  const listKurumId = secilenKurum?.parentId ? secilenKurumId : null
 
   useEffect(() => {
-    if (!kurumId) return
-    const q = query(
-      collection(db, 'kurumlar', kurumId, 'siniflar'),
-      orderBy('olusturmaTarihi', 'asc')
-    )
-    return onSnapshot(q, snap => {
-      setSiniflar(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    })
-  }, [kurumId])
+    if (!listKurumId) { setSiniflar([]); return }
+    const q = query(collection(db, 'kurumlar', listKurumId, 'siniflar'), orderBy('olusturmaTarihi', 'asc'))
+    return onSnapshot(q, snap => setSiniflar(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+  }, [listKurumId])
 
   function modalAc(sinif = null) {
     setDuzenlenen(sinif)
-    setForm(sinif ? { ad: sinif.ad, seviye: sinif.seviye || '', sube: sinif.sube || '', ogretmenId: sinif.ogretmenId || '' } : BOŞ_FORM)
+    setForm(sinif ? { ad: sinif.ad, seviye: sinif.seviye || '', sube: sinif.sube || '' } : BOŞ_FORM)
+    setModalKurumId(listKurumId || '')
     setHata('')
     setModal(true)
   }
@@ -41,13 +45,14 @@ export default function KurumSiniflar() {
   async function kaydet(e) {
     e.preventDefault()
     if (!form.ad.trim()) { setHata('Sınıf adı zorunludur.'); return }
+    const hedefKurumId = duzenlenen ? listKurumId : modalKurumId
+    if (!hedefKurumId) { setHata('Lütfen bir kurum seçin.'); return }
     setKaydediyor(true)
     try {
-      const ref = collection(db, 'kurumlar', kurumId, 'siniflar')
       if (duzenlenen) {
-        await updateDoc(doc(db, 'kurumlar', kurumId, 'siniflar', duzenlenen.id), { ...form })
+        await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'siniflar', duzenlenen.id), { ...form })
       } else {
-        await addDoc(ref, { ...form, olusturmaTarihi: serverTimestamp() })
+        await addDoc(collection(db, 'kurumlar', hedefKurumId, 'siniflar'), { ...form, olusturmaTarihi: serverTimestamp() })
       }
       modalKapat()
     } catch (err) {
@@ -59,7 +64,12 @@ export default function KurumSiniflar() {
 
   async function sil(id) {
     if (!window.confirm('Bu sınıfı silmek istediğinize emin misiniz?')) return
-    await deleteDoc(doc(db, 'kurumlar', kurumId, 'siniflar', id))
+    await deleteDoc(doc(db, 'kurumlar', listKurumId, 'siniflar', id))
+  }
+
+  function kurumAdi(k) {
+    const ust = erisimKurumlar.find(x => x.id === k.parentId)
+    return ust?.parentId ? `${ust.ad} - ${k.ad}` : k.ad
   }
 
   const s = {
@@ -71,56 +81,44 @@ export default function KurumSiniflar() {
     girdi: { padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', color: '#1E293B' },
   }
 
-  if (kurumSecilmedi) return (
-    <div>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Sınıflar</h1>
-      <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Sınıf ve şube yönetimi</p>
-      <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '12px', padding: '2rem', textAlign: 'center', color: '#92400E' }}>
-        ⬅ Sol menüden bir kampüs veya alt kurum seçin
-      </div>
-    </div>
-  )
-
   return (
     <div>
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Sınıflar</h1>
       <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Sınıf ve şube yönetimi</p>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{siniflar.length} sınıf</span>
+        <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{listKurumId ? `${siniflar.length} sınıf` : 'Sol menüden kurum seçin'}</span>
         <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
           + Yeni Sınıf
         </button>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {['Sınıf Adı', 'Seviye', 'Şube', 'İşlemler'].map(h => (
-                <th key={h} style={s.th}>{h}</th>
+      {listKurumId && (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>{['Sınıf Adı', 'Seviye', 'Şube', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {siniflar.length === 0 ? (
+                <tr><td colSpan={4} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Henüz sınıf eklenmemiş</td></tr>
+              ) : siniflar.map(sinif => (
+                <tr key={sinif.id}>
+                  <td style={s.td}><strong>{sinif.ad}</strong></td>
+                  <td style={s.td}>{sinif.seviye || '—'}</td>
+                  <td style={s.td}>{sinif.sube || '—'}</td>
+                  <td style={s.td}>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
+                      <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sinif.id)}>Sil</button>
+                    </div>
+                  </td>
+                </tr>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {siniflar.length === 0 ? (
-              <tr><td colSpan={4} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Henüz sınıf eklenmemiş</td></tr>
-            ) : siniflar.map(sinif => (
-              <tr key={sinif.id}>
-                <td style={s.td}><strong>{sinif.ad}</strong></td>
-                <td style={s.td}>{sinif.seviye || '—'}</td>
-                <td style={s.td}>{sinif.sube || '—'}</td>
-                <td style={s.td}>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
-                    <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sinif.id)}>Sil</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {modal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
@@ -130,6 +128,17 @@ export default function KurumSiniflar() {
               {duzenlenen ? 'Sınıfı Düzenle' : 'Yeni Sınıf Ekle'}
             </h2>
             <form onSubmit={kaydet}>
+              {!duzenlenen && secilebilir.length > 0 && (
+                <div style={s.alan}>
+                  <label style={s.etiket}>Kurum *</label>
+                  <select style={s.girdi} value={modalKurumId} onChange={e => setModalKurumId(e.target.value)}>
+                    <option value="">— Seçin —</option>
+                    {secilebilir.map(k => (
+                      <option key={k.id} value={k.id}>{kurumAdi(k)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div style={s.alan}>
                 <label style={s.etiket}>Sınıf Adı *</label>
                 <input style={s.girdi} value={form.ad} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} placeholder="5-A" autoFocus />
