@@ -37,6 +37,13 @@ export default function KurumSiniflar() {
   const [kaydediyor, setKaydediyor]     = useState(false)
   const [hata, setHata]                 = useState('')
 
+  // Öğretmen atama state
+  const [ogretmenModal, setOgretmenModal]   = useState(false)
+  const [ogretmenSinif, setOgretmenSinif]   = useState(null)
+  const [ogretmenForm, setOgretmenForm]     = useState({ ogretmenAd: '', ogretmenMail: '', ogretmenTel: '' })
+  const [ogretmenKayd, setOgretmenKayd]     = useState(false)
+  const [ogretmenHata, setOgretmenHata]     = useState('')
+
   // Import state
   const [importModal, setImportModal]       = useState(false)
   const [importSinif, setImportSinif]       = useState(null)   // tek sınıf modu
@@ -91,6 +98,36 @@ export default function KurumSiniflar() {
   async function sil(sinif) {
     if (!window.confirm('Bu sınıfı silmek istediğinize emin misiniz?')) return
     await deleteDoc(doc(db, 'kurumlar', sinif._kurumId, 'siniflar', sinif.id))
+  }
+
+  // ── Öğretmen atama ──────────────────────────────────────
+  function ogretmenAc(sinif) {
+    setOgretmenSinif(sinif)
+    setOgretmenForm({
+      ogretmenAd:   sinif.ogretmenAd   || '',
+      ogretmenMail: sinif.ogretmenMail || '',
+      ogretmenTel:  sinif.ogretmenTel  || '',
+    })
+    setOgretmenHata(''); setOgretmenModal(true)
+  }
+  function ogretmenKapat() { setOgretmenModal(false); setOgretmenSinif(null) }
+
+  async function ogretmenKaydet(e) {
+    e.preventDefault()
+    if (!ogretmenSinif) return
+    setOgretmenKayd(true); setOgretmenHata('')
+    try {
+      await updateDoc(
+        doc(db, 'kurumlar', ogretmenSinif._kurumId, 'siniflar', ogretmenSinif.id),
+        {
+          ogretmenAd:   ogretmenForm.ogretmenAd.trim(),
+          ogretmenMail: ogretmenForm.ogretmenMail.trim(),
+          ogretmenTel:  ogretmenForm.ogretmenTel.trim(),
+        }
+      )
+      ogretmenKapat()
+    } catch (err) { setOgretmenHata('Kayıt hatası: ' + err.message) }
+    finally { setOgretmenKayd(false) }
   }
 
   // ── Toplu öğrenci import ────────────────────────────────
@@ -301,19 +338,31 @@ export default function KurumSiniflar() {
                   {acik && (
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
-                        <tr>{['Sınıf Adı', 'Seviye', 'Şube', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                        <tr>{['Sınıf Adı', 'Seviye', 'Şube', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {grupSiniflar.length === 0 ? (
-                          <tr><td colSpan={4} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
+                          <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
                         ) : grupSiniflar.map(sinif => (
                           <tr key={sinif.id}>
                             <td style={s.td}><strong>{sinif.ad}</strong></td>
                             <td style={s.td}>{sinif.seviye || '—'}</td>
                             <td style={s.td}>{sinif.sube || '—'}</td>
                             <td style={s.td}>
+                              {sinif.ogretmenAd ? (
+                                <div style={{ fontSize: '0.8rem', lineHeight: '1.5' }}>
+                                  <div style={{ fontWeight: '600', color: '#1E293B' }}>👤 {sinif.ogretmenAd}</div>
+                                  {sinif.ogretmenMail && <div style={{ color: '#64748B' }}>✉ {sinif.ogretmenMail}</div>}
+                                  {sinif.ogretmenTel  && <div style={{ color: '#64748B' }}>📞 {sinif.ogretmenTel}</div>}
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: '0.8rem', color: '#CBD5E1' }}>—</span>
+                              )}
+                            </td>
+                            <td style={s.td}>
                               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
+                                <button style={{ ...s.eylem, color: '#7C3AED', borderColor: '#DDD6FE' }} onClick={() => ogretmenAc(sinif)}>👤 Öğretmen</button>
                                 <button style={{ ...s.eylem, color: '#065F46', borderColor: '#A7F3D0' }} onClick={() => importAc(sinif)}>📥 Toplu Ekle</button>
                                 <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sinif)}>Sil</button>
                               </div>
@@ -387,6 +436,60 @@ export default function KurumSiniflar() {
                 <button type="button" onClick={modalKapat} style={{ padding: '0.6rem 1.25rem', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#374151' }}>İptal</button>
                 <button type="submit" disabled={kaydediyor} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
                   {kaydediyor ? 'Kaydediliyor...' : 'Kaydet'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Öğretmen atama modal ── */}
+      {ogretmenModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+          onClick={e => e.target === e.currentTarget && ogretmenKapat()}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>
+              👤 Öğretmen Ata
+            </h2>
+            <p style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '1.5rem' }}>
+              <strong>{ogretmenSinif?.ad}</strong> sınıfına öğretmen bilgisi ekle
+            </p>
+            <form onSubmit={ogretmenKaydet}>
+              <div style={s.alan}>
+                <label style={s.etiket}>Öğretmen Adı Soyadı</label>
+                <input style={s.girdi} value={ogretmenForm.ogretmenAd}
+                  onChange={e => setOgretmenForm(f => ({ ...f, ogretmenAd: e.target.value }))}
+                  placeholder="Mehmet Yılmaz" autoFocus />
+              </div>
+              <div style={s.alan}>
+                <label style={s.etiket}>E-posta</label>
+                <input style={s.girdi} type="email" value={ogretmenForm.ogretmenMail}
+                  onChange={e => setOgretmenForm(f => ({ ...f, ogretmenMail: e.target.value }))}
+                  placeholder="ogretmen@okul.com" />
+              </div>
+              <div style={s.alan}>
+                <label style={s.etiket}>Telefon</label>
+                <input style={s.girdi} type="tel" value={ogretmenForm.ogretmenTel}
+                  onChange={e => setOgretmenForm(f => ({ ...f, ogretmenTel: e.target.value }))}
+                  placeholder="0555 123 45 67" />
+              </div>
+              {ogretmenHata && (
+                <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{ogretmenHata}</p>
+              )}
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                {ogretmenSinif?.ogretmenAd && (
+                  <button type="button"
+                    onClick={async () => {
+                      await updateDoc(doc(db, 'kurumlar', ogretmenSinif._kurumId, 'siniflar', ogretmenSinif.id), { ogretmenAd: '', ogretmenMail: '', ogretmenTel: '' })
+                      ogretmenKapat()
+                    }}
+                    style={{ padding: '0.6rem 1rem', background: '#fff', border: '1.5px solid #FECACA', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#991B1B' }}>
+                    Öğretmeni Kaldır
+                  </button>
+                )}
+                <button type="button" onClick={ogretmenKapat} style={{ padding: '0.6rem 1.25rem', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#374151' }}>İptal</button>
+                <button type="submit" disabled={ogretmenKayd} style={{ padding: '0.6rem 1.25rem', background: '#7C3AED', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+                  {ogretmenKayd ? 'Kaydediliyor...' : 'Kaydet'}
                 </button>
               </div>
             </form>
