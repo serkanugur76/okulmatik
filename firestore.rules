@@ -16,6 +16,11 @@ service cloud.firestore {
       return kullaniciBilgisi().kurumId == kurumId;
     }
 
+    match /yetkiliKullanicilar/{email} {
+      allow read:  if (request.auth != null && request.auth.token.email == email) || platformAdmin();
+      allow write: if platformAdmin();
+    }
+
     match /kullanicilar/{uid} {
       allow read:  if request.auth.uid == uid || platformAdmin();
       allow write: if request.auth.uid == uid || platformAdmin()

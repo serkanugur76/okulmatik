@@ -11,7 +11,7 @@ const TIP_ETİKET = {
   altKurum: { etiket: 'Alt Kurum', renk: '#065F46', bg: '#D1FAE5', girinti: 48 },
 }
 
-const BOŞ_FORM = { ad: '', email: '', telefon: '', adres: '', durum: 'aktif', tip: 'kurum', parentId: null }
+const BOŞ_FORM = { ad: '', email: '', telefon: '', adres: '', durum: 'aktif', tip: 'kurum', parentId: null, googleAltyapisi: false }
 
 function agacOlustur(liste) {
   const map = {}
@@ -63,7 +63,7 @@ export default function Kurumlar() {
 
   function düzenleModalAc(kurum) {
     setDuzenlenen(kurum)
-    setForm({ ad: kurum.ad, email: kurum.email || '', telefon: kurum.telefon || '', adres: kurum.adres || '', durum: kurum.durum, tip: kurum.tip, parentId: kurum.parentId || null })
+    setForm({ ad: kurum.ad, email: kurum.email || '', telefon: kurum.telefon || '', adres: kurum.adres || '', durum: kurum.durum, tip: kurum.tip, parentId: kurum.parentId || null, googleAltyapisi: !!kurum.googleAltyapisi })
     setHata('')
     setModal(true)
   }
@@ -85,10 +85,10 @@ export default function Kurumlar() {
       if (duzenlenen) {
         await updateDoc(doc(db, 'kurumlar', duzenlenen.id), {
           ad: form.ad, email: form.email, telefon: form.telefon,
-          adres: form.adres, durum: form.durum,
+          adres: form.adres, durum: form.durum, googleAltyapisi: !!form.googleAltyapisi,
         })
       } else {
-        await addDoc(collection(db, 'kurumlar'), { ...form, olusturmaTarihi: serverTimestamp() })
+        await addDoc(collection(db, 'kurumlar'), { ...form, googleAltyapisi: !!form.googleAltyapisi, olusturmaTarihi: serverTimestamp() })
       }
       modalKapat()
     } catch (err) {
@@ -143,14 +143,14 @@ export default function Kurumlar() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['Ad', 'Tip', 'E-posta', 'Durum', 'İşlemler'].map(h => (
+              {['Ad', 'Tip', 'E-posta', 'Google', 'Durum', 'İşlemler'].map(h => (
                 <th key={h} style={s.th}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {gorunenListe.length === 0 ? (
-              <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Henüz kurum eklenmemiş</td></tr>
+              <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Henüz kurum eklenmemiş</td></tr>
             ) : gorunenListe.map(k => {
               const tipBilgi = TIP_ETİKET[k.tip] || TIP_ETİKET.kurum
               const cocukSayisi = kurumlar.filter(x => x.parentId === k.id).length
@@ -175,6 +175,11 @@ export default function Kurumlar() {
                     </span>
                   </td>
                   <td style={s.td}>{k.email || '—'}</td>
+                  <td style={s.td}>
+                    {k.googleAltyapisi
+                      ? <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#1557B0', background: '#E8F0FE', padding: '2px 8px', borderRadius: '999px' }}>Google</span>
+                      : <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>—</span>}
+                  </td>
                   <td style={s.td}>
                     <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: k.durum === 'aktif' ? '#D1FAE5' : '#FEE2E2', color: k.durum === 'aktif' ? '#065F46' : '#991B1B' }}>
                       {k.durum}
@@ -235,6 +240,15 @@ export default function Kurumlar() {
                   <option value="aktif">Aktif</option>
                   <option value="pasif">Pasif</option>
                 </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1rem', padding: '0.75rem', background: '#F8FAFC', borderRadius: '8px', border: '1.5px solid #E2E8F0' }}>
+                <input type="checkbox" id="googleAltyapisi" checked={!!form.googleAltyapisi}
+                  onChange={e => setForm(f => ({ ...f, googleAltyapisi: e.target.checked }))}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                <label htmlFor="googleAltyapisi" style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151', cursor: 'pointer', userSelect: 'none' }}>
+                  Google Workspace altyapısı kullanıyor
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748B', fontWeight: '400' }}>Kullanıcılar Google hesabıyla giriş yapar</span>
+                </label>
               </div>
               {hata && <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{hata}</p>}
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>

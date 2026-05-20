@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
-import { kullaniciOlustur, profilOlustur } from '../../services/kullaniciOlustur'
+import { davetEt, davetIptal } from '../../services/davetEt'
 import KurumSecici from '../../components/KurumSecici'
 
 const ROL_ETİKET = {
@@ -10,10 +10,11 @@ const ROL_ETİKET = {
   ogretmen:       { etiket: 'Öğretmen',       renk: '#065F46', bg: '#D1FAE5' },
 }
 
-const BOŞ_FORM = { ad: '', email: '', sifre: '', rol: 'kurum_admin', kurumId: '' }
+const BOŞ_FORM = { email: '', rol: 'kurum_admin', kurumId: '' }
 
 export default function PlatformKullanicilar() {
   const [kullanicilar, setKullanicilar] = useState([])
+  const [bekleyenler, setBekleyenler]   = useState([])
   const [kurumlar, setKurumlar]         = useState([])
   const [filtre, setFiltre]             = useState('')
   const [modal, setModal]               = useState(false)
@@ -22,20 +23,25 @@ export default function PlatformKullanicilar() {
   const [kaydediyor, setKaydediyor]     = useState(false)
   const [hata, setHata]                 = useState('')
   const [basari, setBasari]             = useState('')
-  const [uidModu, setUidModu]           = useState(false)
-  const [manuelUid, setManuelUid]       = useState('')
+  const [sekme, setSekme]               = useState('aktif') // 'aktif' | 'bekleyen'
 
   useEffect(() => {
     const q1 = query(collection(db, 'kullanicilar'), orderBy('email'))
     const q2 = query(collection(db, 'kurumlar'), orderBy('ad'))
+    const q3 = query(collection(db, 'yetkiliKullanicilar'), orderBy('olusturmaTarihi', 'desc'))
     const u1 = onSnapshot(q1, snap => setKullanicilar(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
     const u2 = onSnapshot(q2, snap => setKurumlar(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-    return () => { u1(); u2() }
+    const u3 = onSnapshot(q3, snap => setBekleyenler(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    return () => { u1(); u2(); u3() }
   }, [])
 
-  const liste = kullanicilar.filter(k =>
+  const aktifListe = kullanicilar.filter(k =>
     k.email?.toLowerCase().includes(filtre.toLowerCase()) ||
     k.ad?.toLowerCase().includes(filtre.toLowerCase())
+  )
+
+  const bekleyenListe = bekleyenler.filter(k =>
+    k.email?.toLowerCase().includes(filtre.toLowerCase())
   )
 
   function yeniModalAc() {
@@ -43,15 +49,14 @@ export default function PlatformKullanicilar() {
     setForm(BOŞ_FORM)
     setHata('')
     setBasari('')
-    setUidModu(false)
-    setManuelUid('')
     setModal(true)
   }
 
   function duzenleModalAc(k) {
     setDuzenlenen(k)
-    setForm({ ad: k.ad || '', email: k.email, sifre: '', rol: k.rol || 'ogretmen', kurumId: k.kurumId || '' })
+    setForm({ ad: k.ad || '', email: k.email, rol: k.rol || 'ogretmen', kurumId: k.kurumId || '' })
     setHata('')
+    setBasari('')
     setModal(true)
   }
 
@@ -59,8 +64,10 @@ export default function PlatformKullanicilar() {
 
   async function kaydet(e) {
     e.preventDefault()
-    if (!form.ad.trim() || !form.email.trim()) { setHata('Ad ve e-posta zorunludur.'); return }
-    if (!duzenlenen && form.sifre.length < 6) { setHata('Şifre en az 6 karakter olmalıdır.'); return }
+    if (!form.email.trim()) { setHata('E-posta zorunludur.'); return }
+    if ((form.rol === 'kurum_admin' || form.rol === 'ogretmen') && !form.kurumId) {
+      setHata('Bu rol için kurum seçimi zorunludur.'); return
+    }
     setKaydediyor(true)
     setHata('')
     try {
@@ -68,34 +75,25 @@ export default function PlatformKullanicilar() {
         await updateDoc(doc(db, 'kullanicilar', duzenlenen.id), {
           ad: form.ad, rol: form.rol, kurumId: form.kurumId || null,
         })
-      } else if (uidModu) {
-        if (!manuelUid.trim()) { setHata('UID zorunludur.'); setKaydediyor(false); return }
-        await profilOlustur({
-          uid: manuelUid.trim(), ad: form.ad, email: form.email,
-          rol: form.rol, kurumId: form.kurumId || null,
-        })
+        setBasari('Kullanıcı güncellendi.')
+        setTimeout(modalKapat, 1200)
       } else {
-        await kullaniciOlustur({
-          ad: form.ad, email: form.email, sifre: form.sifre,
-          rol: form.rol, kurumId: form.kurumId || null,
-        })
+        const secilenKurum = kurumlar.find(k => k.id === form.kurumId)
+        const googleAltyapisi = !!secilenKurum?.googleAltyapisi
+        await davetEt({ email: form.email.trim(), rol: form.rol, kurumId: form.kurumId || null, googleAltyapisi })
+        setBasari(`Davet gönderildi: ${form.email}`)
+        setTimeout(modalKapat, 1500)
       }
-      setBasari(`${form.ad} başarıyla oluşturuldu.`)
-      setTimeout(modalKapat, 1500)
     } catch (err) {
-      if (err.code === 'auth/email-already-in-use') {
-        setUidModu(true)
-        setHata('Bu e-posta Firebase\'de zaten mevcut. Firebase Console → Authentication\'dan UID\'yi kopyalayıp aşağıya girin.')
-      } else {
-        const mesajlar = {
-          'auth/invalid-email':  'Geçersiz e-posta adresi.',
-          'auth/weak-password':  'Şifre çok zayıf.',
-        }
-        setHata(mesajlar[err.code] || err.message)
-      }
+      setHata(err.message)
     } finally {
       setKaydediyor(false)
     }
+  }
+
+  async function davetSil(email) {
+    if (!confirm(`${email} davetini iptal etmek istediğinize emin misiniz?`)) return
+    await davetIptal(email)
   }
 
   const s = {
@@ -113,77 +111,122 @@ export default function PlatformKullanicilar() {
       <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Platform genelindeki tüm kullanıcılar</p>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <input value={filtre} onChange={e => setFiltre(e.target.value)}
-          placeholder="Ad veya e-posta ile ara..."
-          style={{ padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', width: '280px', color: '#1E293B' }} />
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <input value={filtre} onChange={e => setFiltre(e.target.value)}
+            placeholder="Ad veya e-posta ile ara..."
+            style={{ padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', width: '280px', color: '#1E293B' }} />
+          {['aktif', 'bekleyen'].map(s2 => (
+            <button key={s2} onClick={() => setSekme(s2)}
+              style={{ padding: '0.5rem 1rem', border: '1.5px solid', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer',
+                borderColor: sekme === s2 ? '#1B3A6B' : '#E2E8F0',
+                background: sekme === s2 ? '#1B3A6B' : '#fff',
+                color: sekme === s2 ? '#fff' : '#64748B' }}>
+              {s2 === 'aktif' ? `Aktif (${kullanicilar.length})` : `Davet Bekleyen (${bekleyenler.length})`}
+            </button>
+          ))}
+        </div>
         <button onClick={yeniModalAc} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-          + Kullanıcı Oluştur
+          + Kullanıcı Davet Et
         </button>
       </div>
 
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {['Ad', 'E-posta', 'Rol', 'Kurum', 'İşlemler'].map(h => (
-                <th key={h} style={s.th}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {liste.length === 0 ? (
-              <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Kullanıcı bulunamadı</td></tr>
-            ) : liste.map(k => {
-              const rol = ROL_ETİKET[k.rol] || { etiket: k.rol || '—', renk: '#374151', bg: '#F1F5F9' }
-              const kurum = kurumlar.find(x => x.id === k.kurumId)
-              return (
-                <tr key={k.id}>
-                  <td style={s.td}>{k.ad || '—'}</td>
-                  <td style={s.td}>{k.email}</td>
-                  <td style={s.td}>
-                    <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', background: rol.bg, color: rol.renk }}>
-                      {rol.etiket}
-                    </span>
-                  </td>
-                  <td style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8' }}>
-                    {kurum?.ad || (k.kurumId ? k.kurumId : '— Atanmamış')}
-                  </td>
-                  <td style={s.td}>
-                    <button style={s.eylem} onClick={() => duzenleModalAc(k)}>Düzenle</button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        {sekme === 'aktif' ? (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>{['Ad', 'E-posta', 'Rol', 'Kurum', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {aktifListe.length === 0 ? (
+                <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Kullanıcı bulunamadı</td></tr>
+              ) : aktifListe.map(k => {
+                const rol = ROL_ETİKET[k.rol] || { etiket: k.rol || '—', renk: '#374151', bg: '#F1F5F9' }
+                const kurum = kurumlar.find(x => x.id === k.kurumId)
+                return (
+                  <tr key={k.id}>
+                    <td style={s.td}>{k.ad || '—'}</td>
+                    <td style={s.td}>{k.email}</td>
+                    <td style={s.td}>
+                      <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', background: rol.bg, color: rol.renk }}>
+                        {rol.etiket}
+                      </span>
+                    </td>
+                    <td style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8' }}>
+                      {kurum?.ad || (k.kurumId ? k.kurumId : '— Atanmamış')}
+                    </td>
+                    <td style={s.td}>
+                      <button style={s.eylem} onClick={() => duzenleModalAc(k)}>Düzenle</button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>{['E-posta', 'Rol', 'Kurum', 'Giriş Yöntemi', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {bekleyenListe.length === 0 ? (
+                <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Bekleyen davet yok</td></tr>
+              ) : bekleyenListe.map(k => {
+                const rol = ROL_ETİKET[k.rol] || { etiket: k.rol || '—', renk: '#374151', bg: '#F1F5F9' }
+                const kurum = kurumlar.find(x => x.id === k.kurumId)
+                return (
+                  <tr key={k.id}>
+                    <td style={s.td}>{k.email}</td>
+                    <td style={s.td}>
+                      <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', background: rol.bg, color: rol.renk }}>
+                        {rol.etiket}
+                      </span>
+                    </td>
+                    <td style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8' }}>
+                      {kurum?.ad || (k.kurumId ? k.kurumId : '— Atanmamış')}
+                    </td>
+                    <td style={s.td}>
+                      <span style={{ fontSize: '0.75rem', color: k.googleAltyapisi ? '#1557B0' : '#374151' }}>
+                        {k.googleAltyapisi ? 'Google' : 'E-posta / Şifre'}
+                      </span>
+                    </td>
+                    <td style={s.td}>
+                      <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => davetSil(k.email)}>
+                        İptal Et
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {modal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
           onClick={e => e.target === e.currentTarget && modalKapat()}>
           <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '1.5rem' }}>
-              {duzenlenen ? 'Kullanıcıyı Düzenle' : 'Yeni Kullanıcı Oluştur'}
+            <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.5rem' }}>
+              {duzenlenen ? 'Kullanıcıyı Düzenle' : 'Kullanıcı Davet Et'}
             </h2>
+            {!duzenlenen && (
+              <p style={{ fontSize: '0.8rem', color: '#64748B', marginBottom: '1.25rem' }}>
+                Kullanıcıya e-posta gönderilecek. Kurumun Google altyapısı varsa Google ile, yoksa şifre belirleme linki ile giriş yapacak.
+              </p>
+            )}
             <form onSubmit={kaydet}>
-              <div style={s.alan}>
-                <label style={s.etiket}>Ad Soyad *</label>
-                <input style={s.girdi} value={form.ad} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} autoFocus />
-              </div>
+              {duzenlenen && (
+                <div style={s.alan}>
+                  <label style={s.etiket}>Ad Soyad</label>
+                  <input style={s.girdi} value={form.ad || ''} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} autoFocus />
+                </div>
+              )}
               <div style={s.alan}>
                 <label style={s.etiket}>E-posta *</label>
                 <input style={s.girdi} type="email" value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  disabled={!!duzenlenen} />
+                  disabled={!!duzenlenen} autoFocus={!duzenlenen} />
               </div>
-              {!duzenlenen && (
-                <div style={s.alan}>
-                  <label style={s.etiket}>Şifre *</label>
-                  <input style={s.girdi} type="password" value={form.sifre}
-                    onChange={e => setForm(f => ({ ...f, sifre: e.target.value }))}
-                    placeholder="En az 6 karakter" />
-                </div>
-              )}
               <div style={s.alan}>
                 <label style={s.etiket}>Rol</label>
                 <select style={s.girdi} value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value, kurumId: '' }))}>
@@ -194,21 +237,8 @@ export default function PlatformKullanicilar() {
               </div>
               {(form.rol === 'kurum_admin' || form.rol === 'ogretmen') && (
                 <div style={s.alan}>
-                  <label style={s.etiket}>Kurum</label>
-                  <KurumSecici
-                    value={form.kurumId}
-                    onChange={v => setForm(f => ({ ...f, kurumId: v }))}
-                    kurumlar={kurumlar}
-                    style={s.girdi}
-                  />
-                </div>
-              )}
-              {uidModu && (
-                <div style={s.alan}>
-                  <label style={s.etiket}>Firebase UID *</label>
-                  <input style={{ ...s.girdi, fontFamily: 'monospace', fontSize: '0.8rem' }}
-                    value={manuelUid} onChange={e => setManuelUid(e.target.value)}
-                    placeholder="Örn: 3POG8Fc6x3fUHcqs0rDOCJ0ji5X2" autoFocus />
+                  <label style={s.etiket}>Kurum *</label>
+                  <KurumSecici value={form.kurumId} onChange={v => setForm(f => ({ ...f, kurumId: v }))} kurumlar={kurumlar} style={s.girdi} />
                 </div>
               )}
               {basari && <p style={{ fontSize: '0.875rem', color: '#065F46', background: '#D1FAE5', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{basari}</p>}
@@ -216,7 +246,7 @@ export default function PlatformKullanicilar() {
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={modalKapat} style={{ padding: '0.6rem 1.25rem', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#374151' }}>İptal</button>
                 <button type="submit" disabled={kaydediyor} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-                  {kaydediyor ? 'Kaydediliyor...' : duzenlenen ? 'Kaydet' : 'Kullanıcı Oluştur'}
+                  {kaydediyor ? 'Gönderiliyor...' : duzenlenen ? 'Kaydet' : 'Davet Gönder'}
                 </button>
               </div>
             </form>

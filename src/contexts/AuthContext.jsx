@@ -4,25 +4,51 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../services/firebase'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [kullanici, setKullanici]       = useState(null)
-  const [profil, setProfil]             = useState(null)
-  const [yukleniyor, setYukleniyor]     = useState(true)
+  const [kullanici, setKullanici]   = useState(null)
+  const [profil, setProfil]         = useState(null)
+  const [yukleniyor, setYukleniyor] = useState(true)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setKullanici(user)
         try {
-          const snap = await getDoc(doc(db, 'kullanicilar', user.uid))
-          console.log('UID:', user.uid, '| exists:', snap.exists(), '| data:', snap.data())
-          setProfil(snap.exists() ? snap.data() : null)
+          const profilSnap = await getDoc(doc(db, 'kullanicilar', user.uid))
+          if (profilSnap.exists()) {
+            setProfil(profilSnap.data())
+          } else {
+            // İlk giriş: yetkiliKullanicilar'da e-posta var mı?
+            const yetkiSnap = await getDoc(doc(db, 'yetkiliKullanicilar', user.email))
+            if (yetkiSnap.exists()) {
+              const yetki = yetkiSnap.data()
+              const yeniProfil = {
+                ad: user.displayName || user.email.split('@')[0],
+                email: user.email,
+                rol: yetki.rol,
+                kurumId: yetki.kurumId || null,
+                olusturmaTarihi: serverTimestamp(),
+              }
+              await setDoc(doc(db, 'kullanicilar', user.uid), yeniProfil)
+              if (yetki.kurumId) {
+                await setDoc(doc(db, 'kurumlar', yetki.kurumId, 'kullanicilar', user.uid), {
+                  ...yeniProfil, durum: 'aktif',
+                })
+              }
+              await deleteDoc(doc(db, 'yetkiliKullanicilar', user.email))
+              setProfil(yeniProfil)
+            } else {
+              setProfil(null)
+            }
+          }
         } catch (err) {
           console.error('Firestore okuma hatası:', err)
           setProfil(null)
@@ -37,6 +63,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const girisYap     = (email, sifre) => signInWithEmailAndPassword(auth, email, sifre)
+  const googleGiris  = ()             => signInWithPopup(auth, new GoogleAuthProvider())
   const cikisYap     = ()             => signOut(auth)
   const sifreSifirla = (email)        => sendPasswordResetEmail(auth, email)
 
@@ -46,7 +73,7 @@ export function AuthProvider({ children }) {
     kurumAdmin:    profil?.rol === 'kurum_admin',
     ogretmen:      profil?.rol === 'ogretmen',
     kurumId:       profil?.kurumId ?? null,
-    girisYap, cikisYap, sifreSifirla,
+    girisYap, googleGiris, cikisYap, sifreSifirla,
   }
 
   return (
