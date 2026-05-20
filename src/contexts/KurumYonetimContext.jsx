@@ -23,28 +23,32 @@ export function KurumYonetimProvider({ children }) {
       try {
         // 1. Kullanıcının kendi kurumu
         const anaSnap = await getDoc(doc(db, 'kurumlar', kurumId))
-        if (!anaSnap.exists()) return
+        if (!anaSnap.exists()) { setYukleniyor(false); return }
         const anaKurum = { id: kurumId, ...anaSnap.data() }
         const liste = [anaKurum]
+        setErisimKurumlar([anaKurum]) // En azından root hemen göster
 
-        // 2. Doğrudan alt kurumlar (kampüsler veya alt kurumlar)
-        const cocukSnap = await getDocs(
-          query(collection(db, 'kurumlar'), where('parentId', '==', kurumId))
-        )
-        const cocuklar = cocukSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-        liste.push(...cocuklar)
-
-        // 3. Torunlar (alt kurumların alt kurumları)
-        for (const cocuk of cocuklar) {
-          const torunSnap = await getDocs(
-            query(collection(db, 'kurumlar'), where('parentId', '==', cocuk.id))
+        // 2. Doğrudan alt kurumlar
+        try {
+          const cocukSnap = await getDocs(
+            query(collection(db, 'kurumlar'), where('parentId', '==', kurumId))
           )
-          liste.push(...torunSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-        }
+          const cocuklar = cocukSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+          liste.push(...cocuklar)
 
-        setErisimKurumlar(liste)
+          // 3. Torunlar
+          for (const cocuk of cocuklar) {
+            const torunSnap = await getDocs(
+              query(collection(db, 'kurumlar'), where('parentId', '==', cocuk.id))
+            )
+            liste.push(...torunSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+          }
+          setErisimKurumlar([...liste])
+        } catch {
+          // Alt kurum sorgusu başarısız — sadece root göster (kurallar henüz güncellenmemiş olabilir)
+        }
       } catch (err) {
-        console.error('Kurum hiyerarşi yükleme hatası:', err)
+        console.error('Kurum yükleme hatası:', err)
       } finally {
         setYukleniyor(false)
       }
