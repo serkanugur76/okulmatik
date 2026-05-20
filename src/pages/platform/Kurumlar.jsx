@@ -99,11 +99,28 @@ export default function Kurumlar() {
     setKaydediyor(true)
     try {
       if (duzenlenen) {
-        await updateDoc(doc(db, 'kurumlar', duzenlenen.id), {
+        const guncelleme = {
           ad: form.ad, email: form.email, telefon: form.telefon,
           adres: form.adres, durum: form.durum, googleAltyapisi: !!form.googleAltyapisi,
           okulTuru: form.okulTuru || '',
-        })
+        }
+        const googleDegisti = !!form.googleAltyapisi !== !!duzenlenen.googleAltyapisi
+        const durumDegistiMi = form.durum !== duzenlenen.durum
+        const altlar = torunlar(duzenlenen.id, kurumlar)
+
+        if (altlar.length > 0 && (googleDegisti || durumDegistiMi)) {
+          // Cascade gereken alanlar
+          const cascadeAlanlari = {}
+          if (googleDegisti)   cascadeAlanlari.googleAltyapisi = !!form.googleAltyapisi
+          if (durumDegistiMi)  cascadeAlanlari.durum = form.durum
+
+          const batch = writeBatch(db)
+          batch.update(doc(db, 'kurumlar', duzenlenen.id), guncelleme)
+          altlar.forEach(k => batch.update(doc(db, 'kurumlar', k.id), cascadeAlanlari))
+          await batch.commit()
+        } else {
+          await updateDoc(doc(db, 'kurumlar', duzenlenen.id), guncelleme)
+        }
       } else {
         await addDoc(collection(db, 'kurumlar'), { ...form, googleAltyapisi: !!form.googleAltyapisi, olusturmaTarihi: serverTimestamp() })
       }
@@ -115,8 +132,24 @@ export default function Kurumlar() {
     }
   }
 
+  // Bir kurumun tüm alt torunlarını döndürür (kampüs + altKurum)
+  function torunlar(kurumId, tumKurumlar) {
+    const cocuklar = tumKurumlar.filter(k => k.parentId === kurumId)
+    return cocuklar.flatMap(c => [c, ...torunlar(c.id, tumKurumlar)])
+  }
+
   async function durumDegistir(kurum) {
-    await updateDoc(doc(db, 'kurumlar', kurum.id), { durum: kurum.durum === 'aktif' ? 'pasif' : 'aktif' })
+    const yeniDurum = kurum.durum === 'aktif' ? 'pasif' : 'aktif'
+    const altlar = torunlar(kurum.id, kurumlar)
+
+    if (altlar.length > 0) {
+      if (!window.confirm(`"${kurum.ad}" ve altındaki ${altlar.length} kurum da ${yeniDurum} yapılacak. Devam edilsin mi?`)) return
+    }
+
+    const batch = writeBatch(db)
+    batch.update(doc(db, 'kurumlar', kurum.id), { durum: yeniDurum })
+    altlar.forEach(k => batch.update(doc(db, 'kurumlar', k.id), { durum: yeniDurum }))
+    await batch.commit()
   }
 
   // setDuzenlened hatası düzeltmesi
@@ -171,6 +204,11 @@ export default function Kurumlar() {
             ) : gorunenListe.map(k => {
               const tipBilgi = TIP_ETİKET[k.tip] || TIP_ETİKET.kurum
               const cocukSayisi = kurumlar.filter(x => x.parentId === k.id).length
+              const altKurumSayisi = torunlar(k.id, kurumlar).length
+              // Üst kurumdan Google ve durum mirası
+              const ustKurum = k.parentId ? kurumlar.find(x => x.id === k.parentId) : null
+              const googleMiras = !k.googleAltyapisi && !!ustKurum?.googleAltyapisi
+              const durumMiras  = k.durum !== 'aktif' && ustKurum?.durum === 'pasif'
               return (
                 <tr key={k.id} style={{ background: k.tip === 'altKurum' ? '#FAFAFA' : '#fff' }}>
                   <td style={{ ...s.td, paddingLeft: `${1 + tipBilgi.girinti / 16}rem` }}>
@@ -195,6 +233,8 @@ export default function Kurumlar() {
                   <td style={s.td}>
                     {k.googleAltyapisi
                       ? <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#1557B0', background: '#E8F0FE', padding: '2px 8px', borderRadius: '999px' }}>Google</span>
+                      : googleMiras
+                      ? <span style={{ fontSize: '0.75rem', color: '#93C5FD', background: '#EFF6FF', padding: '2px 8px', borderRadius: '999px', border: '1px dashed #BFDBFE' }} title="Üst kurumdan miras">Google ↓</span>
                       : <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>—</span>}
                   </td>
                   <td style={s.td}>
@@ -210,8 +250,12 @@ export default function Kurumlar() {
                           + {k.tip === 'kurum' ? 'Kampüs' : 'Alt Kurum'}
                         </button>
                       )}
-                      <button style={{ ...s.eylem, color: k.durum === 'aktif' ? '#991B1B' : '#065F46' }} onClick={() => durumDegistir(k)}>
+                      <button
+                        title={altKurumSayisi > 0 ? `Altındaki ${altKurumSayisi} kurum da etkilenir` : ''}
+                        style={{ ...s.eylem, color: k.durum === 'aktif' ? '#991B1B' : '#065F46', borderColor: k.durum === 'aktif' ? '#FECACA' : '#A7F3D0', position: 'relative' }}
+                        onClick={() => durumDegistir(k)}>
                         {k.durum === 'aktif' ? 'Pasif' : 'Aktif'}
+                        {altKurumSayisi > 0 && <span style={{ fontSize: '0.6rem', marginLeft: '3px', opacity: 0.65 }}>({altKurumSayisi})</span>}
                       </button>
                     </div>
                   </td>
