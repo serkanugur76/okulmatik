@@ -398,7 +398,17 @@ export default function KurumSiniflar() {
       {importModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
           onClick={e => e.target === e.currentTarget && importKapat()}>
-          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '680px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '680px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', position: 'relative' }}>
+
+            {/* Yükleme overlay */}
+            {importing && (
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.88)', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10, gap: '1rem' }}>
+                <div style={{ width: '48px', height: '48px', border: '5px solid #E2E8F0', borderTopColor: '#1B3A6B', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#1E293B' }}>Öğrenciler kaydediliyor…</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748B' }}>{importSatirlar.filter(s => !s._eslenmedi).length} öğrenci Firestore'a yazılıyor</div>
+                <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+              </div>
+            )}
 
             {/* Başlık */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
