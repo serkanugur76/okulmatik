@@ -23,8 +23,9 @@ export default function KurumSiniflar() {
   const [kaydediyor, setKaydediyor]     = useState(false)
   const [hata, setHata]                 = useState('')
 
-  // Liste: seçili kurum kampüs/altKurum ise onun sınıfları
-  const listKurumId = secilenKurum?.parentId ? secilenKurumId : null
+  // Liste: seçili kurum altKurum ise onun sınıfları
+  const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
+  const listKurumId = (secilenKurum?.parentId && ust?.parentId) ? secilenKurumId : null
 
   useEffect(() => {
     if (!listKurumId) { setSiniflar([]); return }

@@ -14,8 +14,9 @@ export default function KurumOgrenciler() {
   // Seçilebilir kurumlar (kampüs + alt kurum)
   const secilebilir = erisimKurumlar.filter(k => k.parentId)
 
-  // Liste: seçili kurum kampüs/altKurum ise onun öğrencileri
-  const listKurumId = secilenKurum?.parentId ? secilenKurumId : null
+  // Liste: seçili kurum altKurum ise onun öğrencileri
+  const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
+  const listKurumId = (secilenKurum?.parentId && ust?.parentId) ? secilenKurumId : null
 
   const [modalKurumId, setModalKurumId] = useState('')
   const [ogrenciler, setOgrenciler]     = useState([])
