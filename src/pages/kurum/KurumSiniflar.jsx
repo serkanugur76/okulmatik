@@ -28,8 +28,9 @@ export default function KurumSiniflar() {
   const listKurumId = seviye === 'altKurum' ? secilenKurumId : null
   const secilebilir = erisimKurumlar.filter(k => { if (!k.parentId) return false; const u = erisimKurumlar.find(x => x.id === k.parentId); return !!u?.parentId })
 
-  const [siniflarMap, setSiniflarMap]   = useState({})
-  const [acikGruplar, setAcikGruplar]   = useState({})
+  const [siniflarMap, setSiniflarMap]     = useState({})
+  const [ogrencilerMap, setOgrencilerMap] = useState({})  // kurumId → ogrenci[]
+  const [acikGruplar, setAcikGruplar]     = useState({})
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [modal, setModal]               = useState(false)
@@ -68,6 +69,21 @@ export default function KurumSiniflar() {
     })
     setAcikGruplar(prev => {
       const g = { ...prev }; sayimKurumlar.forEach(k => { if (!(k.id in g)) g[k.id] = false }); return g
+    })
+    return () => unsubs.forEach(u => u())
+  }, [sayimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
+
+  // Öğrenci sayıları için subscription
+  useEffect(() => {
+    if (sayimKurumlar.length === 0) { setOgrencilerMap({}); return }
+    const unsubs = sayimKurumlar.map(k =>
+      onSnapshot(collection(db, 'kurumlar', k.id, 'ogrenciler'), snap => {
+        setOgrencilerMap(prev => ({ ...prev, [k.id]: snap.docs.map(d => ({ id: d.id, ...d.data() })) }))
+      })
+    )
+    setOgrencilerMap(prev => {
+      const ids = new Set(sayimKurumlar.map(k => k.id))
+      const t = {}; Object.keys(prev).forEach(id => { if (ids.has(id)) t[id] = prev[id] }); return t
     })
     return () => unsubs.forEach(u => u())
   }, [sayimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
@@ -272,7 +288,8 @@ export default function KurumSiniflar() {
   }
   function kurumAdi(k) { const u = erisimKurumlar.find(x => x.id === k.parentId); return u?.parentId ? `${u.ad} - ${k.ad}` : k.ad }
 
-  const toplamSinif = sayimKurumlar.reduce((a, k) => a + (siniflarMap[k.id]?.length || 0), 0)
+  const toplamSinif    = sayimKurumlar.reduce((a, k) => a + (siniflarMap[k.id]?.length || 0), 0)
+  const toplamOgrenci  = sayimKurumlar.reduce((a, k) => a + (ogrencilerMap[k.id]?.length || 0), 0)
 
   const s = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
@@ -290,7 +307,7 @@ export default function KurumSiniflar() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <span style={{ fontSize: '0.875rem', color: '#64748B' }}>
-          {sayimKurumlar.length === 0 ? 'Sol menüden kurum seçin' : `${toplamSinif} sınıf`}
+          {sayimKurumlar.length === 0 ? 'Sol menüden kurum seçin' : `${toplamSinif} sınıf · ${toplamOgrenci} öğrenci`}
         </span>
         {listKurumId && (
           <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
@@ -318,6 +335,8 @@ export default function KurumSiniflar() {
                 return sv !== 0 ? sv : (a.sube || '').localeCompare(b.sube || '', 'tr')
               })
               const acik = acikGruplar[k.id] === true
+              const grupOgrenciler = ogrencilerMap[k.id] || []
+              const grupToplamOgrenci = grupOgrenciler.length
 
               return (
                 <div key={k.id} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
@@ -327,7 +346,11 @@ export default function KurumSiniflar() {
                     {kampus && <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: '500' }}>{kampus.ad}</span>}
                     {kampus && <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>›</span>}
                     <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B' }}>{k.ad}</span>
-                    <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>{grupSiniflar.length} sınıf</span>
+                    <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>
+                      {grupSiniflar.length} sınıf
+                      <span style={{ margin: '0 0.375rem', color: '#CBD5E1' }}>·</span>
+                      {grupToplamOgrenci === null ? '…' : grupToplamOgrenci} öğrenci
+                    </span>
                     <button
                       onClick={e => { e.stopPropagation(); importKurumAc(k.id) }}
                       style={{ marginLeft: '0.75rem', padding: '2px 10px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#065F46', cursor: 'pointer' }}>
@@ -338,16 +361,21 @@ export default function KurumSiniflar() {
                   {acik && (
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
-                        <tr>{['Sınıf Adı', 'Seviye', 'Şube', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                        <tr>{['Sınıf Adı', 'Seviye', 'Şube', 'Öğrenci', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {grupSiniflar.length === 0 ? (
-                          <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
-                        ) : grupSiniflar.map(sinif => (
+                          <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
+                        ) : grupSiniflar.map(sinif => {
+                          const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
+                          return (
                           <tr key={sinif.id}>
                             <td style={s.td}><strong>{sinif.ad}</strong></td>
                             <td style={s.td}>{sinif.seviye || '—'}</td>
                             <td style={s.td}>{sinif.sube || '—'}</td>
+                            <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center' }}>
+                              {sinifOgrenciSayisi}
+                            </td>
                             <td style={s.td}>
                               {sinif.ogretmenAd ? (
                                 <div style={{ fontSize: '0.8rem', lineHeight: '1.5' }}>
@@ -368,7 +396,8 @@ export default function KurumSiniflar() {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        )
+                        })}
                       </tbody>
                     </table>
                   )}
