@@ -8,12 +8,22 @@ service cloud.firestore {
     function platformAdmin() {
       return kullaniciBilgisi().rol == 'platform_admin';
     }
-    function kurumAdmin(kurumId) {
+
+    // Kullanıcının kurumId'si hedef kurumun kendisi, parent'ı veya grandparent'ı ise true
+    function kurumHiyerarsisinde(kurumId) {
       let k = kullaniciBilgisi();
-      return k.kurumId == kurumId && k.rol == 'kurum_admin';
+      let hedef = get(/databases/$(database)/documents/kurumlar/$(kurumId)).data;
+      return k.kurumId == kurumId
+        || k.kurumId == hedef.parentId
+        || (hedef.parentId != null
+            && get(/databases/$(database)/documents/kurumlar/$(hedef.parentId)).data.parentId == k.kurumId);
+    }
+
+    function kurumAdmin(kurumId) {
+      return kullaniciBilgisi().rol == 'kurum_admin' && kurumHiyerarsisinde(kurumId);
     }
     function kurumUyesi(kurumId) {
-      return kullaniciBilgisi().kurumId == kurumId;
+      return kurumHiyerarsisinde(kurumId);
     }
 
     match /yetkiliKullanicilar/{email} {
