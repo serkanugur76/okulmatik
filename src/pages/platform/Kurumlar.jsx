@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   collection, onSnapshot, addDoc, updateDoc, doc,
-  serverTimestamp, query, orderBy,
+  serverTimestamp, query, orderBy, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 
@@ -11,7 +11,7 @@ const TIP_ETİKET = {
   altKurum: { etiket: 'Alt Kurum', renk: '#065F46', bg: '#D1FAE5', girinti: 48 },
 }
 
-const BOŞ_FORM = { ad: '', email: '', telefon: '', adres: '', durum: 'aktif', tip: 'kurum', parentId: null, googleAltyapisi: false }
+const BOŞ_FORM = { ad: '', email: '', telefon: '', adres: '', durum: 'aktif', tip: 'kurum', parentId: null, rootKurumId: null, googleAltyapisi: false }
 
 function agacOlustur(liste) {
   const map = {}
@@ -43,20 +43,33 @@ export default function Kurumlar() {
 
   useEffect(() => {
     const q = query(collection(db, 'kurumlar'), orderBy('olusturmaTarihi', 'asc'))
-    return onSnapshot(q, snap => {
+    return onSnapshot(q, async snap => {
       const liste = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setKurumlar(liste)
-      // Tüm kurumları başlangıçta açık göster
       const acikMap = {}
       liste.forEach(k => { acikMap[k.id] = true })
       setAcik(acikMap)
+
+      // rootKurumId migrasyonu: eksik olan kurumları güncelle
+      const eksikler = liste.filter(k => k.parentId && !k.rootKurumId)
+      if (eksikler.length > 0) {
+        const batch = writeBatch(db)
+        eksikler.forEach(k => {
+          const rootId = k.tip === 'kampus'
+            ? k.parentId
+            : (liste.find(x => x.id === k.parentId)?.parentId || k.parentId)
+          batch.update(doc(db, 'kurumlar', k.id), { rootKurumId: rootId })
+        })
+        await batch.commit().catch(console.error)
+      }
     })
   }, [])
 
   function altEkleModalAc(parent) {
     const cocukTip = parent.tip === 'kurum' ? 'kampus' : 'altKurum'
+    const rootKurumId = parent.tip === 'kurum' ? parent.id : (parent.parentId || parent.id)
     setDuzenlenen(null)
-    setForm({ ...BOŞ_FORM, tip: cocukTip, parentId: parent.id })
+    setForm({ ...BOŞ_FORM, tip: cocukTip, parentId: parent.id, rootKurumId })
     setHata('')
     setModal(true)
   }

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from './AuthContext'
 
@@ -21,31 +21,21 @@ export function KurumYonetimProvider({ children }) {
 
     async function yukle() {
       try {
-        // 1. Kullanıcının kendi kurumu
+        // 1. Kendi kurumu
         const anaSnap = await getDoc(doc(db, 'kurumlar', kurumId))
         if (!anaSnap.exists()) { setYukleniyor(false); return }
         const anaKurum = { id: kurumId, ...anaSnap.data() }
-        const liste = [anaKurum]
-        setErisimKurumlar([anaKurum]) // En azından root hemen göster
+        setErisimKurumlar([anaKurum])
 
-        // 2. Doğrudan alt kurumlar
+        // 2. rootKurumId == kurumId olan tüm alt kurumlar (tek sorgu)
         try {
-          const cocukSnap = await getDocs(
-            query(collection(db, 'kurumlar'), where('parentId', '==', kurumId))
+          const altSnap = await getDocs(
+            query(collection(db, 'kurumlar'), where('rootKurumId', '==', kurumId), orderBy('olusturmaTarihi', 'asc'))
           )
-          const cocuklar = cocukSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-          liste.push(...cocuklar)
-
-          // 3. Torunlar
-          for (const cocuk of cocuklar) {
-            const torunSnap = await getDocs(
-              query(collection(db, 'kurumlar'), where('parentId', '==', cocuk.id))
-            )
-            liste.push(...torunSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-          }
-          setErisimKurumlar([...liste])
-        } catch {
-          // Alt kurum sorgusu başarısız — sadece root göster (kurallar henüz güncellenmemiş olabilir)
+          const altlar = altSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+          setErisimKurumlar([anaKurum, ...altlar])
+        } catch (err) {
+          console.error('Alt kurum yükleme hatası:', err.code, err.message)
         }
       } catch (err) {
         console.error('Kurum yükleme hatası:', err)

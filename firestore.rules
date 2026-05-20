@@ -9,23 +9,14 @@ service cloud.firestore {
       return kullaniciBilgisi().rol == 'platform_admin';
     }
 
-    // Kullanıcının kurumId'si hedef kurumun kendisi, parent'ı veya grandparent'ı ise true
-    // get() çağrıları || short-circuit ile yalnızca gerektiğinde yapılır
-    function kurumHiyerarsisinde(kurumId) {
-      let k = kullaniciBilgisi();
-      return k.kurumId == kurumId
-        || get(/databases/$(database)/documents/kurumlar/$(kurumId)).data.parentId == k.kurumId
-        || (get(/databases/$(database)/documents/kurumlar/$(kurumId)).data.parentId != null
-            && get(/databases/$(database)/documents/kurumlar/
-                 $(get(/databases/$(database)/documents/kurumlar/$(kurumId)).data.parentId)
-               ).data.parentId == k.kurumId);
-    }
-
-    function kurumAdmin(kurumId) {
-      return kullaniciBilgisi().rol == 'kurum_admin' && kurumHiyerarsisinde(kurumId);
-    }
+    // Alt koleksiyonlar için: kurumlar dokümanını okuyup rootKurumId kontrolü
     function kurumUyesi(kurumId) {
-      return kurumHiyerarsisinde(kurumId);
+      let k = kullaniciBilgisi();
+      let kurum = get(/databases/$(database)/documents/kurumlar/$(kurumId)).data;
+      return k.kurumId == kurumId || k.kurumId == kurum.rootKurumId;
+    }
+    function kurumAdmin(kurumId) {
+      return kullaniciBilgisi().rol == 'kurum_admin' && kurumUyesi(kurumId);
     }
 
     match /yetkiliKullanicilar/{email} {
@@ -43,8 +34,14 @@ service cloud.firestore {
       allow write: if platformAdmin();
     }
     match /kurumlar/{kurumId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin();
-      allow write: if kurumAdmin(kurumId) || platformAdmin();
+      // resource.data kullanılır — get() çağrısı gerektirmez, collection query'de çalışır
+      allow read:  if platformAdmin()
+        || kullaniciBilgisi().kurumId == kurumId
+        || kullaniciBilgisi().kurumId == resource.data.rootKurumId;
+      allow write: if platformAdmin()
+        || (kullaniciBilgisi().rol == 'kurum_admin'
+            && (kullaniciBilgisi().kurumId == kurumId
+                || kullaniciBilgisi().kurumId == resource.data.rootKurumId));
     }
     match /kurumlar/{kurumId}/siniflar/{sinifId} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin();
