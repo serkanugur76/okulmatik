@@ -170,12 +170,16 @@ export default function Kurumlar() {
 
   const s = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
+    thCenter: { padding: '0.75rem 0.5rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
     td: { padding: '0.875rem 1rem', fontSize: '0.875rem', color: '#1E293B', borderBottom: '1px solid #F1F5F9' },
-    eylem: { background: 'none', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '3px 9px', fontSize: '0.75rem', cursor: 'pointer', color: '#374151' },
+    tdCenter: { padding: '0.875rem 0.5rem', textAlign: 'center', borderBottom: '1px solid #F1F5F9' },
+    iBtn: { background: 'none', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '4px 8px', fontSize: '0.95rem', cursor: 'pointer', lineHeight: 1, color: '#374151' },
     alan: { display: 'flex', flexDirection: 'column', gap: '0.375rem', marginBottom: '1rem' },
     etiket: { fontSize: '0.875rem', fontWeight: '500', color: '#374151' },
     girdi: { padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', color: '#1E293B' },
   }
+
+  const TIP_İKON = { kurum: '🏢', kampus: '🏛️', altKurum: '🏫' }
 
   return (
     <div>
@@ -193,9 +197,12 @@ export default function Kurumlar() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['Ad', 'Tip', 'E-posta', 'Google', 'Durum', 'İşlemler'].map(h => (
-                <th key={h} style={s.th}>{h}</th>
-              ))}
+              <th style={s.th}>Ad</th>
+              <th style={s.thCenter} title="Tip">🏷️</th>
+              <th style={s.th}>E-posta</th>
+              <th style={s.thCenter} title="Google Workspace">G</th>
+              <th style={s.thCenter} title="Durum">●</th>
+              <th style={s.thCenter} title="İşlemler">⚙️</th>
             </tr>
           </thead>
           <tbody>
@@ -224,38 +231,48 @@ export default function Kurumlar() {
                       {cocukSayisi > 0 && <span style={{ fontSize: '0.7rem', color: '#94A3B8' }}>({cocukSayisi})</span>}
                     </div>
                   </td>
-                  <td style={s.td}>
-                    <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: tipBilgi.bg, color: tipBilgi.renk }}>
-                      {tipBilgi.etiket}
+                  {/* Tip */}
+                  <td style={s.tdCenter}>
+                    <span title={tipBilgi.etiket} style={{ fontSize: '1.1rem', cursor: 'default' }}>
+                      {TIP_İKON[k.tip] || '🏢'}
                     </span>
                   </td>
                   <td style={s.td}>{k.email || '—'}</td>
-                  <td style={s.td}>
-                    {k.googleAltyapisi
-                      ? <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#1557B0', background: '#E8F0FE', padding: '2px 8px', borderRadius: '999px' }}>Google</span>
-                      : googleMiras
-                      ? <span style={{ fontSize: '0.75rem', color: '#93C5FD', background: '#EFF6FF', padding: '2px 8px', borderRadius: '999px', border: '1px dashed #BFDBFE' }} title="Üst kurumdan miras">Google ↓</span>
-                      : <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>—</span>}
+                  {/* Google */}
+                  <td style={s.tdCenter}>
+                    {k.googleAltyapisi ? (
+                      <span title="Google Workspace altyapısı aktif"
+                        style={{ display: 'inline-flex', width: '24px', height: '24px', borderRadius: '50%', background: '#E8F0FE', color: '#1557B0', fontWeight: '800', fontSize: '0.8rem', alignItems: 'center', justifyContent: 'center', cursor: 'default', fontFamily: 'sans-serif' }}>G</span>
+                    ) : googleMiras ? (
+                      <span title="Google Workspace — üst kurumdan miras alındı"
+                        style={{ display: 'inline-flex', width: '24px', height: '24px', borderRadius: '50%', background: '#EFF6FF', color: '#93C5FD', fontWeight: '800', fontSize: '0.8rem', alignItems: 'center', justifyContent: 'center', cursor: 'default', border: '1px dashed #BFDBFE', fontFamily: 'sans-serif' }}>G</span>
+                    ) : (
+                      <span style={{ color: '#E2E8F0', fontSize: '1rem' }}>—</span>
+                    )}
                   </td>
-                  <td style={s.td}>
-                    <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: k.durum === 'aktif' ? '#D1FAE5' : '#FEE2E2', color: k.durum === 'aktif' ? '#065F46' : '#991B1B' }}>
-                      {k.durum}
-                    </span>
+                  {/* Durum */}
+                  <td style={s.tdCenter}>
+                    <span
+                      title={k.durum === 'aktif' ? 'Aktif' : 'Pasif'}
+                      style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: k.durum === 'aktif' ? '#10B981' : '#EF4444', cursor: 'default', boxShadow: `0 0 0 3px ${k.durum === 'aktif' ? '#D1FAE5' : '#FEE2E2'}` }} />
                   </td>
-                  <td style={s.td}>
-                    <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
-                      <button style={s.eylem} onClick={() => düzenleModalAc(k)}>Düzenle</button>
+                  {/* İşlemler */}
+                  <td style={s.tdCenter}>
+                    <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'center', flexWrap: 'nowrap' }}>
+                      <button title="Düzenle" style={s.iBtn} onClick={() => düzenleModalAc(k)}>✏️</button>
                       {k.tip !== 'altKurum' && (
-                        <button style={{ ...s.eylem, color: '#0369A1', borderColor: '#BAE6FD' }} onClick={() => altEkleModalAc(k)}>
-                          + {k.tip === 'kurum' ? 'Kampüs' : 'Alt Kurum'}
-                        </button>
+                        <button
+                          title={`+ ${k.tip === 'kurum' ? 'Kampüs' : 'Alt Kurum'} ekle`}
+                          style={{ ...s.iBtn, color: '#0369A1', borderColor: '#BAE6FD' }}
+                          onClick={() => altEkleModalAc(k)}>➕</button>
                       )}
                       <button
-                        title={altKurumSayisi > 0 ? `Altındaki ${altKurumSayisi} kurum da etkilenir` : ''}
-                        style={{ ...s.eylem, color: k.durum === 'aktif' ? '#991B1B' : '#065F46', borderColor: k.durum === 'aktif' ? '#FECACA' : '#A7F3D0', position: 'relative' }}
+                        title={k.durum === 'aktif'
+                          ? `Pasif yap${altKurumSayisi > 0 ? ` (${altKurumSayisi} alt kurum etkilenir)` : ''}`
+                          : `Aktif yap${altKurumSayisi > 0 ? ` (${altKurumSayisi} alt kurum etkilenir)` : ''}`}
+                        style={{ ...s.iBtn, color: k.durum === 'aktif' ? '#991B1B' : '#065F46', borderColor: k.durum === 'aktif' ? '#FECACA' : '#A7F3D0' }}
                         onClick={() => durumDegistir(k)}>
-                        {k.durum === 'aktif' ? 'Pasif' : 'Aktif'}
-                        {altKurumSayisi > 0 && <span style={{ fontSize: '0.6rem', marginLeft: '3px', opacity: 0.65 }}>({altKurumSayisi})</span>}
+                        {k.durum === 'aktif' ? '⏸️' : '▶️'}
                       </button>
                     </div>
                   </td>
