@@ -7,11 +7,13 @@ import PlatformLayout         from './pages/platform/PlatformLayout'
 import Dashboard              from './pages/platform/Dashboard'
 import Kurumlar               from './pages/platform/Kurumlar'
 import PlatformKullanicilar   from './pages/platform/PlatformKullanicilar'
+import PlatformRubrikler      from './pages/platform/PlatformRubrikler'
 import KurumLayout            from './pages/kurum/KurumLayout'
 import KurumDashboard         from './pages/kurum/KurumDashboard'
 import KurumSiniflar          from './pages/kurum/KurumSiniflar'
 import KurumOgrenciler        from './pages/kurum/KurumOgrenciler'
 import KurumKullanicilar      from './pages/kurum/KurumKullanicilar'
+import KurumRubrikler         from './pages/kurum/KurumRubrikler'
 
 function KorunanRoute({ izinliRoller, children }) {
   const { kullanici, profil, yukleniyor } = useAuth()
@@ -50,6 +52,7 @@ export default function App() {
             <Route index element={<Dashboard />} />
             <Route path="kurumlar"    element={<Kurumlar />} />
             <Route path="kullanicilar" element={<PlatformKullanicilar />} />
+            <Route path="rubrikler"   element={<PlatformRubrikler />} />
           </Route>
           <Route path="/kurum" element={
             <KorunanRoute izinliRoller={['kurum_admin']}>
@@ -60,6 +63,7 @@ export default function App() {
             <Route path="siniflar"     element={<KurumSiniflar />} />
             <Route path="ogrenciler"   element={<KurumOgrenciler />} />
             <Route path="kullanicilar" element={<KurumKullanicilar />} />
+            <Route path="rubrikler"    element={<KurumRubrikler />} />
           </Route>
           <Route path="/ogretmen/*" element={
             <KorunanRoute izinliRoller={['ogretmen']}>

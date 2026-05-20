@@ -55,6 +55,11 @@ service cloud.firestore {
       allow read:  if kurumUyesi(kurumId) || platformAdmin();
       allow write: if kurumAdmin(kurumId) || platformAdmin();
     }
+    // Platform seviyesinde rubrik şablonları
+    match /rubrikSablonlar/{sablonId} {
+      allow read:  if request.auth != null;   // tüm giriş yapmış kullanıcılar okuyabilir
+      allow write: if platformAdmin();         // sadece platform admin yazabilir
+    }
     match /kurumlar/{kurumId}/rubrikler/{rubrikId} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin();
       allow write: if kurumAdmin(kurumId) || platformAdmin();

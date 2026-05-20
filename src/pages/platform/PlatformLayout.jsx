@@ -2,9 +2,10 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 
 const menuler = [
-  { yol: '/platform',          etiket: 'Dashboard',  ikon: '📊' },
-  { yol: '/platform/kurumlar', etiket: 'Kurumlar',   ikon: '🏫' },
-  { yol: '/platform/kullanicilar', etiket: 'Kullanıcılar', ikon: '👥' },
+  { yol: '/platform',               etiket: 'Dashboard',  ikon: '📊' },
+  { yol: '/platform/kurumlar',      etiket: 'Kurumlar',   ikon: '🏫' },
+  { yol: '/platform/kullanicilar',  etiket: 'Kullanıcılar', ikon: '👥' },
+  { yol: '/platform/rubrikler',     etiket: 'Rubrikler',  ikon: '📋' },
 ]
 
 export default function PlatformLayout() {

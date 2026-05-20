@@ -7,6 +7,7 @@ const menuler = [
   { yol: '/kurum/siniflar',     etiket: 'Sınıflar',     ikon: '🏫' },
   { yol: '/kurum/ogrenciler',   etiket: 'Öğrenciler',   ikon: '🎒' },
   { yol: '/kurum/kullanicilar', etiket: 'Kullanıcılar', ikon: '👥' },
+  { yol: '/kurum/rubrikler',    etiket: 'Rubrikler',    ikon: '📋' },
 ]
 
 function KurumLayoutInner() {
