@@ -115,7 +115,7 @@ export default function KurumSiniflar() {
   function importKapat() { setImportModal(false); setImportSinif(null); setImportKurumId(null); setImportSatirlar([]) }
 
   // Sınıf adını normalize et: "1-A" = "1A" = "1 A" = "1a"
-  function sinifNormalize(s) { return s?.toString().toLowerCase().replace(/[\s\-_]/g, '') || '' }
+  function sinifNormalize(s) { return s?.toString().toLowerCase().replace(/[\s\-_/\\\.]/g, '') || '' }
 
   // Bir satırın sınıfını eşleştir
   function sinifEsle(sinifAdi, kurumId) {
