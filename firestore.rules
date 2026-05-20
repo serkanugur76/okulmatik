@@ -10,13 +10,15 @@ service cloud.firestore {
     }
 
     // Kullanıcının kurumId'si hedef kurumun kendisi, parent'ı veya grandparent'ı ise true
+    // get() çağrıları || short-circuit ile yalnızca gerektiğinde yapılır
     function kurumHiyerarsisinde(kurumId) {
       let k = kullaniciBilgisi();
-      let hedef = get(/databases/$(database)/documents/kurumlar/$(kurumId)).data;
       return k.kurumId == kurumId
-        || k.kurumId == hedef.parentId
-        || (hedef.parentId != null
-            && get(/databases/$(database)/documents/kurumlar/$(hedef.parentId)).data.parentId == k.kurumId);
+        || get(/databases/$(database)/documents/kurumlar/$(kurumId)).data.parentId == k.kurumId
+        || (get(/databases/$(database)/documents/kurumlar/$(kurumId)).data.parentId != null
+            && get(/databases/$(database)/documents/kurumlar/
+                 $(get(/databases/$(database)/documents/kurumlar/$(kurumId)).data.parentId)
+               ).data.parentId == k.kurumId);
     }
 
     function kurumAdmin(kurumId) {
