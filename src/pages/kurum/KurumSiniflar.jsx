@@ -149,11 +149,30 @@ export default function KurumSiniflar() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div style={s.alan}>
                   <label style={s.etiket}>Seviye</label>
-                  <input style={s.girdi} value={form.seviye} onChange={e => setForm(f => ({ ...f, seviye: e.target.value }))} placeholder="5" />
+                  <select style={s.girdi} value={form.seviye} onChange={e => setForm(f => ({ ...f, seviye: e.target.value }))}>
+                    <option value="">Seçin</option>
+                    {[1,2,3,4].map(n => <option key={n} value={String(n)}>{n}. Sınıf</option>)}
+                  </select>
                 </div>
                 <div style={s.alan}>
                   <label style={s.etiket}>Şube</label>
-                  <input style={s.girdi} value={form.sube} onChange={e => setForm(f => ({ ...f, sube: e.target.value }))} placeholder="A" />
+                  {form.sube && !['A','B','C','D','E','F'].includes(form.sube) ? (
+                    <div style={{ display: 'flex', gap: '0.375rem' }}>
+                      <input style={{ ...s.girdi, flex: 1 }} value={form.sube} onChange={e => setForm(f => ({ ...f, sube: e.target.value }))} autoFocus placeholder="Şube adı" />
+                      <button type="button" onClick={() => setForm(f => ({ ...f, sube: '' }))}
+                        style={{ padding: '0.6rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', background: '#fff', cursor: 'pointer', color: '#64748B', fontSize: '0.85rem' }}>✕</button>
+                    </div>
+                  ) : (
+                    <select style={s.girdi} value={form.sube} onChange={e => setForm(f => ({ ...f, sube: e.target.value }))}>
+                      <option value="">Seçin</option>
+                      {['A','B','C','D','E','F'].map(h => <option key={h} value={h}>{h} Şubesi</option>)}
+                      <option value="__diger__">+ Diğer şube ekle…</option>
+                    </select>
+                  )}
+                  {form.sube === '__diger__' && (
+                    <input style={{ ...s.girdi, marginTop: '0.375rem' }} autoFocus placeholder="Şube adı girin (G, H…)"
+                      onChange={e => setForm(f => ({ ...f, sube: e.target.value }))} />
+                  )}
                 </div>
               </div>
               {hata && <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{hata}</p>}
