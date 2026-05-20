@@ -1,49 +1,35 @@
 import { useEffect, useState, useMemo } from 'react'
+import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc,
-  doc, serverTimestamp, query, orderBy,
+  doc, serverTimestamp, query, orderBy, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
 const BOŞ_FORM = { ad: '', seviye: '', sube: '' }
+const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
+
+const ŞABLON_BAŞLIKLAR = ['Ad', 'Soyad', 'Öğrenci No', 'Cinsiyet (erkek/kız)', 'Doğum Tarihi (GG.AA.YYYY)', 'Veli Ad Soyad', 'Veli Telefon']
+const ŞABLON_ÖRNEK = ['Ali', 'Yılmaz', '2024001', 'erkek', '15.03.2015', 'Ahmet Yılmaz', '0555 000 00 00']
 
 export default function KurumSiniflar() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
 
-  // Seçili seviye
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
-  const seviye = !secilenKurum?.parentId ? 'root'
-    : !ust?.parentId ? 'kampus'
-    : 'altKurum'
+  const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
 
-  // Listelenecek alt kurumlar
   const sayimKurumlar = useMemo(() => {
-    if (seviye === 'root') {
-      return erisimKurumlar.filter(k => {
-        if (!k.parentId) return false
-        const u = erisimKurumlar.find(x => x.id === k.parentId)
-        return !!u?.parentId
-      })
-    }
-    if (seviye === 'kampus') {
-      return erisimKurumlar.filter(k => k.parentId === secilenKurumId)
-    }
+    if (seviye === 'root') return erisimKurumlar.filter(k => { if (!k.parentId) return false; const u = erisimKurumlar.find(x => x.id === k.parentId); return !!u?.parentId })
+    if (seviye === 'kampus') return erisimKurumlar.filter(k => k.parentId === secilenKurumId)
     return secilenKurum ? [secilenKurum] : []
   }, [seviye, secilenKurumId, erisimKurumlar]) // eslint-disable-line
 
-  // listKurumId: sadece altKurum seçiliyse (yeni sınıf butonu + sil/düzenle için)
   const listKurumId = seviye === 'altKurum' ? secilenKurumId : null
+  const secilebilir = erisimKurumlar.filter(k => { if (!k.parentId) return false; const u = erisimKurumlar.find(x => x.id === k.parentId); return !!u?.parentId })
 
-  // Modal için seçilebilir kurumlar (sadece altKurum'lar)
-  const secilebilir = erisimKurumlar.filter(k => {
-    if (!k.parentId) return false
-    const u = erisimKurumlar.find(x => x.id === k.parentId)
-    return !!u?.parentId
-  })
-
-  const [siniflarMap, setSiniflarMap] = useState({}) // { kurumId: sinif[] }
-  const [acikGruplar, setAcikGruplar] = useState({}) // { kurumId: bool }
+  const [siniflarMap, setSiniflarMap]   = useState({})
+  const [acikGruplar, setAcikGruplar]   = useState({})
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [modal, setModal]               = useState(false)
@@ -51,57 +37,40 @@ export default function KurumSiniflar() {
   const [kaydediyor, setKaydediyor]     = useState(false)
   const [hata, setHata]                 = useState('')
 
-  // Tüm ilgili kurumların sınıflarına abone ol
+  // Import state
+  const [importModal, setImportModal]   = useState(false)
+  const [importSinif, setImportSinif]   = useState(null)   // hangi sınıfa import
+  const [importSatirlar, setImportSatirlar] = useState([]) // parse edilmiş satırlar
+  const [importing, setImporting]       = useState(false)
+  const [importHata, setImportHata]     = useState('')
+
   useEffect(() => {
     if (sayimKurumlar.length === 0) { setSiniflarMap({}); return }
-
     const unsubs = sayimKurumlar.map(k => {
       const kampus = erisimKurumlar.find(x => x.id === k.parentId)
       const tamAd = kampus ? `${kampus.ad} · ${k.ad}` : k.ad
       const q = query(collection(db, 'kurumlar', k.id, 'siniflar'), orderBy('olusturmaTarihi', 'asc'))
       return onSnapshot(q, snap => {
-        setSiniflarMap(prev => ({
-          ...prev,
-          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, _kurumAd: tamAd, ...d.data() })),
-        }))
+        setSiniflarMap(prev => ({ ...prev, [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, _kurumAd: tamAd, ...d.data() })) }))
       })
     })
-
-    // Kaldırılan kurum varsa temizle; yeni gelenler varsayılan açık
     setSiniflarMap(prev => {
-      const gecerliIdler = new Set(sayimKurumlar.map(k => k.id))
-      const temizlenmis = {}
-      Object.keys(prev).forEach(id => { if (gecerliIdler.has(id)) temizlenmis[id] = prev[id] })
-      return temizlenmis
+      const ids = new Set(sayimKurumlar.map(k => k.id))
+      const t = {}; Object.keys(prev).forEach(id => { if (ids.has(id)) t[id] = prev[id] }); return t
     })
     setAcikGruplar(prev => {
-      const guncellenen = { ...prev }
-      sayimKurumlar.forEach(k => { if (!(k.id in guncellenen)) guncellenen[k.id] = false })
-      return guncellenen
+      const g = { ...prev }; sayimKurumlar.forEach(k => { if (!(k.id in g)) g[k.id] = false }); return g
     })
-
     return () => unsubs.forEach(u => u())
   }, [sayimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
 
-  // Düz liste: kampüs → seviye → şube sıralaması
-  const siniflar = sayimKurumlar
-    .flatMap(k => siniflarMap[k.id] || [])
-    .sort((a, b) => {
-      const kurum = a._kurumAd.localeCompare(b._kurumAd, 'tr')
-      if (kurum !== 0) return kurum
-      const sev = (Number(a.seviye) || 0) - (Number(b.seviye) || 0)
-      if (sev !== 0) return sev
-      return (a.sube || '').localeCompare(b.sube || '', 'tr')
-    })
-
+  // ── Sınıf CRUD ──────────────────────────────────────────
   function modalAc(sinif = null) {
     setDuzenlenen(sinif)
     setForm(sinif ? { ad: sinif.ad, seviye: sinif.seviye || '', sube: sinif.sube || '' } : BOŞ_FORM)
     setModalKurumId(listKurumId || '')
-    setHata('')
-    setModal(true)
+    setHata(''); setModal(true)
   }
-
   function modalKapat() { setModal(false); setDuzenlenen(null); setForm(BOŞ_FORM) }
 
   async function kaydet(e) {
@@ -111,17 +80,11 @@ export default function KurumSiniflar() {
     if (!hedefKurumId) { setHata('Lütfen bir kurum seçin.'); return }
     setKaydediyor(true)
     try {
-      if (duzenlenen) {
-        await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'siniflar', duzenlenen.id), { ad: form.ad, seviye: form.seviye, sube: form.sube })
-      } else {
-        await addDoc(collection(db, 'kurumlar', hedefKurumId, 'siniflar'), { ...form, olusturmaTarihi: serverTimestamp() })
-      }
+      if (duzenlenen) await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'siniflar', duzenlenen.id), { ad: form.ad, seviye: form.seviye, sube: form.sube })
+      else await addDoc(collection(db, 'kurumlar', hedefKurumId, 'siniflar'), { ...form, olusturmaTarihi: serverTimestamp() })
       modalKapat()
-    } catch (err) {
-      setHata('Kayıt hatası: ' + err.message)
-    } finally {
-      setKaydediyor(false)
-    }
+    } catch (err) { setHata('Kayıt hatası: ' + err.message) }
+    finally { setKaydediyor(false) }
   }
 
   async function sil(sinif) {
@@ -129,6 +92,88 @@ export default function KurumSiniflar() {
     await deleteDoc(doc(db, 'kurumlar', sinif._kurumId, 'siniflar', sinif.id))
   }
 
+  // ── Toplu öğrenci import ────────────────────────────────
+  function sablonIndir() {
+    const ws = XLSX.utils.aoa_to_sheet([ŞABLON_BAŞLIKLAR, ŞABLON_ÖRNEK])
+    ws['!cols'] = ŞABLON_BAŞLIKLAR.map((_, i) => ({ wch: [12, 12, 12, 18, 22, 18, 14][i] }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Öğrenciler')
+    XLSX.writeFile(wb, 'ogrenci_sablonu.xlsx')
+  }
+
+  function importAc(sinif) {
+    setImportSinif(sinif)
+    setImportSatirlar([])
+    setImportHata('')
+    setImportModal(true)
+  }
+  function importKapat() { setImportModal(false); setImportSinif(null); setImportSatirlar([]) }
+
+  function dosyaOku(e) {
+    const dosya = e.target.files[0]
+    if (!dosya) return
+    setImportHata('')
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: 'array', cellDates: true })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+        if (rows.length < 2) { setImportHata('Dosyada veri satırı bulunamadı.'); return }
+
+        const satirlar = rows.slice(1).filter(r => r[0]?.toString().trim()).map(r => ({
+          ad:           r[0]?.toString().trim() || '',
+          soyad:        r[1]?.toString().trim() || '',
+          ogrenciNo:    r[2]?.toString().trim() || '',
+          cinsiyet:     r[3]?.toString().trim().toLowerCase() || '',
+          dogumTarihi:  formatTarih(r[4]),
+          veliadSoyad:  r[5]?.toString().trim() || '',
+          veliTelefon:  r[6]?.toString().trim() || '',
+        }))
+
+        if (satirlar.length === 0) { setImportHata('Ad alanı dolu satır bulunamadı.'); return }
+        setImportSatirlar(satirlar)
+      } catch (err) {
+        setImportHata('Dosya okunamadı: ' + err.message)
+      }
+    }
+    reader.readAsArrayBuffer(dosya)
+    e.target.value = ''
+  }
+
+  function formatTarih(val) {
+    if (!val) return ''
+    if (val instanceof Date) {
+      const g = String(val.getDate()).padStart(2,'0')
+      const a = String(val.getMonth()+1).padStart(2,'0')
+      return `${val.getFullYear()}-${a}-${g}`
+    }
+    const str = val.toString().trim()
+    // GG.AA.YYYY → YYYY-MM-DD
+    const m = str.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/)
+    if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`
+    return str
+  }
+
+  async function topluKaydet() {
+    if (!importSinif || importSatirlar.length === 0) return
+    setImporting(true)
+    try {
+      const batch = writeBatch(db)
+      importSatirlar.forEach(satir => {
+        const ref = doc(collection(db, 'kurumlar', importSinif._kurumId, 'ogrenciler'))
+        batch.set(ref, { ...satir, sinifId: importSinif.id, sinifAd: importSinif.ad, olusturmaTarihi: serverTimestamp() })
+      })
+      await batch.commit()
+      importKapat()
+    } catch (err) {
+      setImportHata('Kayıt hatası: ' + err.message)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  // ── Yardımcı ────────────────────────────────────────────
   function seviyeSecenekleri(kurumId) {
     const kurum = erisimKurumlar.find(k => k.id === kurumId)
     switch (kurum?.okulTuru) {
@@ -138,13 +183,9 @@ export default function KurumSiniflar() {
       default:         return Array.from({ length: 12 }, (_, i) => i + 1)
     }
   }
+  function kurumAdi(k) { const u = erisimKurumlar.find(x => x.id === k.parentId); return u?.parentId ? `${u.ad} - ${k.ad}` : k.ad }
 
-  function kurumAdi(k) {
-    const u = erisimKurumlar.find(x => x.id === k.parentId)
-    return u?.parentId ? `${u.ad} - ${k.ad}` : k.ad
-  }
-
-  const cokluKurum = sayimKurumlar.length > 1
+  const toplamSinif = sayimKurumlar.reduce((a, k) => a + (siniflarMap[k.id]?.length || 0), 0)
 
   const s = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
@@ -155,10 +196,6 @@ export default function KurumSiniflar() {
     girdi: { padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', color: '#1E293B' },
   }
 
-  const baslik = seviye === 'root' ? 'Tüm sınıflar'
-    : seviye === 'kampus' ? `${secilenKurum?.ad} — sınıflar`
-    : `${secilenKurum?.ad} — sınıflar`
-
   return (
     <div>
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Sınıflar</h1>
@@ -166,7 +203,7 @@ export default function KurumSiniflar() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <span style={{ fontSize: '0.875rem', color: '#64748B' }}>
-          {sayimKurumlar.length === 0 ? 'Sol menüden kurum seçin' : `${siniflar.length} sınıf${cokluKurum ? ` · ${baslik}` : ''}`}
+          {sayimKurumlar.length === 0 ? 'Sol menüden kurum seçin' : `${toplamSinif} sınıf`}
         </span>
         {listKurumId && (
           <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
@@ -175,34 +212,30 @@ export default function KurumSiniflar() {
         )}
       </div>
 
+      {/* ── Gruplu sınıf listesi ── */}
       {sayimKurumlar.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {sayimKurumlar
             .slice()
             .sort((a, b) => {
-              const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
               const ka = erisimKurumlar.find(x => x.id === a.parentId)
               const kb = erisimKurumlar.find(x => x.id === b.parentId)
-              const kampusKarsi = (ka?.ad || '').localeCompare(kb?.ad || '', 'tr')
-              if (kampusKarsi !== 0) return kampusKarsi
+              const kk = (ka?.ad || '').localeCompare(kb?.ad || '', 'tr')
+              if (kk !== 0) return kk
               return (OKUL_SIRA[a.okulTuru] || 9) - (OKUL_SIRA[b.okulTuru] || 9)
             })
             .map(k => {
               const kampus = erisimKurumlar.find(x => x.id === k.parentId)
               const grupSiniflar = (siniflarMap[k.id] || []).slice().sort((a, b) => {
-                const sev = (Number(a.seviye) || 0) - (Number(b.seviye) || 0)
-                if (sev !== 0) return sev
-                return (a.sube || '').localeCompare(b.sube || '', 'tr')
+                const sv = (Number(a.seviye) || 0) - (Number(b.seviye) || 0)
+                return sv !== 0 ? sv : (a.sube || '').localeCompare(b.sube || '', 'tr')
               })
-              const acik = acikGruplar[k.id] !== false
+              const acik = acikGruplar[k.id] === true
 
               return (
                 <div key={k.id} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-                  {/* Grup başlığı */}
-                  <div
-                    onClick={() => setAcikGruplar(prev => ({ ...prev, [k.id]: !acik }))}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1rem', background: '#F8FAFC', borderBottom: acik ? '1px solid #E2E8F0' : 'none', cursor: 'pointer', userSelect: 'none' }}
-                  >
+                  <div onClick={() => setAcikGruplar(prev => ({ ...prev, [k.id]: !acik }))}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1rem', background: '#F8FAFC', borderBottom: acik ? '1px solid #E2E8F0' : 'none', cursor: 'pointer', userSelect: 'none' }}>
                     <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{acik ? '▼' : '▶'}</span>
                     {kampus && <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: '500' }}>{kampus.ad}</span>}
                     {kampus && <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>›</span>}
@@ -210,7 +243,6 @@ export default function KurumSiniflar() {
                     <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>{grupSiniflar.length} sınıf</span>
                   </div>
 
-                  {/* Sınıf tablosu */}
                   {acik && (
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
@@ -225,8 +257,9 @@ export default function KurumSiniflar() {
                             <td style={s.td}>{sinif.seviye || '—'}</td>
                             <td style={s.td}>{sinif.sube || '—'}</td>
                             <td style={s.td}>
-                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
+                                <button style={{ ...s.eylem, color: '#065F46', borderColor: '#A7F3D0' }} onClick={() => importAc(sinif)}>📥 Toplu Ekle</button>
                                 <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sinif)}>Sil</button>
                               </div>
                             </td>
@@ -241,6 +274,7 @@ export default function KurumSiniflar() {
         </div>
       )}
 
+      {/* ── Sınıf ekle/düzenle modal ── */}
       {modal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
           onClick={e => e.target === e.currentTarget && modalKapat()}>
@@ -254,9 +288,7 @@ export default function KurumSiniflar() {
                   <label style={s.etiket}>Kurum *</label>
                   <select style={s.girdi} value={modalKurumId} onChange={e => setModalKurumId(e.target.value)}>
                     <option value="">— Seçin —</option>
-                    {secilebilir.map(k => (
-                      <option key={k.id} value={k.id}>{kurumAdi(k)}</option>
-                    ))}
+                    {secilebilir.map(k => <option key={k.id} value={k.id}>{kurumAdi(k)}</option>)}
                   </select>
                 </div>
               )}
@@ -303,6 +335,96 @@ export default function KurumSiniflar() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toplu öğrenci import modal ── */}
+      {importModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+          onClick={e => e.target === e.currentTarget && importKapat()}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '680px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+
+            {/* Başlık */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B' }}>📥 Toplu Öğrenci Ekle</h2>
+              <button onClick={importKapat} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: '#94A3B8' }}>✕</button>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '1.5rem' }}>
+              <strong>{importSinif?.ad}</strong> sınıfına toplu öğrenci ekle
+            </p>
+
+            {/* Adım 1: Şablon */}
+            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '10px', padding: '1rem', marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#065F46', marginBottom: '0.5rem' }}>1. Şablonu indir ve doldur</div>
+              <div style={{ fontSize: '0.8rem', color: '#047857', marginBottom: '0.75rem' }}>
+                Excel şablonunu indir, öğrenci bilgilerini doldur ve kaydet.
+              </div>
+              <button onClick={sablonIndir} style={{ padding: '0.5rem 1rem', background: '#065F46', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>
+                ⬇ Şablonu İndir (.xlsx)
+              </button>
+            </div>
+
+            {/* Adım 2: Yükle */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B', marginBottom: '0.5rem' }}>2. Doldurulmuş dosyayı yükle</div>
+              <label style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                border: '2px dashed #CBD5E1', borderRadius: '10px', padding: '1.5rem', cursor: 'pointer',
+                background: '#F8FAFC', transition: 'border-color 0.2s',
+              }}>
+                <span style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📂</span>
+                <span style={{ fontSize: '0.875rem', color: '#64748B' }}>
+                  {importSatirlar.length > 0 ? `✅ ${importSatirlar.length} öğrenci okundu` : '.xlsx veya .csv dosyası seçin'}
+                </span>
+                <input type="file" accept=".xlsx,.xls,.csv" onChange={dosyaOku} style={{ display: 'none' }} />
+              </label>
+            </div>
+
+            {/* Önizleme */}
+            {importSatirlar.length > 0 && (
+              <div style={{ marginBottom: '1.25rem' }}>
+                <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B', marginBottom: '0.5rem' }}>
+                  Önizleme ({importSatirlar.length} satır{importSatirlar.length > 5 ? `, ilk 5 gösteriliyor` : ''})
+                </div>
+                <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr style={{ background: '#F8FAFC' }}>
+                        {['Ad', 'Soyad', 'No', 'Cinsiyet', 'Doğum', 'Veli'].map(h => (
+                          <th key={h} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', color: '#64748B', fontWeight: '600', borderBottom: '1px solid #E2E8F0' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importSatirlar.slice(0, 5).map((s, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#1E293B' }}>{s.ad}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#1E293B' }}>{s.soyad || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{s.ogrenciNo || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{s.cinsiyet || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{s.dogumTarihi || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{s.veliadSoyad || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {importSatirlar.length > 5 && (
+                  <p style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '0.375rem' }}>… ve {importSatirlar.length - 5} satır daha</p>
+                )}
+              </div>
+            )}
+
+            {importHata && <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{importHata}</p>}
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button onClick={importKapat} style={{ padding: '0.6rem 1.25rem', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#374151' }}>İptal</button>
+              <button onClick={topluKaydet} disabled={importing || importSatirlar.length === 0}
+                style={{ padding: '0.6rem 1.25rem', background: importSatirlar.length === 0 ? '#94A3B8' : '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: importSatirlar.length === 0 ? 'not-allowed' : 'pointer' }}>
+                {importing ? 'Kaydediliyor...' : `${importSatirlar.length} Öğrenci Ekle`}
+              </button>
+            </div>
           </div>
         </div>
       )}
