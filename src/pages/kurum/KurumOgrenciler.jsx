@@ -195,9 +195,17 @@ export default function KurumOgrenciler() {
             })
             .map(k => {
               const kampus = erisimKurumlar.find(x => x.id === k.parentId)
-              const grupOgrenciler = (ogrencilerMap[k.id] || []).filter(o =>
-                `${o.ad} ${o.soyad} ${o.ogrenciNo}`.toLowerCase().includes(aramaMetni.toLowerCase())
-              )
+              const grupOgrenciler = (ogrencilerMap[k.id] || [])
+                .filter(o => `${o.ad} ${o.soyad} ${o.ogrenciNo}`.toLowerCase().includes(aramaMetni.toLowerCase()))
+                .sort((a, b) => {
+                  const parseSinif = s => { const m = (s || '').match(/^(\d+)(.*)$/); return m ? { n: parseInt(m[1]), h: m[2] } : { n: 999, h: '' } }
+                  const sa = parseSinif(a.sinifAd), sb = parseSinif(b.sinifAd)
+                  if (sa.n !== sb.n) return sa.n - sb.n
+                  const sh = sa.h.localeCompare(sb.h, 'tr')
+                  if (sh !== 0) return sh
+                  const ad = (a.ad || '').localeCompare(b.ad || '', 'tr')
+                  return ad !== 0 ? ad : (a.soyad || '').localeCompare(b.soyad || '', 'tr')
+                })
               const acik = acikGruplar[k.id] === true
 
               return (
