@@ -28,94 +28,109 @@ function IstatKart({ baslik, deger, ikon, renk, altyazi }) {
 }
 
 export default function KurumDashboard() {
-  const { erisimKurumlar, yukleniyor } = useKurumYonetim()
+  const { erisimKurumlar, secilenKurumId, secilenKurum, yukleniyor } = useKurumYonetim()
   const [sayilar, setSayilar] = useState({ siniflar: null, ogrenciler: null, kullanicilar: null })
 
-  // Root kurum (parentId yok)
+  // Seçili kurumun seviyesi
+  const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
+  const seviye = !secilenKurum?.parentId ? 'root'
+    : !ust?.parentId ? 'kampus'
+    : 'altKurum'
+
+  // Sayım yapılacak kurum listesi
+  const sayimKurumlar = (() => {
+    if (seviye === 'root') {
+      // Tüm alt kurumlar (2. seviye)
+      return erisimKurumlar.filter(k => {
+        if (!k.parentId) return false
+        const u = erisimKurumlar.find(x => x.id === k.parentId)
+        return !!u?.parentId
+      })
+    }
+    if (seviye === 'kampus') {
+      // Seçili kampüsün alt kurumları
+      return erisimKurumlar.filter(k => k.parentId === secilenKurumId)
+    }
+    // Alt kurum: sadece kendisi
+    return secilenKurum ? [secilenKurum] : []
+  })()
+
+  // Özet metinler
   const rootKurum = erisimKurumlar.find(k => !k.parentId)
-
-  // Alt kurumlar (2. seviye: kampüs değil, ilkokul/ortaokul/lise gibi)
-  const altKurumlar = erisimKurumlar.filter(k => {
-    if (!k.parentId) return false
-    const ust = erisimKurumlar.find(x => x.id === k.parentId)
-    return !!ust?.parentId // üstünün de üstü varsa altKurum
-  })
-
-  // Kampüs sayısı
   const kampusSayisi = erisimKurumlar.filter(k => {
     if (!k.parentId) return false
-    const ust = erisimKurumlar.find(x => x.id === k.parentId)
-    return !ust?.parentId // üstü root ise kampüs
+    const u = erisimKurumlar.find(x => x.id === k.parentId)
+    return !u?.parentId
   }).length
 
+  const baslik = seviye === 'root'
+    ? rootKurum?.ad || 'Dashboard'
+    : secilenKurum?.ad || 'Dashboard'
+
+  const altyazi = seviye === 'root'
+    ? 'Tüm kampüs ve alt kurumlara ait özet'
+    : seviye === 'kampus'
+    ? `${secilenKurum?.ad} kampüsündeki alt kurumlara ait özet`
+    : `${secilenKurum?.ad} alt kurumuna ait özet`
+
   useEffect(() => {
-    if (yukleniyor || altKurumlar.length === 0) return
+    if (yukleniyor || sayimKurumlar.length === 0) {
+      setSayilar({ siniflar: null, ogrenciler: null, kullanicilar: null })
+      return
+    }
 
     async function yukle() {
       try {
-        // Tüm alt kurumların sınıf + öğrenci sayılarını paralel çek
         const sonuclar = await Promise.all(
-          altKurumlar.map(k => Promise.all([
+          sayimKurumlar.map(k => Promise.all([
             getCountFromServer(collection(db, 'kurumlar', k.id, 'siniflar')),
             getCountFromServer(collection(db, 'kurumlar', k.id, 'ogrenciler')),
             getCountFromServer(collection(db, 'kurumlar', k.id, 'kullanicilar')),
           ]))
         )
-
         let toplamSinif = 0, toplamOgrenci = 0, toplamKullanici = 0
         sonuclar.forEach(([s, o, k]) => {
           toplamSinif     += s.data().count
           toplamOgrenci   += o.data().count
           toplamKullanici += k.data().count
         })
-
         setSayilar({ siniflar: toplamSinif, ogrenciler: toplamOgrenci, kullanicilar: toplamKullanici })
       } catch (err) {
         console.error('Dashboard yükleme hatası:', err)
+        setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: 0 })
       }
     }
-
     yukle()
-  }, [erisimKurumlar, yukleniyor]) // eslint-disable-line
+  }, [secilenKurumId, erisimKurumlar, yukleniyor]) // eslint-disable-line
 
   return (
     <div>
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>
-        {rootKurum?.ad || 'Dashboard'}
+        {baslik}
       </h1>
-      <p style={{ color: '#64748B', marginBottom: '2rem', fontSize: '0.9rem' }}>
-        Tüm kampüs ve alt kurumlara ait özet bilgiler
-      </p>
+      <p style={{ color: '#64748B', marginBottom: '2rem', fontSize: '0.9rem' }}>{altyazi}</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-        <IstatKart
-          baslik="Kampüs"
-          deger={kampusSayisi}
-          ikon="🏛️"
-          renk="#7C3AED"
-          altyazi={`${altKurumlar.length} alt kurum`}
-        />
-        <IstatKart
-          baslik="Sınıf"
-          deger={sayilar.siniflar}
-          ikon="🏫"
-          renk="#1B3A6B"
-          altyazi="tüm alt kurumlar"
-        />
-        <IstatKart
-          baslik="Öğrenci"
-          deger={sayilar.ogrenciler}
-          ikon="🎒"
-          renk="#0369A1"
-          altyazi="tüm alt kurumlar"
-        />
-        <IstatKart
-          baslik="Kullanıcı"
-          deger={sayilar.kullanicilar}
-          ikon="👥"
-          renk="#065F46"
-          altyazi="tüm alt kurumlar"
-        />
+        {seviye === 'root' && (
+          <IstatKart
+            baslik="Kampüs"
+            deger={kampusSayisi}
+            ikon="🏛️"
+            renk="#7C3AED"
+            altyazi={`${sayimKurumlar.length} alt kurum`}
+          />
+        )}
+        {seviye === 'kampus' && (
+          <IstatKart
+            baslik="Alt Kurum"
+            deger={sayimKurumlar.length}
+            ikon="🏛️"
+            renk="#7C3AED"
+          />
+        )}
+        <IstatKart baslik="Sınıf"     deger={sayilar.siniflar}     ikon="🏫" renk="#1B3A6B" />
+        <IstatKart baslik="Öğrenci"   deger={sayilar.ogrenciler}   ikon="🎒" renk="#0369A1" />
+        <IstatKart baslik="Kullanıcı" deger={sayilar.kullanicilar} ikon="👥" renk="#065F46" />
       </div>
     </div>
   )
