@@ -180,11 +180,12 @@ export default function KurumSiniflar() {
           {sayimKurumlar
             .slice()
             .sort((a, b) => {
+              const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
               const ka = erisimKurumlar.find(x => x.id === a.parentId)
               const kb = erisimKurumlar.find(x => x.id === b.parentId)
               const kampusKarsi = (ka?.ad || '').localeCompare(kb?.ad || '', 'tr')
               if (kampusKarsi !== 0) return kampusKarsi
-              return a.ad.localeCompare(b.ad, 'tr')
+              return (OKUL_SIRA[a.okulTuru] || 9) - (OKUL_SIRA[b.okulTuru] || 9)
             })
             .map(k => {
               const kampus = erisimKurumlar.find(x => x.id === k.parentId)
