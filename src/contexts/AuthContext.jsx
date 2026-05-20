@@ -25,6 +25,7 @@ export function AuthProvider({ children }) {
           const profilSnap = await getDoc(doc(db, 'kullanicilar', user.uid))
           if (profilSnap.exists()) {
             setProfil(profilSnap.data())
+            deleteDoc(doc(db, 'yetkiliKullanicilar', user.email)).catch(() => {})
           } else {
             // İlk giriş: yetkiliKullanicilar'da e-posta var mı?
             const yetkiSnap = await getDoc(doc(db, 'yetkiliKullanicilar', user.email))
