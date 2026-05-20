@@ -11,7 +11,7 @@ const TIP_ETİKET = {
   altKurum: { etiket: 'Alt Kurum', renk: '#065F46', bg: '#D1FAE5', girinti: 48 },
 }
 
-const BOŞ_FORM = { ad: '', email: '', telefon: '', adres: '', durum: 'aktif', tip: 'kurum', parentId: null, rootKurumId: null, googleAltyapisi: false }
+const BOŞ_FORM = { ad: '', email: '', telefon: '', adres: '', durum: 'aktif', tip: 'kurum', parentId: null, rootKurumId: null, googleAltyapisi: false, okulTuru: '' }
 
 function agacOlustur(liste) {
   const map = {}
@@ -76,7 +76,7 @@ export default function Kurumlar() {
 
   function düzenleModalAc(kurum) {
     setDuzenlenen(kurum)
-    setForm({ ad: kurum.ad, email: kurum.email || '', telefon: kurum.telefon || '', adres: kurum.adres || '', durum: kurum.durum, tip: kurum.tip, parentId: kurum.parentId || null, googleAltyapisi: !!kurum.googleAltyapisi })
+    setForm({ ad: kurum.ad, email: kurum.email || '', telefon: kurum.telefon || '', adres: kurum.adres || '', durum: kurum.durum, tip: kurum.tip, parentId: kurum.parentId || null, googleAltyapisi: !!kurum.googleAltyapisi, okulTuru: kurum.okulTuru || '' })
     setHata('')
     setModal(true)
   }
@@ -99,6 +99,7 @@ export default function Kurumlar() {
         await updateDoc(doc(db, 'kurumlar', duzenlenen.id), {
           ad: form.ad, email: form.email, telefon: form.telefon,
           adres: form.adres, durum: form.durum, googleAltyapisi: !!form.googleAltyapisi,
+          okulTuru: form.okulTuru || '',
         })
       } else {
         await addDoc(collection(db, 'kurumlar'), { ...form, googleAltyapisi: !!form.googleAltyapisi, olusturmaTarihi: serverTimestamp() })
@@ -247,6 +248,17 @@ export default function Kurumlar() {
                 <label style={s.etiket}>Adres</label>
                 <textarea style={{ ...s.girdi, resize: 'vertical', minHeight: '60px' }} value={form.adres} onChange={e => setForm(f => ({ ...f, adres: e.target.value }))} />
               </div>
+              {form.tip === 'altKurum' && (
+                <div style={s.alan}>
+                  <label style={s.etiket}>Okul Türü</label>
+                  <select style={s.girdi} value={form.okulTuru} onChange={e => setForm(f => ({ ...f, okulTuru: e.target.value }))}>
+                    <option value="">Seçin (isteğe bağlı)</option>
+                    <option value="ilkokul">İlkokul (1–4. Sınıf)</option>
+                    <option value="ortaokul">Ortaokul (5–8. Sınıf)</option>
+                    <option value="lise">Lise (9–12. Sınıf)</option>
+                  </select>
+                </div>
+              )}
               <div style={s.alan}>
                 <label style={s.etiket}>Durum</label>
                 <select style={s.girdi} value={form.durum} onChange={e => setForm(f => ({ ...f, durum: e.target.value }))}>

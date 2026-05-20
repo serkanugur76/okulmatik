@@ -68,6 +68,16 @@ export default function KurumSiniflar() {
     await deleteDoc(doc(db, 'kurumlar', listKurumId, 'siniflar', id))
   }
 
+  function seviyeSecenekleri(kurumId) {
+    const kurum = erisimKurumlar.find(k => k.id === kurumId)
+    switch (kurum?.okulTuru) {
+      case 'ilkokul':  return Array.from({ length: 4 },  (_, i) => i + 1)
+      case 'ortaokul': return Array.from({ length: 4 },  (_, i) => i + 5)
+      case 'lise':     return Array.from({ length: 4 },  (_, i) => i + 9)
+      default:         return Array.from({ length: 12 }, (_, i) => i + 1)
+    }
+  }
+
   function kurumAdi(k) {
     const ust = erisimKurumlar.find(x => x.id === k.parentId)
     return ust?.parentId ? `${ust.ad} - ${k.ad}` : k.ad
@@ -151,7 +161,9 @@ export default function KurumSiniflar() {
                   <label style={s.etiket}>Seviye</label>
                   <select style={s.girdi} value={form.seviye} onChange={e => setForm(f => ({ ...f, seviye: e.target.value }))}>
                     <option value="">Seçin</option>
-                    {[1,2,3,4].map(n => <option key={n} value={String(n)}>{n}. Sınıf</option>)}
+                    {seviyeSecenekleri(duzenlenen ? listKurumId : modalKurumId).map(n => (
+                      <option key={n} value={String(n)}>{n}. Sınıf</option>
+                    ))}
                   </select>
                 </div>
                 <div style={s.alan}>
