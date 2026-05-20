@@ -10,8 +10,8 @@ import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 const BOŞ_FORM = { ad: '', seviye: '', sube: '' }
 const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
 
-const ŞABLON_BAŞLIKLAR = ['Ad', 'Soyad', 'Öğrenci No', 'Cinsiyet (erkek/kız)', 'Doğum Tarihi (GG.AA.YYYY)', 'Veli Ad Soyad', 'Veli Telefon']
-const ŞABLON_ÖRNEK = ['Ali', 'Yılmaz', '2024001', 'erkek', '15.03.2015', 'Ahmet Yılmaz', '0555 000 00 00']
+const ŞABLON_BAŞLIKLAR = ['ÖĞRENCİ AD / SOYAD', 'TC NO', 'Sınıf/Şb', 'ANNE AD / SOYAD', 'ANNE TLF', 'BABA AD / SOYAD', 'BABA TLF', 'ÖĞRENCİ MAİL ADRES']
+const ŞABLON_ÖRNEK    = ['Ali Yılmaz', '12345678901', '5-A', 'Ayşe Yılmaz', '0555 111 22 33', 'Ahmet Yılmaz', '0555 000 00 00', 'ali.yilmaz@okul.com']
 
 export default function KurumSiniflar() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
@@ -121,15 +121,28 @@ export default function KurumSiniflar() {
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
         if (rows.length < 2) { setImportHata('Dosyada veri satırı bulunamadı.'); return }
 
-        const satirlar = rows.slice(1).filter(r => r[0]?.toString().trim()).map(r => ({
-          ad:           r[0]?.toString().trim() || '',
-          soyad:        r[1]?.toString().trim() || '',
-          ogrenciNo:    r[2]?.toString().trim() || '',
-          cinsiyet:     r[3]?.toString().trim().toLowerCase() || '',
-          dogumTarihi:  formatTarih(r[4]),
-          veliadSoyad:  r[5]?.toString().trim() || '',
-          veliTelefon:  r[6]?.toString().trim() || '',
-        }))
+        // Başlık satırını bul (ilk satır veya "ÖĞRENCİ" içeren satır)
+        let dataStart = 1
+        for (let i = 0; i < Math.min(rows.length, 5); i++) {
+          if (rows[i].some(c => c?.toString().toUpperCase().includes('ÖĞRENCİ'))) {
+            dataStart = i + 1; break
+          }
+        }
+
+        const satirlar = rows.slice(dataStart).filter(r => r[0]?.toString().trim()).map(r => {
+          const { ad, soyad } = adSoyadAyir(r[0]?.toString().trim() || '')
+          return {
+            ad,
+            soyad,
+            ogrenciNo:    r[1]?.toString().trim() || '',   // TC NO
+            // r[2] = Sınıf/Şb — sinifId zaten bilindiğinden yalnızca referans
+            anneAdSoyad:  r[3]?.toString().trim() || '',
+            anneTelefon:  r[4]?.toString().trim() || '',
+            babaAdSoyad:  r[5]?.toString().trim() || '',
+            babaTelefon:  r[6]?.toString().trim() || '',
+            email:        r[7]?.toString().trim() || '',
+          }
+        })
 
         if (satirlar.length === 0) { setImportHata('Ad alanı dolu satır bulunamadı.'); return }
         setImportSatirlar(satirlar)
@@ -139,6 +152,13 @@ export default function KurumSiniflar() {
     }
     reader.readAsArrayBuffer(dosya)
     e.target.value = ''
+  }
+
+  function adSoyadAyir(tamAd) {
+    const parcalar = tamAd.trim().split(/\s+/)
+    if (parcalar.length === 1) return { ad: parcalar[0], soyad: '' }
+    const soyad = parcalar.pop()
+    return { ad: parcalar.join(' '), soyad }
   }
 
   function formatTarih(val) {
@@ -162,7 +182,14 @@ export default function KurumSiniflar() {
       const batch = writeBatch(db)
       importSatirlar.forEach(satir => {
         const ref = doc(collection(db, 'kurumlar', importSinif._kurumId, 'ogrenciler'))
-        batch.set(ref, { ...satir, sinifId: importSinif.id, sinifAd: importSinif.ad, olusturmaTarihi: serverTimestamp() })
+        batch.set(ref, {
+          ad: satir.ad, soyad: satir.soyad, ogrenciNo: satir.ogrenciNo,
+          anneAdSoyad: satir.anneAdSoyad, anneTelefon: satir.anneTelefon,
+          babaAdSoyad: satir.babaAdSoyad, babaTelefon: satir.babaTelefon,
+          email: satir.email,
+          sinifId: importSinif.id, sinifAd: importSinif.ad,
+          olusturmaTarihi: serverTimestamp(),
+        })
       })
       await batch.commit()
       importKapat()
@@ -391,20 +418,22 @@ export default function KurumSiniflar() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                     <thead>
                       <tr style={{ background: '#F8FAFC' }}>
-                        {['Ad', 'Soyad', 'No', 'Cinsiyet', 'Doğum', 'Veli'].map(h => (
-                          <th key={h} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', color: '#64748B', fontWeight: '600', borderBottom: '1px solid #E2E8F0' }}>{h}</th>
+                        {['Ad', 'Soyad', 'TC No', 'Anne', 'Anne Tel', 'Baba', 'Baba Tel', 'E-posta'].map(h => (
+                          <th key={h} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', color: '#64748B', fontWeight: '600', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {importSatirlar.slice(0, 5).map((s, i) => (
+                      {importSatirlar.slice(0, 5).map((satir, i) => (
                         <tr key={i} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#1E293B' }}>{s.ad}</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#1E293B' }}>{s.soyad || '—'}</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{s.ogrenciNo || '—'}</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{s.cinsiyet || '—'}</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{s.dogumTarihi || '—'}</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{s.veliadSoyad || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#1E293B', whiteSpace: 'nowrap' }}>{satir.ad}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#1E293B', whiteSpace: 'nowrap' }}>{satir.soyad || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{satir.ogrenciNo || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B', whiteSpace: 'nowrap' }}>{satir.anneAdSoyad || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{satir.anneTelefon || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B', whiteSpace: 'nowrap' }}>{satir.babaAdSoyad || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{satir.babaTelefon || '—'}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{satir.email || '—'}</td>
                         </tr>
                       ))}
                     </tbody>

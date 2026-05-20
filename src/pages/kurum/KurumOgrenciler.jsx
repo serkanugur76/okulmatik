@@ -6,7 +6,7 @@ import {
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
-const BOŞ_FORM = { ad: '', soyad: '', ogrenciNo: '', sinifId: '', sinifAd: '', cinsiyet: '', dogumTarihi: '', veliadSoyad: '', veliTelefon: '' }
+const BOŞ_FORM = { ad: '', soyad: '', ogrenciNo: '', sinifId: '', sinifAd: '', cinsiyet: '', dogumTarihi: '', anneAdSoyad: '', anneTelefon: '', babaAdSoyad: '', babaTelefon: '', email: '' }
 const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
 
 export default function KurumOgrenciler() {
@@ -98,7 +98,9 @@ export default function KurumOgrenciler() {
       ad: ogr.ad, soyad: ogr.soyad || '', ogrenciNo: ogr.ogrenciNo || '',
       sinifId: ogr.sinifId || '', sinifAd: ogr.sinifAd || '',
       cinsiyet: ogr.cinsiyet || '', dogumTarihi: ogr.dogumTarihi || '',
-      veliadSoyad: ogr.veliadSoyad || '', veliTelefon: ogr.veliTelefon || '',
+      anneAdSoyad: ogr.anneAdSoyad || '', anneTelefon: ogr.anneTelefon || '',
+      babaAdSoyad: ogr.babaAdSoyad || '', babaTelefon: ogr.babaTelefon || '',
+      email: ogr.email || '',
     } : BOŞ_FORM)
     setModalKurumId(listKurumId || '')
     setHata('')
@@ -120,7 +122,7 @@ export default function KurumOgrenciler() {
     setKaydediyor(true)
     try {
       if (duzenlenen) {
-        await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'ogrenciler', duzenlenen.id), { ad: form.ad, soyad: form.soyad, ogrenciNo: form.ogrenciNo, sinifId: form.sinifId, sinifAd: form.sinifAd, cinsiyet: form.cinsiyet, dogumTarihi: form.dogumTarihi, veliadSoyad: form.veliadSoyad, veliTelefon: form.veliTelefon })
+        await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'ogrenciler', duzenlenen.id), { ad: form.ad, soyad: form.soyad, ogrenciNo: form.ogrenciNo, sinifId: form.sinifId, sinifAd: form.sinifAd, cinsiyet: form.cinsiyet, dogumTarihi: form.dogumTarihi, anneAdSoyad: form.anneAdSoyad, anneTelefon: form.anneTelefon, babaAdSoyad: form.babaAdSoyad, babaTelefon: form.babaTelefon, email: form.email })
       } else {
         await addDoc(collection(db, 'kurumlar', hedefKurumId, 'ogrenciler'), { ...form, olusturmaTarihi: serverTimestamp() })
       }
@@ -217,7 +219,7 @@ export default function KurumOgrenciler() {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr>
-                          {['Ad Soyad', 'Öğrenci No', 'Sınıf', 'Veli', 'Veli Tel.', 'İşlemler'].map(h => (
+                          {['Ad Soyad', 'TC No', 'Sınıf', 'Anne', 'Baba', 'İşlemler'].map(h => (
                             <th key={h} style={s.th}>{h}</th>
                           ))}
                         </tr>
@@ -232,8 +234,8 @@ export default function KurumOgrenciler() {
                             <td style={s.td}><strong>{o.ad} {o.soyad}</strong></td>
                             <td style={s.td}>{o.ogrenciNo || '—'}</td>
                             <td style={s.td}>{o.sinifAd || '—'}</td>
-                            <td style={s.td}>{o.veliadSoyad || '—'}</td>
-                            <td style={s.td}>{o.veliTelefon || '—'}</td>
+                            <td style={s.td}>{o.anneAdSoyad ? `${o.anneAdSoyad}${o.anneTelefon ? ` · ${o.anneTelefon}` : ''}` : '—'}</td>
+                            <td style={s.td}>{o.babaAdSoyad ? `${o.babaAdSoyad}${o.babaTelefon ? ` · ${o.babaTelefon}` : ''}` : '—'}</td>
                             <td style={s.td}>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
@@ -307,13 +309,29 @@ export default function KurumOgrenciler() {
                   <input style={s.girdi} type="date" value={form.dogumTarihi} onChange={e => setForm(f => ({ ...f, dogumTarihi: e.target.value }))} />
                 </div>
               </div>
-              <div style={s.alan}>
-                <label style={s.etiket}>Veli Ad Soyad</label>
-                <input style={s.girdi} value={form.veliadSoyad} onChange={e => setForm(f => ({ ...f, veliadSoyad: e.target.value }))} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={s.alan}>
+                  <label style={s.etiket}>Anne Ad Soyad</label>
+                  <input style={s.girdi} value={form.anneAdSoyad} onChange={e => setForm(f => ({ ...f, anneAdSoyad: e.target.value }))} />
+                </div>
+                <div style={s.alan}>
+                  <label style={s.etiket}>Anne Telefon</label>
+                  <input style={s.girdi} value={form.anneTelefon} onChange={e => setForm(f => ({ ...f, anneTelefon: e.target.value }))} placeholder="0555 000 00 00" />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={s.alan}>
+                  <label style={s.etiket}>Baba Ad Soyad</label>
+                  <input style={s.girdi} value={form.babaAdSoyad} onChange={e => setForm(f => ({ ...f, babaAdSoyad: e.target.value }))} />
+                </div>
+                <div style={s.alan}>
+                  <label style={s.etiket}>Baba Telefon</label>
+                  <input style={s.girdi} value={form.babaTelefon} onChange={e => setForm(f => ({ ...f, babaTelefon: e.target.value }))} placeholder="0555 000 00 00" />
+                </div>
               </div>
               <div style={s.alan}>
-                <label style={s.etiket}>Veli Telefon</label>
-                <input style={s.girdi} value={form.veliTelefon} onChange={e => setForm(f => ({ ...f, veliTelefon: e.target.value }))} placeholder="0555 000 00 00" />
+                <label style={s.etiket}>Öğrenci E-posta</label>
+                <input style={s.girdi} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="ali@okul.com" />
               </div>
               {hata && <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{hata}</p>}
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
