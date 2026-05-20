@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { kullaniciOlustur } from '../../services/kullaniciOlustur'
+import KurumSecici from '../../components/KurumSecici'
 
 const ROL_ETİKET = {
   platform_admin: { etiket: 'Platform Admin', renk: '#7C3AED', bg: '#EDE9FE' },
@@ -143,10 +144,12 @@ export default function PlatformKullanicilar() {
               {(form.rol === 'kurum_admin' || form.rol === 'ogretmen') && (
                 <div style={s.alan}>
                   <label style={s.etiket}>Kurum</label>
-                  <select style={s.girdi} value={form.kurumId} onChange={e => setForm(f => ({ ...f, kurumId: e.target.value }))}>
-                    <option value="">Seçin</option>
-                    {kurumlar.map(k => <option key={k.id} value={k.id}>{k.ad}</option>)}
-                  </select>
+                  <KurumSecici
+                    value={form.kurumId}
+                    onChange={v => setForm(f => ({ ...f, kurumId: v }))}
+                    kurumlar={kurumlar}
+                    style={s.girdi}
+                  />
                 </div>
               )}
               {hata && <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{hata}</p>}
