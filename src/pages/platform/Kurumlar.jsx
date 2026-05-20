@@ -1,45 +1,92 @@
 import { useEffect, useState } from 'react'
 import {
-  collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, query, orderBy,
+  collection, onSnapshot, addDoc, updateDoc, doc,
+  serverTimestamp, query, orderBy,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 
-const BOŞ_FORM = { ad: '', email: '', telefon: '', adres: '', durum: 'aktif' }
+const TIP_ETİKET = {
+  kurum:    { etiket: 'Kurum',     renk: '#1B3A6B', bg: '#DBEAFE', girinti: 0 },
+  kampus:   { etiket: 'Kampüs',    renk: '#0369A1', bg: '#E0F2FE', girinti: 24 },
+  altKurum: { etiket: 'Alt Kurum', renk: '#065F46', bg: '#D1FAE5', girinti: 48 },
+}
+
+const BOŞ_FORM = { ad: '', email: '', telefon: '', adres: '', durum: 'aktif', tip: 'kurum', parentId: null }
+
+function agacOlustur(liste) {
+  const map = {}
+  liste.forEach(k => { map[k.id] = { ...k, cocuklar: [] } })
+  const kokler = []
+  liste.forEach(k => {
+    if (k.parentId && map[k.parentId]) map[k.parentId].cocuklar.push(map[k.id])
+    else if (!k.parentId) kokler.push(map[k.id])
+  })
+  return kokler
+}
+
+function agacDüzlestir(dugumler, sonuc = []) {
+  dugumler.forEach(d => {
+    sonuc.push(d)
+    if (d.cocuklar?.length) agacDüzlestir(d.cocuklar, sonuc)
+  })
+  return sonuc
+}
 
 export default function Kurumlar() {
-  const [kurumlar, setKurumlar]   = useState([])
-  const [form, setForm]           = useState(BOŞ_FORM)
-  const [modal, setModal]         = useState(false)
+  const [kurumlar, setKurumlar]     = useState([])
+  const [acik, setAcik]             = useState({})
+  const [form, setForm]             = useState(BOŞ_FORM)
+  const [modal, setModal]           = useState(false)
   const [duzenlenen, setDuzenlenen] = useState(null)
   const [kaydediyor, setKaydediyor] = useState(false)
-  const [hata, setHata]           = useState('')
+  const [hata, setHata]             = useState('')
 
   useEffect(() => {
-    const q = query(collection(db, 'kurumlar'), orderBy('olusturmaTarihi', 'desc'))
+    const q = query(collection(db, 'kurumlar'), orderBy('olusturmaTarihi', 'asc'))
     return onSnapshot(q, snap => {
-      setKurumlar(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      const liste = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setKurumlar(liste)
+      // Tüm kurumları başlangıçta açık göster
+      const acikMap = {}
+      liste.forEach(k => { acikMap[k.id] = true })
+      setAcik(acikMap)
     })
   }, [])
 
-  function modalAc(kurum = null) {
-    setDuzenlenen(kurum)
-    setForm(kurum ? {
-      ad: kurum.ad, email: kurum.email, telefon: kurum.telefon || '',
-      adres: kurum.adres || '', durum: kurum.durum,
-    } : BOŞ_FORM)
+  function altEkleModalAc(parent) {
+    const cocukTip = parent.tip === 'kurum' ? 'kampus' : 'altKurum'
+    setDuzenlenen(null)
+    setForm({ ...BOŞ_FORM, tip: cocukTip, parentId: parent.id })
     setHata('')
     setModal(true)
   }
 
-  function modalKapat() { setModal(false); setDuzenlenen(null); setForm(BOŞ_FORM) }
+  function düzenleModalAc(kurum) {
+    setDuzenlenen(kurum)
+    setForm({ ad: kurum.ad, email: kurum.email || '', telefon: kurum.telefon || '', adres: kurum.adres || '', durum: kurum.durum, tip: kurum.tip, parentId: kurum.parentId || null })
+    setHata('')
+    setModal(true)
+  }
+
+  function yeniKurumModalAc() {
+    setDuzenlened(null)
+    setForm(BOŞ_FORM)
+    setHata('')
+    setModal(true)
+  }
+
+  function modalKapat() { setModal(false); setDuzenlened(null); setForm(BOŞ_FORM) }
 
   async function kaydet(e) {
     e.preventDefault()
-    if (!form.ad.trim() || !form.email.trim()) { setHata('Ad ve e-posta zorunludur.'); return }
+    if (!form.ad.trim()) { setHata('Ad zorunludur.'); return }
     setKaydediyor(true)
     try {
       if (duzenlenen) {
-        await updateDoc(doc(db, 'kurumlar', duzenlenen.id), { ...form })
+        await updateDoc(doc(db, 'kurumlar', duzenlenen.id), {
+          ad: form.ad, email: form.email, telefon: form.telefon,
+          adres: form.adres, durum: form.durum,
+        })
       } else {
         await addDoc(collection(db, 'kurumlar'), { ...form, olusturmaTarihi: serverTimestamp() })
       }
@@ -52,22 +99,29 @@ export default function Kurumlar() {
   }
 
   async function durumDegistir(kurum) {
-    const yeniDurum = kurum.durum === 'aktif' ? 'pasif' : 'aktif'
-    await updateDoc(doc(db, 'kurumlar', kurum.id), { durum: yeniDurum })
+    await updateDoc(doc(db, 'kurumlar', kurum.id), { durum: kurum.durum === 'aktif' ? 'pasif' : 'aktif' })
   }
 
+  // setDuzenlened hatası düzeltmesi
+  function setDuzenlened(v) { setDuzenlenen(v) }
+
+  const agac = agacOlustur(kurumlar)
+  const duzListe = agacDüzlestir(agac)
+
+  // Üst kurumdan gizlenmiş olanları filtrele
+  const gorunenListe = duzListe.filter(k => {
+    if (!k.parentId) return true
+    const ust = kurumlar.find(x => x.id === k.parentId)
+    if (!ust) return true
+    if (!acik[k.parentId]) return false
+    if (ust.parentId && !acik[ust.parentId]) return false
+    return true
+  })
+
   const s = {
-    baslik: { fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' },
-    altBaslik: { color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' },
-    toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' },
-    ekleBtn: { padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' },
-    tablo: { background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' },
     th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
-    td: { padding: '1rem', fontSize: '0.875rem', color: '#1E293B', borderBottom: '1px solid #F1F5F9' },
-    durum: (d) => ({ display: 'inline-flex', padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', background: d === 'aktif' ? '#D1FAE5' : '#FEE2E2', color: d === 'aktif' ? '#065F46' : '#991B1B' }),
-    eylem: { background: 'none', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '4px 10px', fontSize: '0.75rem', cursor: 'pointer', color: '#374151' },
-    overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-    modalKart: { background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' },
+    td: { padding: '0.875rem 1rem', fontSize: '0.875rem', color: '#1E293B', borderBottom: '1px solid #F1F5F9' },
+    eylem: { background: 'none', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '3px 9px', fontSize: '0.75rem', cursor: 'pointer', color: '#374151' },
     alan: { display: 'flex', flexDirection: 'column', gap: '0.375rem', marginBottom: '1rem' },
     etiket: { fontSize: '0.875rem', fontWeight: '500', color: '#374151' },
     girdi: { padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', color: '#1E293B' },
@@ -75,59 +129,96 @@ export default function Kurumlar() {
 
   return (
     <div>
-      <h1 style={s.baslik}>Kurumlar</h1>
-      <p style={s.altBaslik}>Platforma kayıtlı tüm kurumlar</p>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Kurumlar</h1>
+      <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Kurum, kampüs ve alt kurum yönetimi</p>
 
-      <div style={s.toolbar}>
-        <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{kurumlar.length} kurum</span>
-        <button style={s.ekleBtn} onClick={() => modalAc()}>+ Yeni Kurum</button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{kurumlar.filter(k => k.tip === 'kurum').length} kurum</span>
+        <button onClick={yeniKurumModalAc} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+          + Yeni Kurum
+        </button>
       </div>
 
-      <div style={s.tablo}>
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['Kurum Adı', 'E-posta', 'Telefon', 'Durum', 'İşlemler'].map(h => (
+              {['Ad', 'Tip', 'E-posta', 'Durum', 'İşlemler'].map(h => (
                 <th key={h} style={s.th}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {kurumlar.length === 0 ? (
+            {gorunenListe.length === 0 ? (
               <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Henüz kurum eklenmemiş</td></tr>
-            ) : kurumlar.map(k => (
-              <tr key={k.id}>
-                <td style={s.td}><strong>{k.ad}</strong></td>
-                <td style={s.td}>{k.email}</td>
-                <td style={s.td}>{k.telefon || '—'}</td>
-                <td style={s.td}><span style={s.durum(k.durum)}>{k.durum}</span></td>
-                <td style={s.td}>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button style={s.eylem} onClick={() => modalAc(k)}>Düzenle</button>
-                    <button style={{ ...s.eylem, color: k.durum === 'aktif' ? '#991B1B' : '#065F46' }} onClick={() => durumDegistir(k)}>
-                      {k.durum === 'aktif' ? 'Pasif Yap' : 'Aktif Yap'}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            ) : gorunenListe.map(k => {
+              const tipBilgi = TIP_ETİKET[k.tip] || TIP_ETİKET.kurum
+              const cocukSayisi = kurumlar.filter(x => x.parentId === k.id).length
+              return (
+                <tr key={k.id} style={{ background: k.tip === 'altKurum' ? '#FAFAFA' : '#fff' }}>
+                  <td style={{ ...s.td, paddingLeft: `${1 + tipBilgi.girinti / 16}rem` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {cocukSayisi > 0 && (
+                        <button onClick={() => setAcik(a => ({ ...a, [k.id]: !a[k.id] }))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: '0.75rem', padding: '0 2px' }}>
+                          {acik[k.id] ? '▼' : '▶'}
+                        </button>
+                      )}
+                      {cocukSayisi === 0 && <span style={{ width: '16px' }} />}
+                      <span style={{ fontWeight: k.tip === 'kurum' ? '600' : '400' }}>{k.ad}</span>
+                      {cocukSayisi > 0 && <span style={{ fontSize: '0.7rem', color: '#94A3B8' }}>({cocukSayisi})</span>}
+                    </div>
+                  </td>
+                  <td style={s.td}>
+                    <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: tipBilgi.bg, color: tipBilgi.renk }}>
+                      {tipBilgi.etiket}
+                    </span>
+                  </td>
+                  <td style={s.td}>{k.email || '—'}</td>
+                  <td style={s.td}>
+                    <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: k.durum === 'aktif' ? '#D1FAE5' : '#FEE2E2', color: k.durum === 'aktif' ? '#065F46' : '#991B1B' }}>
+                      {k.durum}
+                    </span>
+                  </td>
+                  <td style={s.td}>
+                    <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+                      <button style={s.eylem} onClick={() => düzenleModalAc(k)}>Düzenle</button>
+                      {k.tip !== 'altKurum' && (
+                        <button style={{ ...s.eylem, color: '#0369A1', borderColor: '#BAE6FD' }} onClick={() => altEkleModalAc(k)}>
+                          + {k.tip === 'kurum' ? 'Kampüs' : 'Alt Kurum'}
+                        </button>
+                      )}
+                      <button style={{ ...s.eylem, color: k.durum === 'aktif' ? '#991B1B' : '#065F46' }} onClick={() => durumDegistir(k)}>
+                        {k.durum === 'aktif' ? 'Pasif' : 'Aktif'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
       {modal && (
-        <div style={s.overlay} onClick={e => e.target === e.currentTarget && modalKapat()}>
-          <div style={s.modalKart}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '1.5rem' }}>
-              {duzenlenen ? 'Kurumu Düzenle' : 'Yeni Kurum Ekle'}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+          onClick={e => e.target === e.currentTarget && modalKapat()}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.5rem' }}>
+              {duzenlenen ? 'Düzenle' : (form.tip === 'kampus' ? 'Yeni Kampüs Ekle' : form.tip === 'altKurum' ? 'Yeni Alt Kurum Ekle' : 'Yeni Kurum Ekle')}
             </h2>
+            {form.parentId && (
+              <p style={{ fontSize: '0.8rem', color: '#64748B', marginBottom: '1.25rem' }}>
+                Üst: <strong>{kurumlar.find(k => k.id === form.parentId)?.ad}</strong>
+              </p>
+            )}
             <form onSubmit={kaydet}>
               <div style={s.alan}>
-                <label style={s.etiket}>Kurum Adı *</label>
-                <input style={s.girdi} value={form.ad} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} placeholder="Örnek İlkokulu" autoFocus />
+                <label style={s.etiket}>Ad *</label>
+                <input style={s.girdi} value={form.ad} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} placeholder={form.tip === 'kampus' ? 'Mezitli Kampüsü' : form.tip === 'altKurum' ? 'İlkokul' : 'Kurum adı'} autoFocus />
               </div>
               <div style={s.alan}>
-                <label style={s.etiket}>E-posta *</label>
+                <label style={s.etiket}>E-posta</label>
                 <input style={s.girdi} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="okul@example.com" />
               </div>
               <div style={s.alan}>
@@ -136,7 +227,7 @@ export default function Kurumlar() {
               </div>
               <div style={s.alan}>
                 <label style={s.etiket}>Adres</label>
-                <textarea style={{ ...s.girdi, resize: 'vertical', minHeight: '70px' }} value={form.adres} onChange={e => setForm(f => ({ ...f, adres: e.target.value }))} placeholder="Kurum adresi..." />
+                <textarea style={{ ...s.girdi, resize: 'vertical', minHeight: '60px' }} value={form.adres} onChange={e => setForm(f => ({ ...f, adres: e.target.value }))} />
               </div>
               <div style={s.alan}>
                 <label style={s.etiket}>Durum</label>
