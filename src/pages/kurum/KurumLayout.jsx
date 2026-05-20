@@ -9,18 +9,30 @@ const menuler = [
   { yol: '/kurum/kullanicilar', etiket: 'Kullanıcılar', ikon: '👥' },
 ]
 
-const NBSP = ' ' // non-breaking space
-
-function tipOnek(tip) {
-  if (tip === 'kampus')   return NBSP.repeat(2) + '└ '
-  if (tip === 'altKurum') return NBSP.repeat(4) + '└ '
-  return ''
-}
-
 function KurumLayoutInner() {
   const { profil, cikisYap } = useAuth()
-  const { erisimKurumlar, secilenKurumId, secilenKurum, setSecilenKurumId } = useKurumYonetim()
+  const { erisimKurumlar, secilenKurumId, setSecilenKurumId } = useKurumYonetim()
   const navigate = useNavigate()
+
+  // Root kurum (parentId yok)
+  const rootKurum = erisimKurumlar.find(k => !k.parentId)
+
+  // Seçilebilir kurumlar: sadece kampüs ve alt kurumlar
+  const secilebilir = erisimKurumlar.filter(k => k.parentId)
+
+  // Seçili kurumun tam yolu: Gelecek Okulları - Mezitli Kampüsü - İlkokul
+  function tamYol(kurum) {
+    if (!kurum || !kurum.parentId) return kurum?.ad || ''
+    const ust = erisimKurumlar.find(k => k.id === kurum.parentId)
+    if (!ust || !ust.parentId) {
+      // Kampüs seviyesi: Root - Kampüs
+      return `${rootKurum?.ad || ''} - ${kurum.ad}`
+    }
+    // Alt kurum seviyesi: Root - Kampüs - AltKurum
+    return `${rootKurum?.ad || ''} - ${ust.ad} - ${kurum.ad}`
+  }
+
+  const secilenKurum = erisimKurumlar.find(k => k.id === secilenKurumId)
 
   async function handleCikis() {
     await cikisYap()
@@ -36,26 +48,42 @@ function KurumLayoutInner() {
         <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>📚 Okulmatik</div>
 
-          {erisimKurumlar.length > 1 ? (
+          {/* Root kurum adı — sabit */}
+          <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'rgba(255,255,255,0.85)', marginTop: '0.5rem' }}>
+            {rootKurum?.ad || '—'}
+          </div>
+
+          {/* Kampüs/Alt kurum seçici */}
+          {secilebilir.length > 0 && (
             <select
-              value={secilenKurumId || ''}
-              onChange={e => setSecilenKurumId(e.target.value)}
+              value={secilenKurumId && secilenKurum?.parentId ? secilenKurumId : ''}
+              onChange={e => setSecilenKurumId(e.target.value || rootKurum?.id)}
               style={{
-                marginTop: '0.625rem', width: '100%',
+                marginTop: '0.5rem', width: '100%',
                 background: 'rgba(255,255,255,0.12)', color: '#fff',
                 border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px',
-                padding: '0.375rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer',
+                padding: '0.375rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer',
               }}
             >
-              {erisimKurumlar.map(k => (
-                <option key={k.id} value={k.id} style={{ background: '#1B3A6B' }}>
-                  {tipOnek(k.tip)}{k.ad}
-                </option>
-              ))}
+              <option value="" style={{ background: '#1B3A6B' }}>— Kurum seçin —</option>
+              {secilebilir.map(k => {
+                const ust = erisimKurumlar.find(x => x.id === k.parentId)
+                const etiket = k.tip === 'altKurum' && ust
+                  ? `${ust.ad} - ${k.ad}`
+                  : k.ad
+                return (
+                  <option key={k.id} value={k.id} style={{ background: '#1B3A6B' }}>
+                    {etiket}
+                  </option>
+                )
+              })}
             </select>
-          ) : (
-            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {secilenKurum?.ad || 'Kurum Yönetimi'}
+          )}
+
+          {/* Seçili kurumun tam yolu */}
+          {secilenKurum?.parentId && (
+            <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginTop: '0.375rem', lineHeight: '1.3' }}>
+              {tamYol(secilenKurum)}
             </div>
           )}
         </div>
