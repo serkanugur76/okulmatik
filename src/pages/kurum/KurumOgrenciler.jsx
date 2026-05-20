@@ -9,7 +9,8 @@ import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 const BOŞ_FORM = { ad: '', soyad: '', ogrenciNo: '', sinifId: '', sinifAd: '', cinsiyet: '', dogumTarihi: '', veliadSoyad: '', veliTelefon: '' }
 
 export default function KurumOgrenciler() {
-  const { secilenKurumId: kurumId } = useKurumYonetim()
+  const { secilenKurumId: kurumId, secilenKurum } = useKurumYonetim()
+  const kurumSecilmedi = !secilenKurum?.parentId
   const [ogrenciler, setOgrenciler] = useState([])
   const [siniflar, setSiniflar]     = useState([])
   const [form, setForm]             = useState(BOŞ_FORM)
@@ -82,6 +83,16 @@ export default function KurumOgrenciler() {
     etiket: { fontSize: '0.875rem', fontWeight: '500', color: '#374151' },
     girdi: { padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', color: '#1E293B' },
   }
+
+  if (kurumSecilmedi) return (
+    <div>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Öğrenciler</h1>
+      <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Öğrenci kayıt ve yönetimi</p>
+      <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '12px', padding: '2rem', textAlign: 'center', color: '#92400E' }}>
+        ⬅ Sol menüden bir kampüs veya alt kurum seçin
+      </div>
+    </div>
+  )
 
   return (
     <div>
