@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc,
   doc, serverTimestamp, query, orderBy,
@@ -45,6 +46,7 @@ export default function KurumRubrikler() {
   const [sablonSecici,  setSablonSecici]  = useState(false)
   const [kaydediyor,    setKaydediyor]    = useState(false)
   const [hata,          setHata]          = useState('')
+  const xlsxRef = useRef()
 
   // Platform şablonları
   useEffect(() => {
@@ -207,6 +209,80 @@ export default function KurumRubrikler() {
     finally { setKaydediyor(false) }
   }
 
+  // ── Excel Şablon İndir ────────────────────────────────────
+  function sablonXlsxIndir() {
+    const header = ['Ana Başlık', 'Alt Kriter', 'Başlangıç (1 puan)', 'Gelişiyor (2 puan)', 'İyi (3 puan)', 'Mükemmel (4 puan)']
+    const ornek = [
+      ['Dijital Üretim', 'Araç Kullanımı', 'Araçları hiç kullanamıyor', 'Temel kullanım var', 'Araçları etkin kullanıyor', 'Yaratıcı ve özgün kullanım'],
+      ['Dijital Üretim', 'İçerik Kalitesi', 'İçerik yetersiz', 'Kısmen yeterli', 'Yeterli ve doğru içerik', 'Zengin ve özgün içerik'],
+      ['Tasarım', 'Tasarım Fikri', 'Fikir belirgin değil', 'Basit bir fikir var', 'İyi geliştirilmiş fikir', 'Özgün ve detaylı fikir'],
+      ['Tasarım', 'Model Doğruluğu', 'Model hatalı', 'Kısmen doğru', 'Büyük ölçüde doğru', 'Eksiksiz ve doğru model'],
+      ['Proje Geliştirme', 'Problem Tanımlama', 'Problem tanımlanamıyor', 'Problem kısmen tanımlanmış', 'Problem açıkça tanımlanmış', 'Kapsamlı ve analitik tanım'],
+      ['Proje Geliştirme', 'Çözüm Üretme', 'Çözüm önerilemiyor', 'Sınırlı çözüm', 'Uygulanabilir çözüm', 'Yaratıcı ve çok boyutlu çözüm'],
+    ]
+    const ws = XLSX.utils.aoa_to_sheet([header, ...ornek])
+    ws['!cols'] = [{ wch: 22 }, { wch: 24 }, { wch: 30 }, { wch: 30 }, { wch: 30 }, { wch: 30 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Rubrik Şablonu')
+    XLSX.writeFile(wb, 'rubrik_sablonu.xlsx')
+  }
+
+  // ── Excel'den Rubrik Yükle ────────────────────────────────
+  function rubrikXlsxOku(e) {
+    const dosya = e.target.files[0]; if (!dosya) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        const wb   = XLSX.read(ev.target.result, { type: 'array' })
+        const ws   = wb.Sheets[wb.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+        if (rows.length < 2) { alert('Dosyada veri bulunamadı.'); return }
+
+        const seviyeler_meta = rows[0].slice(2).map((h, i) => {
+          const ad  = h?.toString().trim() || `Seviye ${i + 1}`
+          const m   = ad.match(/\((\d+)\s*puan?\)/i) || ad.match(/\((\d+)\)/)
+          const puan = m ? parseInt(m[1]) : i + 1
+          return { ad: ad.replace(/\s*\(\d+\s*puan?\)/i, '').trim() || `Seviye ${i + 1}`, puan }
+        })
+
+        const gruplar = new Map()
+        const sira    = []
+        let sonAna    = ''
+        rows.slice(1).forEach(row => {
+          const anaAd = row[0]?.toString().trim() || sonAna
+          const altAd = row[1]?.toString().trim()
+          if (!altAd) return
+          if (anaAd) sonAna = anaAd
+          if (!gruplar.has(sonAna)) { gruplar.set(sonAna, []); sira.push(sonAna) }
+          const seviyeler = seviyeler_meta.map((sv, i) => ({
+            ad: sv.ad, puan: sv.puan,
+            aciklama: row[2 + i]?.toString().trim() || '',
+          }))
+          gruplar.get(sonAna).push({ altAd, seviyeler })
+        })
+
+        if (!sira.length) { alert('Rubrik yapısı okunamadı. Şablonu indirip formatı kontrol edin.'); return }
+
+        const kriterler = sira.map(anaAd => ({
+          id: 'k' + uid(),
+          ad: anaAd,
+          altKriterler: gruplar.get(anaAd).map(({ altAd, seviyeler }) => ({
+            id: 'ak' + uid(), ad: altAd, seviyeler,
+          })),
+        }))
+
+        const aciklar = {}; kriterler.forEach(k => { aciklar[k.id] = false })
+        setDuzenlenen(null)
+        setForm({ ad: dosya.name.replace(/\.xlsx?$/i, '').replace(/_/g, ' '), aciklama: '', kriterler })
+        setAcikAna(aciklar)
+        setAcikAlt({})
+        setHata('')
+        setModal(true)
+      } catch (err) { alert('Dosya okunamadı: ' + err.message) }
+    }
+    reader.readAsArrayBuffer(dosya); e.target.value = ''
+  }
+
   async function sil(rubrik) {
     if (!window.confirm(`"${rubrik.ad}" rubriğini silmek istediğinize emin misiniz?`)) return
     await deleteDoc(doc(db, 'kurumlar', hedefKurumId, 'rubrikler', rubrik.id))
@@ -241,13 +317,22 @@ export default function KurumRubrikler() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{rubrikler.length} rubrik</span>
-        <div style={{ display: 'flex', gap: '0.625rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {sablonlar.length > 0 && (
             <button onClick={() => setSablonSecici(true)}
-              style={{ padding: '0.6rem 1.25rem', background: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+              style={{ padding: '0.6rem 1.1rem', background: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
               📋 Şablondan Ekle
             </button>
           )}
+          <button onClick={sablonXlsxIndir}
+            style={{ padding: '0.6rem 1.1rem', background: '#F0FDF4', color: '#065F46', border: '1px solid #A7F3D0', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+            ⬇ Şablon İndir
+          </button>
+          <button onClick={() => xlsxRef.current?.click()}
+            style={{ padding: '0.6rem 1.1rem', background: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+            📥 Excel'den Yükle
+          </button>
+          <input ref={xlsxRef} type="file" accept=".xlsx,.xls" onChange={rubrikXlsxOku} style={{ display: 'none' }} />
           <button onClick={() => modalAc()}
             style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
             + Sıfırdan Oluştur
