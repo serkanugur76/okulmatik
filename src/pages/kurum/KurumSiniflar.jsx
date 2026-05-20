@@ -55,11 +55,13 @@ export default function KurumSiniflar() {
     if (sayimKurumlar.length === 0) { setSiniflarMap({}); return }
 
     const unsubs = sayimKurumlar.map(k => {
+      const kampus = erisimKurumlar.find(x => x.id === k.parentId)
+      const tamAd = kampus ? `${kampus.ad} · ${k.ad}` : k.ad
       const q = query(collection(db, 'kurumlar', k.id, 'siniflar'), orderBy('olusturmaTarihi', 'asc'))
       return onSnapshot(q, snap => {
         setSiniflarMap(prev => ({
           ...prev,
-          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, _kurumAd: k.ad, ...d.data() })),
+          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, _kurumAd: tamAd, ...d.data() })),
         }))
       })
     })
