@@ -46,9 +46,12 @@ export default function Kurumlar() {
     return onSnapshot(q, async snap => {
       const liste = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setKurumlar(liste)
-      const acikMap = {}
-      liste.forEach(k => { acikMap[k.id] = true })
-      setAcik(acikMap)
+      // Yeni eklenen kurumlar için varsayılan kapalı; mevcut açık/kapalı durumu koru
+      setAcik(prev => {
+        const guncellenen = { ...prev }
+        liste.forEach(k => { if (!(k.id in guncellenen)) guncellenen[k.id] = false })
+        return guncellenen
+      })
 
       // rootKurumId migrasyonu: eksik olan kurumları güncelle
       const eksikler = liste.filter(k => k.parentId && !k.rootKurumId)
