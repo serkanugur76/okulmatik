@@ -117,9 +117,11 @@ export default function KurumOgrenciler() {
             style={{ padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', width: '280px', color: '#1E293B' }} />
           <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{listKurumId ? `${liste.length} öğrenci` : 'Sol menüden kurum seçin'}</span>
         </div>
-        <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-          + Yeni Öğrenci
-        </button>
+        {listKurumId && (
+          <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+            + Yeni Öğrenci
+          </button>
+        )}
       </div>
 
       {listKurumId && (

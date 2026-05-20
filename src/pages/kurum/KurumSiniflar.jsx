@@ -88,9 +88,11 @@ export default function KurumSiniflar() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{listKurumId ? `${siniflar.length} sınıf` : 'Sol menüden kurum seçin'}</span>
-        <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-          + Yeni Sınıf
-        </button>
+        {listKurumId && (
+          <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+            + Yeni Sınıf
+          </button>
+        )}
       </div>
 
       {listKurumId && (
