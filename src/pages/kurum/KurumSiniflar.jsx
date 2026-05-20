@@ -4,12 +4,12 @@ import {
   doc, serverTimestamp, query, orderBy,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
-import { useAuth } from '../../contexts/AuthContext'
+import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
 const BOŞ_FORM = { ad: '', seviye: '', sube: '', ogretmenId: '' }
 
 export default function KurumSiniflar() {
-  const { kurumId } = useAuth()
+  const { secilenKurumId: kurumId } = useKurumYonetim()
   const [siniflar, setSiniflar]     = useState([])
   const [form, setForm]             = useState(BOŞ_FORM)
   const [modal, setModal]           = useState(false)

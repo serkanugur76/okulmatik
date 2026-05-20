@@ -4,7 +4,7 @@ import {
   query, orderBy,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
-import { useAuth } from '../../contexts/AuthContext'
+import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { davetEt, davetIptal } from '../../services/davetEt'
 
 const ROL_ETİKET = {
@@ -15,7 +15,7 @@ const ROL_ETİKET = {
 const BOŞ_FORM = { email: '', rol: 'ogretmen' }
 
 export default function KurumKullanicilar() {
-  const { kurumId } = useAuth()
+  const { secilenKurumId: kurumId } = useKurumYonetim()
   const [kullanicilar, setKullanicilar] = useState([])
   const [bekleyenler, setBekleyenler]   = useState([])
   const [googleAltyapisi, setGoogleAltyapisi] = useState(false)

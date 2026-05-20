@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getCountFromServer, doc, getDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
-import { useAuth } from '../../contexts/AuthContext'
+import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
 function IstatKart({ baslik, deger, ikon, renk }) {
   return (
@@ -25,7 +25,7 @@ function IstatKart({ baslik, deger, ikon, renk }) {
 }
 
 export default function KurumDashboard() {
-  const { kurumId } = useAuth()
+  const { secilenKurumId: kurumId, secilenKurum } = useKurumYonetim()
   const [kurum, setKurum]     = useState(null)
   const [sayilar, setSayilar] = useState({ siniflar: null, ogrenciler: null, kullanicilar: null })
 
@@ -51,7 +51,7 @@ export default function KurumDashboard() {
   return (
     <div>
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>
-        {kurum?.ad || 'Dashboard'}
+        {secilenKurum?.ad?.toUpperCase() || 'Dashboard'}
       </h1>
       <p style={{ color: '#64748B', marginBottom: '2rem', fontSize: '0.9rem' }}>
         Kurumunuza ait özet bilgiler

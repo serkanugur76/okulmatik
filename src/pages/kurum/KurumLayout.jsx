@@ -1,15 +1,19 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { KurumYonetimProvider, useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
 const menuler = [
-  { yol: '/kurum',              etiket: 'Dashboard',   ikon: '📊' },
-  { yol: '/kurum/siniflar',     etiket: 'Sınıflar',    ikon: '🏫' },
-  { yol: '/kurum/ogrenciler',   etiket: 'Öğrenciler',  ikon: '🎒' },
+  { yol: '/kurum',              etiket: 'Dashboard',    ikon: '📊' },
+  { yol: '/kurum/siniflar',     etiket: 'Sınıflar',     ikon: '🏫' },
+  { yol: '/kurum/ogrenciler',   etiket: 'Öğrenciler',   ikon: '🎒' },
   { yol: '/kurum/kullanicilar', etiket: 'Kullanıcılar', ikon: '👥' },
 ]
 
-export default function KurumLayout() {
+const TIP_GIRINTI = { kurum: 0, kampus: 12, altKurum: 24 }
+
+function KurumLayoutInner() {
   const { profil, cikisYap } = useAuth()
+  const { erisimKurumlar, secilenKurumId, secilenKurum, setSecilenKurumId } = useKurumYonetim()
   const navigate = useNavigate()
 
   async function handleCikis() {
@@ -25,9 +29,30 @@ export default function KurumLayout() {
       }}>
         <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>📚 Okulmatik</div>
-          <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', marginTop: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            Kurum Yönetimi
-          </div>
+
+          {/* Kurum seçici — birden fazla kurum varsa dropdown göster */}
+          {erisimKurumlar.length > 1 ? (
+            <select
+              value={secilenKurumId || ''}
+              onChange={e => setSecilenKurumId(e.target.value)}
+              style={{
+                marginTop: '0.625rem', width: '100%',
+                background: 'rgba(255,255,255,0.12)', color: '#fff',
+                border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px',
+                padding: '0.375rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer',
+              }}
+            >
+              {erisimKurumlar.map(k => (
+                <option key={k.id} value={k.id} style={{ background: '#1B3A6B', paddingLeft: `${TIP_GIRINTI[k.tip] || 0}px` }}>
+                  {k.tip === 'kampus' ? '  └ ' : k.tip === 'altKurum' ? '    └ ' : ''}{k.ad}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {secilenKurum?.ad || 'Kurum Yönetimi'}
+            </div>
+          )}
         </div>
 
         <nav style={{ flex: 1, padding: '1rem 0' }}>
@@ -70,5 +95,13 @@ export default function KurumLayout() {
         <Outlet />
       </main>
     </div>
+  )
+}
+
+export default function KurumLayout() {
+  return (
+    <KurumYonetimProvider>
+      <KurumLayoutInner />
+    </KurumYonetimProvider>
   )
 }
