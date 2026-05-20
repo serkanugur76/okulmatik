@@ -43,6 +43,7 @@ export default function KurumSiniflar() {
   })
 
   const [siniflarMap, setSiniflarMap] = useState({}) // { kurumId: sinif[] }
+  const [acikGruplar, setAcikGruplar] = useState({}) // { kurumId: bool }
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [modal, setModal]               = useState(false)
@@ -66,12 +67,17 @@ export default function KurumSiniflar() {
       })
     })
 
-    // Kaldırılan kurum varsa temizle
+    // Kaldırılan kurum varsa temizle; yeni gelenler varsayılan açık
     setSiniflarMap(prev => {
       const gecerliIdler = new Set(sayimKurumlar.map(k => k.id))
       const temizlenmis = {}
       Object.keys(prev).forEach(id => { if (gecerliIdler.has(id)) temizlenmis[id] = prev[id] })
       return temizlenmis
+    })
+    setAcikGruplar(prev => {
+      const guncellenen = { ...prev }
+      sayimKurumlar.forEach(k => { if (!(k.id in guncellenen)) guncellenen[k.id] = true })
+      return guncellenen
     })
 
     return () => unsubs.forEach(u => u())
@@ -170,37 +176,67 @@ export default function KurumSiniflar() {
       </div>
 
       {sayimKurumlar.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {cokluKurum && <th style={s.th}>Kurum</th>}
-                {['Sınıf Adı', 'Seviye', 'Şube', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {siniflar.length === 0 ? (
-                <tr><td colSpan={cokluKurum ? 5 : 4} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>
-                  Henüz sınıf eklenmemiş
-                </td></tr>
-              ) : siniflar.map(sinif => (
-                <tr key={`${sinif._kurumId}-${sinif.id}`}>
-                  {cokluKurum && (
-                    <td style={{ ...s.td, color: '#64748B', fontSize: '0.8rem' }}>{sinif._kurumAd}</td>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {sayimKurumlar
+            .slice()
+            .sort((a, b) => {
+              const ka = erisimKurumlar.find(x => x.id === a.parentId)
+              const kb = erisimKurumlar.find(x => x.id === b.parentId)
+              const kampusKarsi = (ka?.ad || '').localeCompare(kb?.ad || '', 'tr')
+              if (kampusKarsi !== 0) return kampusKarsi
+              return a.ad.localeCompare(b.ad, 'tr')
+            })
+            .map(k => {
+              const kampus = erisimKurumlar.find(x => x.id === k.parentId)
+              const grupSiniflar = (siniflarMap[k.id] || []).slice().sort((a, b) => {
+                const sev = (Number(a.seviye) || 0) - (Number(b.seviye) || 0)
+                if (sev !== 0) return sev
+                return (a.sube || '').localeCompare(b.sube || '', 'tr')
+              })
+              const acik = acikGruplar[k.id] !== false
+
+              return (
+                <div key={k.id} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+                  {/* Grup başlığı */}
+                  <div
+                    onClick={() => setAcikGruplar(prev => ({ ...prev, [k.id]: !acik }))}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1rem', background: '#F8FAFC', borderBottom: acik ? '1px solid #E2E8F0' : 'none', cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{acik ? '▼' : '▶'}</span>
+                    {kampus && <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: '500' }}>{kampus.ad}</span>}
+                    {kampus && <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>›</span>}
+                    <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B' }}>{k.ad}</span>
+                    <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>{grupSiniflar.length} sınıf</span>
+                  </div>
+
+                  {/* Sınıf tablosu */}
+                  {acik && (
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>{['Sınıf Adı', 'Seviye', 'Şube', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {grupSiniflar.length === 0 ? (
+                          <tr><td colSpan={4} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
+                        ) : grupSiniflar.map(sinif => (
+                          <tr key={sinif.id}>
+                            <td style={s.td}><strong>{sinif.ad}</strong></td>
+                            <td style={s.td}>{sinif.seviye || '—'}</td>
+                            <td style={s.td}>{sinif.sube || '—'}</td>
+                            <td style={s.td}>
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
+                                <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sinif)}>Sil</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
-                  <td style={s.td}><strong>{sinif.ad}</strong></td>
-                  <td style={s.td}>{sinif.seviye || '—'}</td>
-                  <td style={s.td}>{sinif.sube || '—'}</td>
-                  <td style={s.td}>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
-                      <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sinif)}>Sil</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </div>
+              )
+            })}
         </div>
       )}
 
