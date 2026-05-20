@@ -197,7 +197,7 @@ export default function KurumSiniflar() {
   }
 
   async function topluKaydet() {
-    if (!importSinif || importSatirlar.length === 0) return
+    if ((!importSinif && !importKurumId) || importSatirlar.length === 0) return
     setImporting(true)
     try {
       const batch = writeBatch(db)
