@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function kullaniciBilgisi() {
+      return get(/databases/$(database)/documents/kullanicilar/$(request.auth.uid)).data;
+    }
+    function platformAdmin() {
+      return kullaniciBilgisi().rol == 'platform_admin';
+    }
+    function kurumAdmin(kurumId) {
+      let k = kullaniciBilgisi();
+      return k.kurumId == kurumId && k.rol == 'kurum_admin';
+    }
+    function kurumUyesi(kurumId) {
+      return kullaniciBilgisi().kurumId == kurumId;
+    }
+
+    match /kullanicilar/{uid} {
+      allow read:  if request.auth.uid == uid || platformAdmin();
+      allow write: if request.auth.uid == uid;
+    }
+    match /platform/kurumlar/{kurumId} {
+      allow read:  if platformAdmin() || kurumAdmin(kurumId);
+      allow write: if platformAdmin();
+    }
+    match /kurumlar/{kurumId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow write: if kurumAdmin(kurumId) || platformAdmin();
+    }
+    match /kurumlar/{kurumId}/siniflar/{sinifId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow write: if kurumAdmin(kurumId) || platformAdmin();
+    }
+    match /kurumlar/{kurumId}/ogrenciler/{ogrenciId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow write: if kurumAdmin(kurumId) || platformAdmin();
+    }
+    match /kurumlar/{kurumId}/moduller/{modulId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow write: if kurumAdmin(kurumId) || platformAdmin();
+    }
+    match /kurumlar/{kurumId}/rubrikler/{rubrikId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow write: if kurumAdmin(kurumId) || platformAdmin();
+    }
+    match /kurumlar/{kurumId}/puanlar/{kayitId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow create: if kurumUyesi(kurumId) || platformAdmin();
+      allow update: if kurumUyesi(kurumId) || platformAdmin();
+    }
+    match /kurumlar/{kurumId}/yorumlar/{yorumId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow write: if kurumUyesi(kurumId) || platformAdmin();
+    }
+    match /kurumlar/{kurumId}/raporlar/{raporId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow write: if kurumAdmin(kurumId) || platformAdmin();
+    }
+    match /kurumlar/{kurumId}/kullanicilar/{uid} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow write: if kurumAdmin(kurumId) || platformAdmin();
+    }
+  }
+}

@@ -1,0 +1,22 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Arial, sans-serif;
+  background: #F1F5F9;
+  color: #1E293B;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #1B3A6B !important;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(27,58,107,0.12);
+}
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+.yukleniyor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-size: 1rem;
+  color: #64748B;
+}
