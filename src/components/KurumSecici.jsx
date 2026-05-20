@@ -23,6 +23,8 @@ export default function KurumSecici({ value, onChange, kurumlar, style }) {
   )
 }
 
+const SP = ' '
+
 function hiyerarsiOlustur(liste) {
   const map = {}
   liste.forEach(k => { map[k.id] = { ...k, cocuklar: [] } })
@@ -33,8 +35,8 @@ function hiyerarsiOlustur(liste) {
   })
   const sonuc = []
   function gez(dugum, derinlik) {
-    const onEkler = ['', '  ↳ ', '    ↳ ']
-    sonuc.push({ id: dugum.id, ad: dugum.ad, onEk: onEkler[derinlik] || '    ↳ ' })
+    const onEk = derinlik === 0 ? '' : SP.repeat(derinlik * 3) + '↳' + SP
+    sonuc.push({ id: dugum.id, ad: dugum.ad, onEk })
     dugum.cocuklar.forEach(c => gez(c, derinlik + 1))
   }
   kokler.forEach(k => gez(k, 0))
