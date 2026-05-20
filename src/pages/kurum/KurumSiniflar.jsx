@@ -77,8 +77,16 @@ export default function KurumSiniflar() {
     return () => unsubs.forEach(u => u())
   }, [sayimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
 
-  // Düz liste (kurum adı ile)
-  const siniflar = sayimKurumlar.flatMap(k => siniflarMap[k.id] || [])
+  // Düz liste: kampüs → seviye → şube sıralaması
+  const siniflar = sayimKurumlar
+    .flatMap(k => siniflarMap[k.id] || [])
+    .sort((a, b) => {
+      const kurum = a._kurumAd.localeCompare(b._kurumAd, 'tr')
+      if (kurum !== 0) return kurum
+      const sev = (Number(a.seviye) || 0) - (Number(b.seviye) || 0)
+      if (sev !== 0) return sev
+      return (a.sube || '').localeCompare(b.sube || '', 'tr')
+    })
 
   function modalAc(sinif = null) {
     setDuzenlenen(sinif)
