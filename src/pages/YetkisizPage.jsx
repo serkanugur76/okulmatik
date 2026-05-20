@@ -1,6 +1,10 @@
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 export default function YetkisizPage() {
-  const { cikisYap, kullanici } = useAuth()
+  const { cikisYap, kullanici, profil } = useAuth()
+
+  const hedef = { platform_admin: '/platform', kurum_admin: '/kurum', ogretmen: '/ogretmen' }
+  if (profil?.rol && hedef[profil.rol]) return <Navigate to={hedef[profil.rol]} replace />
   return (
     <div style={{ padding:'2rem', fontFamily:'Arial', textAlign:'center' }}>
       <h2 style={{ color:'#991B1B' }}>Erişim Yetkisi Yok</h2>

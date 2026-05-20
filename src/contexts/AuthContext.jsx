@@ -19,8 +19,14 @@ export function AuthProvider({ children }) {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setKullanici(user)
-        const snap = await getDoc(doc(db, 'kullanicilar', user.uid))
-        setProfil(snap.exists() ? snap.data() : null)
+        try {
+          const snap = await getDoc(doc(db, 'kullanicilar', user.uid))
+          console.log('UID:', user.uid, '| exists:', snap.exists(), '| data:', snap.data())
+          setProfil(snap.exists() ? snap.data() : null)
+        } catch (err) {
+          console.error('Firestore okuma hatası:', err)
+          setProfil(null)
+        }
       } else {
         setKullanici(null)
         setProfil(null)
