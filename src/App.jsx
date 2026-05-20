@@ -1,13 +1,17 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import GirisPage              from './pages/GirisPage'
-import KurumAdminPage         from './pages/KurumAdminPage'
 import OgretmenPage           from './pages/OgretmenPage'
 import YetkisizPage           from './pages/YetkisizPage'
 import PlatformLayout         from './pages/platform/PlatformLayout'
 import Dashboard              from './pages/platform/Dashboard'
 import Kurumlar               from './pages/platform/Kurumlar'
 import PlatformKullanicilar   from './pages/platform/PlatformKullanicilar'
+import KurumLayout            from './pages/kurum/KurumLayout'
+import KurumDashboard         from './pages/kurum/KurumDashboard'
+import KurumSiniflar          from './pages/kurum/KurumSiniflar'
+import KurumOgrenciler        from './pages/kurum/KurumOgrenciler'
+import KurumKullanicilar      from './pages/kurum/KurumKullanicilar'
 
 function KorunanRoute({ izinliRoller, children }) {
   const { kullanici, profil, yukleniyor } = useAuth()
@@ -47,11 +51,16 @@ export default function App() {
             <Route path="kurumlar"    element={<Kurumlar />} />
             <Route path="kullanicilar" element={<PlatformKullanicilar />} />
           </Route>
-          <Route path="/kurum/*" element={
+          <Route path="/kurum" element={
             <KorunanRoute izinliRoller={['kurum_admin']}>
-              <KurumAdminPage />
+              <KurumLayout />
             </KorunanRoute>
-          }/>
+          }>
+            <Route index element={<KurumDashboard />} />
+            <Route path="siniflar"     element={<KurumSiniflar />} />
+            <Route path="ogrenciler"   element={<KurumOgrenciler />} />
+            <Route path="kullanicilar" element={<KurumKullanicilar />} />
+          </Route>
           <Route path="/ogretmen/*" element={
             <KorunanRoute izinliRoller={['ogretmen']}>
               <OgretmenPage />
