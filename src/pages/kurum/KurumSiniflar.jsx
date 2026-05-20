@@ -76,7 +76,7 @@ export default function KurumSiniflar() {
     })
     setAcikGruplar(prev => {
       const guncellenen = { ...prev }
-      sayimKurumlar.forEach(k => { if (!(k.id in guncellenen)) guncellenen[k.id] = true })
+      sayimKurumlar.forEach(k => { if (!(k.id in guncellenen)) guncellenen[k.id] = false })
       return guncellenen
     })
 
