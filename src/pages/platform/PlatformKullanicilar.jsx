@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
-import { kullaniciOlustur } from '../../services/kullaniciOlustur'
+import { kullaniciOlustur, profilOlustur } from '../../services/kullaniciOlustur'
 import KurumSecici from '../../components/KurumSecici'
 
 const ROL_ETİKET = {
@@ -21,6 +21,8 @@ export default function PlatformKullanicilar() {
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [kaydediyor, setKaydediyor]     = useState(false)
   const [hata, setHata]                 = useState('')
+  const [uidModu, setUidModu]           = useState(false)
+  const [manuelUid, setManuelUid]       = useState('')
 
   useEffect(() => {
     const q1 = query(collection(db, 'kullanicilar'), orderBy('email'))
@@ -39,6 +41,8 @@ export default function PlatformKullanicilar() {
     setDuzenlenen(null)
     setForm(BOŞ_FORM)
     setHata('')
+    setUidModu(false)
+    setManuelUid('')
     setModal(true)
   }
 
@@ -62,6 +66,12 @@ export default function PlatformKullanicilar() {
         await updateDoc(doc(db, 'kullanicilar', duzenlenen.id), {
           ad: form.ad, rol: form.rol, kurumId: form.kurumId || null,
         })
+      } else if (uidModu) {
+        if (!manuelUid.trim()) { setHata('UID zorunludur.'); setKaydediyor(false); return }
+        await profilOlustur({
+          uid: manuelUid.trim(), ad: form.ad, email: form.email,
+          rol: form.rol, kurumId: form.kurumId || null,
+        })
       } else {
         await kullaniciOlustur({
           ad: form.ad, email: form.email, sifre: form.sifre,
@@ -70,12 +80,16 @@ export default function PlatformKullanicilar() {
       }
       modalKapat()
     } catch (err) {
-      const mesajlar = {
-        'auth/email-already-in-use': 'Bu e-posta zaten kullanımda.',
-        'auth/invalid-email':        'Geçersiz e-posta adresi.',
-        'auth/weak-password':        'Şifre çok zayıf.',
+      if (err.code === 'auth/email-already-in-use') {
+        setUidModu(true)
+        setHata('Bu e-posta Firebase\'de zaten mevcut. Firebase Console → Authentication\'dan UID\'yi kopyalayıp aşağıya girin.')
+      } else {
+        const mesajlar = {
+          'auth/invalid-email':  'Geçersiz e-posta adresi.',
+          'auth/weak-password':  'Şifre çok zayıf.',
+        }
+        setHata(mesajlar[err.code] || err.message)
       }
-      setHata(mesajlar[err.code] || err.message)
     } finally {
       setKaydediyor(false)
     }
@@ -184,6 +198,14 @@ export default function PlatformKullanicilar() {
                     kurumlar={kurumlar}
                     style={s.girdi}
                   />
+                </div>
+              )}
+              {uidModu && (
+                <div style={s.alan}>
+                  <label style={s.etiket}>Firebase UID *</label>
+                  <input style={{ ...s.girdi, fontFamily: 'monospace', fontSize: '0.8rem' }}
+                    value={manuelUid} onChange={e => setManuelUid(e.target.value)}
+                    placeholder="Örn: 3POG8Fc6x3fUHcqs0rDOCJ0ji5X2" autoFocus />
                 </div>
               )}
               {hata && <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{hata}</p>}

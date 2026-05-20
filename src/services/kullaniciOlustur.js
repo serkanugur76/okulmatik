@@ -13,6 +13,23 @@ const firebaseConfig = {
 }
 
 /**
+ * Firebase Auth'ta zaten var olan bir kullanıcı için sadece Firestore profili oluşturur.
+ */
+export async function profilOlustur({ uid, ad, email, rol, kurumId = null }) {
+  await setDoc(doc(db, 'kullanicilar', uid), {
+    ad, email, rol, kurumId,
+    olusturmaTarihi: serverTimestamp(),
+  })
+  if (kurumId) {
+    await setDoc(doc(db, 'kurumlar', kurumId, 'kullanicilar', uid), {
+      ad, email, rol, kurumId, durum: 'aktif',
+      olusturmaTarihi: serverTimestamp(),
+    })
+  }
+  return { uid }
+}
+
+/**
  * Mevcut admin oturumunu bozmadan yeni bir Firebase Auth kullanıcısı oluşturur
  * ve Firestore'a profil kaydeder.
  */
