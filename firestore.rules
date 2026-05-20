@@ -69,6 +69,11 @@ service cloud.firestore {
       allow create: if kurumUyesi(kurumId) || platformAdmin();
       allow update: if kurumUyesi(kurumId) || platformAdmin();
     }
+    match /kurumlar/{kurumId}/degerlendirmeler/{kayitId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow create: if kurumUyesi(kurumId) || platformAdmin();
+      allow update: if kurumUyesi(kurumId) || platformAdmin();
+    }
     match /kurumlar/{kurumId}/yorumlar/{yorumId} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin();
       allow write: if kurumUyesi(kurumId) || platformAdmin();

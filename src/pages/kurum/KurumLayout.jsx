@@ -3,11 +3,12 @@ import { useAuth } from '../../contexts/AuthContext'
 import { KurumYonetimProvider, useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
 const menuler = [
-  { yol: '/kurum',              etiket: 'Dashboard',    ikon: '📊' },
-  { yol: '/kurum/siniflar',     etiket: 'Sınıflar',     ikon: '🏫' },
-  { yol: '/kurum/ogrenciler',   etiket: 'Öğrenciler',   ikon: '🎒' },
-  { yol: '/kurum/kullanicilar', etiket: 'Kullanıcılar', ikon: '👥' },
-  { yol: '/kurum/rubrikler',    etiket: 'Rubrikler',    ikon: '📋' },
+  { yol: '/kurum',                   etiket: 'Dashboard',       ikon: '📊' },
+  { yol: '/kurum/siniflar',          etiket: 'Sınıflar',        ikon: '🏫' },
+  { yol: '/kurum/ogrenciler',        etiket: 'Öğrenciler',      ikon: '🎒' },
+  { yol: '/kurum/kullanicilar',      etiket: 'Kullanıcılar',    ikon: '👥' },
+  { yol: '/kurum/rubrikler',         etiket: 'Rubrikler',       ikon: '📋' },
+  { yol: '/kurum/degerlendirmeler',  etiket: 'Değerlendirmeler',ikon: '📝' },
 ]
 
 function KurumLayoutInner() {
