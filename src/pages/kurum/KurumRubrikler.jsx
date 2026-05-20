@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc,
   doc, serverTimestamp, query, orderBy,
@@ -12,32 +12,39 @@ const VARSAYILAN_SEVİYELER = [
   { ad: 'İyi',       puan: 3, aciklama: '' },
   { ad: 'Mükemmel',  puan: 4, aciklama: '' },
 ]
-
-function yeniKriter() {
-  return { id: 'k' + Date.now() + Math.random().toString(36).slice(2), ad: '', seviyeler: VARSAYILAN_SEVİYELER.map(s => ({ ...s })) }
-}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
+const yeniAltKriter = () => ({ id: 'ak' + uid(), ad: '', seviyeler: VARSAYILAN_SEVİYELER.map(s => ({ ...s })) })
+const yeniAnaKriter = () => { const ak = yeniAltKriter(); return { id: 'k' + uid(), ad: '', altKriterler: [ak] } }
 
 const BOŞ_FORM = { ad: '', aciklama: '', kriterler: [] }
+
+function toplamAltKriter(kriterler) {
+  return (kriterler || []).reduce((t, k) => t + (k.altKriterler?.length || 0), 0)
+}
+function toplamMaksPuan(kriterler) {
+  return (kriterler || []).reduce((t, k) =>
+    t + (k.altKriterler || []).reduce((tt, ak) =>
+      tt + Math.max(...(ak.seviyeler || []).map(s => s.puan || 0), 0), 0), 0)
+}
 
 export default function KurumRubrikler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
 
-  const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
+  const ust    = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
-
-  // Hangi alt kurumun rubriklerini yönetiyoruz?
   const hedefKurumId = seviye === 'altKurum' ? secilenKurumId : null
 
-  const [rubrikler, setRubrikler]         = useState([])
-  const [sablonlar, setSablonlar]         = useState([])  // platform şablonları
-  const [modal, setModal]                 = useState(false)
-  const [duzenlenen, setDuzenlenen]       = useState(null)
-  const [form, setForm]                   = useState(BOŞ_FORM)
-  const [acikKriterler, setAcikKriterler] = useState({})
-  const [onizleme, setOnizleme]           = useState(null)
-  const [sablonSecici, setSablonSecici]   = useState(false)  // şablon seçici modal
-  const [kaydediyor, setKaydediyor]       = useState(false)
-  const [hata, setHata]                   = useState('')
+  const [rubrikler,     setRubrikler]     = useState([])
+  const [sablonlar,     setSablonlar]     = useState([])
+  const [modal,         setModal]         = useState(false)
+  const [duzenlenen,    setDuzenlenen]    = useState(null)
+  const [form,          setForm]          = useState(BOŞ_FORM)
+  const [acikAna,       setAcikAna]       = useState({})
+  const [acikAlt,       setAcikAlt]       = useState({})
+  const [onizleme,      setOnizleme]      = useState(null)
+  const [sablonSecici,  setSablonSecici]  = useState(false)
+  const [kaydediyor,    setKaydediyor]    = useState(false)
+  const [hata,          setHata]          = useState('')
 
   // Platform şablonları
   useEffect(() => {
@@ -56,66 +63,117 @@ export default function KurumRubrikler() {
   function modalAc(rubrik = null) {
     setDuzenlenen(rubrik)
     if (rubrik) {
-      setForm({ ad: rubrik.ad, aciklama: rubrik.aciklama || '', kriterler: rubrik.kriterler.map(k => ({ ...k, seviyeler: k.seviyeler.map(s => ({ ...s })) })) })
-      const a = {}; rubrik.kriterler.forEach(k => { a[k.id] = false }); setAcikKriterler(a)
+      setForm({
+        ad: rubrik.ad, aciklama: rubrik.aciklama || '',
+        kriterler: (rubrik.kriterler || []).map(k => ({
+          ...k,
+          altKriterler: (k.altKriterler || []).map(ak => ({
+            ...ak, seviyeler: (ak.seviyeler || []).map(s => ({ ...s })),
+          })),
+        })),
+      })
+      const a = {}; rubrik.kriterler?.forEach(k => { a[k.id] = false }); setAcikAna(a)
     } else {
-      const ilk = yeniKriter()
+      const ilk = yeniAnaKriter()
       setForm({ ...BOŞ_FORM, kriterler: [ilk] })
-      setAcikKriterler({ [ilk.id]: true })
+      setAcikAna({ [ilk.id]: true })
+      setAcikAlt({ [ilk.altKriterler[0].id]: true })
     }
     setHata(''); setModal(true)
   }
   function modalKapat() { setModal(false); setDuzenlenen(null) }
 
-  // Şablondan kopyala
+  // Şablondan kopyala — yeni ID'ler üret
   function sablondanKopyala(sablon) {
-    const kriterler = sablon.kriterler.map(k => ({
+    const kriterler = (sablon.kriterler || []).map(k => ({
       ...k,
-      id: 'k' + Date.now() + Math.random().toString(36).slice(2),
-      seviyeler: k.seviyeler.map(s => ({ ...s })),
+      id: 'k' + uid(),
+      altKriterler: (k.altKriterler || []).map(ak => ({
+        ...ak,
+        id: 'ak' + uid(),
+        seviyeler: (ak.seviyeler || []).map(s => ({ ...s })),
+      })),
     }))
     setForm({ ad: sablon.ad, aciklama: sablon.aciklama || '', kriterler })
-    const a = {}; kriterler.forEach(k => { a[k.id] = false }); setAcikKriterler(a)
-    setSablonSecici(false); setModal(true)
+    const a = {}; kriterler.forEach(k => { a[k.id] = false }); setAcikAna(a)
+    setSablonSecici(false)
+    setHata(''); setModal(true)
   }
 
-  // ── Kriter yönetimi ──────────────────────────────────────
-  function kriterEkle() {
-    const k = yeniKriter()
+  // ── Ana Kriter ───────────────────────────────────────────
+  function anaEkle() {
+    const k = yeniAnaKriter()
     setForm(f => ({ ...f, kriterler: [...f.kriterler, k] }))
-    setAcikKriterler(a => ({ ...a, [k.id]: true }))
+    setAcikAna(a => ({ ...a, [k.id]: true }))
+    setAcikAlt(a => ({ ...a, [k.altKriterler[0].id]: true }))
   }
-  function kriterSil(id) { setForm(f => ({ ...f, kriterler: f.kriterler.filter(k => k.id !== id) })) }
-  function kriterAdGuncelle(id, val) { setForm(f => ({ ...f, kriterler: f.kriterler.map(k => k.id === id ? { ...k, ad: val } : k) })) }
-  function kriterToggle(id) { setAcikKriterler(a => ({ ...a, [id]: !a[id] })) }
+  function anaSil(id) { setForm(f => ({ ...f, kriterler: f.kriterler.filter(k => k.id !== id) })) }
+  function anaAdGuncelle(id, val) {
+    setForm(f => ({ ...f, kriterler: f.kriterler.map(k => k.id === id ? { ...k, ad: val } : k) }))
+  }
 
-  // ── Seviye yönetimi ──────────────────────────────────────
-  function seviyeGuncelle(kId, idx, alan, val) {
+  // ── Alt Kriter ───────────────────────────────────────────
+  function altEkle(kId) {
+    const ak = yeniAltKriter()
     setForm(f => ({
       ...f,
-      kriterler: f.kriterler.map(k => {
-        if (k.id !== kId) return k
-        const seviyeler = k.seviyeler.map((s, i) => i === idx ? { ...s, [alan]: alan === 'puan' ? Number(val) : val } : s)
-        return { ...k, seviyeler }
+      kriterler: f.kriterler.map(k => k.id === kId ? { ...k, altKriterler: [...k.altKriterler, ak] } : k),
+    }))
+    setAcikAlt(a => ({ ...a, [ak.id]: true }))
+  }
+  function altSil(kId, akId) {
+    setForm(f => ({
+      ...f,
+      kriterler: f.kriterler.map(k => k.id !== kId ? k : {
+        ...k, altKriterler: k.altKriterler.filter(ak => ak.id !== akId),
       }),
     }))
   }
-  function seviyeEkle(kId) {
+  function altAdGuncelle(kId, akId, val) {
     setForm(f => ({
       ...f,
-      kriterler: f.kriterler.map(k => {
-        if (k.id !== kId) return k
-        const maxP = Math.max(...k.seviyeler.map(s => s.puan || 0), 0)
-        return { ...k, seviyeler: [...k.seviyeler, { ad: '', puan: maxP + 1, aciklama: '' }] }
+      kriterler: f.kriterler.map(k => k.id !== kId ? k : {
+        ...k, altKriterler: k.altKriterler.map(ak => ak.id === akId ? { ...ak, ad: val } : ak),
       }),
     }))
   }
-  function seviyeSil(kId, idx) {
+
+  // ── Seviye ───────────────────────────────────────────────
+  function seviyeGuncelle(kId, akId, idx, alan, val) {
     setForm(f => ({
       ...f,
-      kriterler: f.kriterler.map(k => {
-        if (k.id !== kId) return k
-        return { ...k, seviyeler: k.seviyeler.filter((_, i) => i !== idx) }
+      kriterler: f.kriterler.map(k => k.id !== kId ? k : {
+        ...k,
+        altKriterler: k.altKriterler.map(ak => ak.id !== akId ? ak : {
+          ...ak,
+          seviyeler: ak.seviyeler.map((s, i) =>
+            i === idx ? { ...s, [alan]: alan === 'puan' ? Number(val) : val } : s),
+        }),
+      }),
+    }))
+  }
+  function seviyeEkle(kId, akId) {
+    setForm(f => ({
+      ...f,
+      kriterler: f.kriterler.map(k => k.id !== kId ? k : {
+        ...k,
+        altKriterler: k.altKriterler.map(ak => ak.id !== akId ? ak : {
+          ...ak,
+          seviyeler: [...ak.seviyeler, {
+            ad: '', puan: Math.max(...ak.seviyeler.map(s => s.puan || 0), 0) + 1, aciklama: '',
+          }],
+        }),
+      }),
+    }))
+  }
+  function seviyeSil(kId, akId, idx) {
+    setForm(f => ({
+      ...f,
+      kriterler: f.kriterler.map(k => k.id !== kId ? k : {
+        ...k,
+        altKriterler: k.altKriterler.map(ak => ak.id !== akId ? ak : {
+          ...ak, seviyeler: ak.seviyeler.filter((_, i) => i !== idx),
+        }),
       }),
     }))
   }
@@ -125,10 +183,14 @@ export default function KurumRubrikler() {
     e.preventDefault()
     if (!hedefKurumId) { setHata('Lütfen bir alt kurum seçin.'); return }
     if (!form.ad.trim()) { setHata('Rubrik adı zorunludur.'); return }
-    if (form.kriterler.length === 0) { setHata('En az bir kriter ekleyin.'); return }
+    if (!form.kriterler.length) { setHata('En az bir ana başlık ekleyin.'); return }
     for (const k of form.kriterler) {
-      if (!k.ad.trim()) { setHata('Tüm kriterlere ad verilmelidir.'); return }
-      if (k.seviyeler.length < 2) { setHata(`"${k.ad || 'Kriter'}" için en az 2 seviye gerekli.`); return }
+      if (!k.ad.trim()) { setHata('Tüm ana başlıklara ad verilmelidir.'); return }
+      if (!k.altKriterler?.length) { setHata(`"${k.ad || 'Başlık'}" altına en az bir kriter ekleyin.`); return }
+      for (const ak of k.altKriterler) {
+        if (!ak.ad.trim()) { setHata('Tüm alt kriterlere ad verilmelidir.'); return }
+        if ((ak.seviyeler?.length || 0) < 2) { setHata(`"${ak.ad}" için en az 2 seviye gerekli.`); return }
+      }
     }
     setKaydediyor(true)
     try {
@@ -136,7 +198,9 @@ export default function KurumRubrikler() {
       if (duzenlenen) {
         await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'rubrikler', duzenlenen.id), veri)
       } else {
-        await addDoc(collection(db, 'kurumlar', hedefKurumId, 'rubrikler'), { ...veri, olusturmaTarihi: serverTimestamp() })
+        await addDoc(collection(db, 'kurumlar', hedefKurumId, 'rubrikler'), {
+          ...veri, olusturmaTarihi: serverTimestamp(),
+        })
       }
       modalKapat()
     } catch (err) { setHata('Kayıt hatası: ' + err.message) }
@@ -148,8 +212,7 @@ export default function KurumRubrikler() {
     await deleteDoc(doc(db, 'kurumlar', hedefKurumId, 'rubrikler', rubrik.id))
   }
 
-  const maxPuan = (kriterler) => kriterler.reduce((t, k) => t + Math.max(...k.seviyeler.map(s => s.puan || 0), 0), 0)
-
+  // ── Stiller ──────────────────────────────────────────────
   const s = {
     th:     { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
     td:     { padding: '0.875rem 1rem', fontSize: '0.875rem', color: '#1E293B', borderBottom: '1px solid #F1F5F9' },
@@ -159,17 +222,15 @@ export default function KurumRubrikler() {
     girdi:  { padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', color: '#1E293B', width: '100%', boxSizing: 'border-box' },
   }
 
-  if (!hedefKurumId) {
-    return (
-      <div>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Rubrikler</h1>
-        <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Değerlendirme rubriklerini yönetin</p>
-        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
-          Rubrik yönetimi için sol menüden bir alt kurum seçin
-        </div>
+  if (!hedefKurumId) return (
+    <div>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Rubrikler</h1>
+      <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Değerlendirme rubriklerini yönetin</p>
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
+        Rubrik yönetimi için sol menüden bir alt kurum seçin
       </div>
-    )
-  }
+    </div>
+  )
 
   return (
     <div>
@@ -194,12 +255,12 @@ export default function KurumRubrikler() {
         </div>
       </div>
 
-      {/* Rubrik listesi */}
+      {/* Rubrik Listesi */}
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['Rubrik Adı', 'Kriter', 'Maks. Puan', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}
+              {['Rubrik Adı', 'Yapı', 'Maks. Puan', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -212,12 +273,15 @@ export default function KurumRubrikler() {
                   {r.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>{r.aciklama}</div>}
                 </td>
                 <td style={s.td}>
-                  <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>
-                    {r.kriterler?.length || 0} kriter
+                  <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', marginRight: '4px' }}>
+                    {r.kriterler?.length || 0} başlık
+                  </span>
+                  <span style={{ background: '#F0FDF4', color: '#065F46', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>
+                    {toplamAltKriter(r.kriterler)} kriter
                   </span>
                 </td>
                 <td style={s.td}>
-                  <span style={{ fontWeight: '700', color: '#1B3A6B' }}>{maxPuan(r.kriterler || [])}</span>
+                  <span style={{ fontWeight: '700', color: '#1B3A6B' }}>{toplamMaksPuan(r.kriterler)}</span>
                   <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}> puan</span>
                 </td>
                 <td style={s.td}>
@@ -243,17 +307,20 @@ export default function KurumRubrikler() {
               <button onClick={() => setSablonSecici(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: '#94A3B8' }}>✕</button>
             </div>
             <div style={{ overflowY: 'auto', padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              {sablonlar.map(s => (
-                <div key={s.id}
-                  onClick={() => sablondanKopyala(s)}
+              {sablonlar.map(sb => (
+                <div key={sb.id} onClick={() => sablondanKopyala(sb)}
                   style={{ border: '1.5px solid #E2E8F0', borderRadius: '10px', padding: '0.875rem 1rem', cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s' }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = '#818CF8'; e.currentTarget.style.background = '#F5F3FF' }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.background = '#fff' }}>
-                  <div style={{ fontWeight: '600', color: '#1E293B', marginBottom: '2px' }}>{s.ad}</div>
-                  {s.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{s.aciklama}</div>}
+                  <div style={{ fontWeight: '600', color: '#1E293B', marginBottom: '2px' }}>{sb.ad}</div>
+                  {sb.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{sb.aciklama}</div>}
                   <div style={{ marginTop: '0.375rem', display: 'flex', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.7rem', background: '#EEF2FF', color: '#4338CA', padding: '1px 7px', borderRadius: '999px', fontWeight: '600' }}>{s.kriterler?.length} kriter</span>
-                    <span style={{ fontSize: '0.7rem', background: '#F0FDF4', color: '#065F46', padding: '1px 7px', borderRadius: '999px', fontWeight: '600' }}>maks {maxPuan(s.kriterler || [])} puan</span>
+                    <span style={{ fontSize: '0.7rem', background: '#EEF2FF', color: '#4338CA', padding: '1px 7px', borderRadius: '999px', fontWeight: '600' }}>
+                      {sb.kriterler?.length} başlık · {toplamAltKriter(sb.kriterler)} kriter
+                    </span>
+                    <span style={{ fontSize: '0.7rem', background: '#F0FDF4', color: '#065F46', padding: '1px 7px', borderRadius: '999px', fontWeight: '600' }}>
+                      maks {toplamMaksPuan(sb.kriterler)} puan
+                    </span>
                   </div>
                 </div>
               ))}
@@ -266,76 +333,143 @@ export default function KurumRubrikler() {
       {modal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, overflowY: 'auto', padding: '2rem 1rem' }}
           onClick={e => e.target === e.currentTarget && modalKapat()}>
-          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '720px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '760px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
             <div style={{ padding: '1.5rem 1.75rem 0' }}>
               <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>
                 {duzenlenen ? 'Rubriği Düzenle' : 'Yeni Rubrik'}
               </h2>
-              <p style={{ fontSize: '0.825rem', color: '#94A3B8', marginBottom: '1.25rem' }}>Kriterleri ve değerlendirme seviyelerini belirleyin</p>
+              <p style={{ fontSize: '0.825rem', color: '#94A3B8', marginBottom: '1.25rem' }}>
+                Ana başlıklar altında alt kriterler tanımlayın
+              </p>
             </div>
             <form onSubmit={kaydet}>
               <div style={{ padding: '0 1.75rem' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
                   <div style={s.alan}>
                     <label style={s.etiket}>Rubrik Adı *</label>
-                    <input style={s.girdi} value={form.ad} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} placeholder="Yazılı Anlatım Rubriği" autoFocus />
+                    <input style={s.girdi} value={form.ad}
+                      onChange={e => setForm(f => ({ ...f, ad: e.target.value }))}
+                      placeholder="Bilişim Teknolojileri Rubriği" autoFocus />
                   </div>
                   <div style={s.alan}>
                     <label style={s.etiket}>Açıklama</label>
-                    <input style={s.girdi} value={form.aciklama} onChange={e => setForm(f => ({ ...f, aciklama: e.target.value }))} placeholder="Kısa açıklama (isteğe bağlı)" />
+                    <input style={s.girdi} value={form.aciklama}
+                      onChange={e => setForm(f => ({ ...f, aciklama: e.target.value }))}
+                      placeholder="Kısa açıklama (isteğe bağlı)" />
                   </div>
                 </div>
 
                 <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.25rem', marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                    <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Kriterler <span style={{ fontWeight: '400', color: '#94A3B8' }}>({form.kriterler.length})</span></span>
-                    <button type="button" onClick={kriterEkle}
-                      style={{ padding: '4px 12px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', color: '#4338CA', cursor: 'pointer' }}>+ Kriter Ekle</button>
+                    <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                      Ana Başlıklar&nbsp;
+                      <span style={{ fontWeight: '400', color: '#94A3B8' }}>({form.kriterler.length})</span>
+                      <span style={{ fontWeight: '400', color: '#94A3B8', fontSize: '0.78rem' }}>
+                        &nbsp;· {toplamAltKriter(form.kriterler)} alt kriter
+                      </span>
+                    </span>
+                    <button type="button" onClick={anaEkle}
+                      style={{ padding: '4px 12px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', color: '#4338CA', cursor: 'pointer' }}>
+                      + Ana Başlık Ekle
+                    </button>
                   </div>
+
                   {form.kriterler.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '1.5rem', background: '#F8FAFC', borderRadius: '8px', color: '#94A3B8', fontSize: '0.875rem' }}>
-                      Henüz kriter eklenmedi.
+                      Henüz başlık eklenmedi.
                     </div>
                   )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     {form.kriterler.map((kriter, ki) => {
-                      const acik = acikKriterler[kriter.id]
-                      const kriterMax = kriter.seviyeler.length > 0 ? Math.max(...kriter.seviyeler.map(s => s.puan || 0)) : 0
+                      const anaAcik = !!acikAna[kriter.id]
+                      const akSayisi = kriter.altKriterler?.length || 0
+                      const anaMaks  = (kriter.altKriterler || []).reduce((t, ak) =>
+                        t + Math.max(...(ak.seviyeler || []).map(s => s.puan || 0), 0), 0)
+
                       return (
-                        <div key={kriter.id} style={{ border: '1.5px solid ' + (acik ? '#C7D2FE' : '#E2E8F0'), borderRadius: '10px', overflow: 'hidden' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.625rem 0.875rem', background: acik ? '#F5F3FF' : '#F8FAFC', cursor: 'pointer' }}
-                            onClick={() => kriterToggle(kriter.id)}>
-                            <span style={{ fontSize: '0.7rem', color: '#94A3B8', flexShrink: 0 }}>{acik ? '▼' : '▶'}</span>
-                            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', flexShrink: 0, minWidth: '24px' }}>{ki + 1}.</span>
-                            <input value={kriter.ad} onChange={e => { e.stopPropagation(); kriterAdGuncelle(kriter.id, e.target.value) }} onClick={e => e.stopPropagation()}
-                              placeholder="Kriter adı" style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '0.875rem', fontWeight: '600', color: '#1E293B', outline: 'none' }} />
-                            <span style={{ fontSize: '0.7rem', color: '#94A3B8', flexShrink: 0 }}>{kriter.seviyeler.length} seviye · maks {kriterMax} puan</span>
-                            <button type="button" onClick={e => { e.stopPropagation(); kriterSil(kriter.id) }}
+                        <div key={kriter.id} style={{ border: '2px solid ' + (anaAcik ? '#818CF8' : '#E2E8F0'), borderRadius: '12px', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: anaAcik ? '#EEF2FF' : '#F8FAFC', cursor: 'pointer' }}
+                            onClick={() => setAcikAna(a => ({ ...a, [kriter.id]: !a[kriter.id] }))}>
+                            <span style={{ fontSize: '0.7rem', color: '#94A3B8', flexShrink: 0 }}>{anaAcik ? '▼' : '▶'}</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748B', flexShrink: 0 }}>{ki + 1}.</span>
+                            <input value={kriter.ad}
+                              onChange={e => { e.stopPropagation(); anaAdGuncelle(kriter.id, e.target.value) }}
+                              onClick={e => e.stopPropagation()}
+                              placeholder="Ana başlık (ör: Dijital Üretim)"
+                              style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '0.925rem', fontWeight: '700', color: '#1E293B', outline: 'none' }}
+                            />
+                            <span style={{ fontSize: '0.7rem', color: '#94A3B8', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                              {akSayisi} alt kriter · maks {anaMaks} puan
+                            </span>
+                            <button type="button" onClick={e => { e.stopPropagation(); anaSil(kriter.id) }}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '0.9rem', padding: '0 2px', flexShrink: 0 }}>✕</button>
                           </div>
-                          {acik && (
-                            <div style={{ padding: '0.75rem 0.875rem', background: '#fff' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem' }}>
-                                {kriter.seviyeler.map((seviye, si) => (
-                                  <div key={si} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0.625rem', background: '#FAFAFA', position: 'relative' }}>
-                                    <button type="button" onClick={() => seviyeSil(kriter.id, si)} disabled={kriter.seviyeler.length <= 2}
-                                      style={{ position: 'absolute', top: '4px', right: '4px', background: 'none', border: 'none', cursor: kriter.seviyeler.length <= 2 ? 'not-allowed' : 'pointer', color: '#CBD5E1', fontSize: '0.7rem', padding: 0 }}>✕</button>
-                                    <input value={seviye.ad} onChange={e => seviyeGuncelle(kriter.id, si, 'ad', e.target.value)} placeholder="Seviye adı"
-                                      style={{ width: '100%', border: 'none', borderBottom: '1px solid #E2E8F0', background: 'transparent', fontSize: '0.8rem', fontWeight: '600', color: '#1E293B', outline: 'none', paddingBottom: '2px', boxSizing: 'border-box', marginBottom: '0.375rem' }} />
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '0.375rem' }}>
-                                      <span style={{ fontSize: '0.7rem', color: '#94A3B8' }}>Puan:</span>
-                                      <input type="number" min="0" max="100" value={seviye.puan} onChange={e => seviyeGuncelle(kriter.id, si, 'puan', e.target.value)}
-                                        style={{ width: '48px', border: '1px solid #E2E8F0', borderRadius: '4px', padding: '2px 6px', fontSize: '0.8rem', textAlign: 'center' }} />
+
+                          {anaAcik && (
+                            <div style={{ padding: '0.75rem', background: '#FAFBFF', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                              {(kriter.altKriterler || []).map((ak, aki) => {
+                                const altAcik = !!acikAlt[ak.id]
+                                const akMaks  = Math.max(...(ak.seviyeler || []).map(s => s.puan || 0), 0)
+                                return (
+                                  <div key={ak.id} style={{ border: '1.5px solid ' + (altAcik ? '#7DD3FC' : '#E2E8F0'), borderRadius: '8px', overflow: 'hidden' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', background: altAcik ? '#F0F9FF' : '#fff', cursor: 'pointer' }}
+                                      onClick={() => setAcikAlt(a => ({ ...a, [ak.id]: !a[ak.id] }))}>
+                                      <span style={{ fontSize: '0.65rem', color: '#94A3B8', flexShrink: 0 }}>{altAcik ? '▼' : '▶'}</span>
+                                      <span style={{ fontSize: '0.7rem', color: '#94A3B8', flexShrink: 0 }}>{aki + 1}.</span>
+                                      <input value={ak.ad}
+                                        onChange={e => { e.stopPropagation(); altAdGuncelle(kriter.id, ak.id, e.target.value) }}
+                                        onClick={e => e.stopPropagation()}
+                                        placeholder="Alt kriter (ör: Araç Kullanımı)"
+                                        style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '0.825rem', fontWeight: '600', color: '#374151', outline: 'none' }}
+                                      />
+                                      <span style={{ fontSize: '0.68rem', color: '#94A3B8', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                        {ak.seviyeler?.length || 0} seviye · maks {akMaks} puan
+                                      </span>
+                                      <button type="button"
+                                        onClick={e => { e.stopPropagation(); altSil(kriter.id, ak.id) }}
+                                        disabled={(kriter.altKriterler?.length || 0) <= 1}
+                                        style={{ background: 'none', border: 'none', cursor: (kriter.altKriterler?.length || 0) <= 1 ? 'not-allowed' : 'pointer', color: '#CBD5E1', fontSize: '0.8rem', padding: '0 2px', flexShrink: 0 }}>✕</button>
                                     </div>
-                                    <textarea value={seviye.aciklama} onChange={e => seviyeGuncelle(kriter.id, si, 'aciklama', e.target.value)} placeholder="Açıklama" rows={2}
-                                      style={{ width: '100%', border: '1px solid #E2E8F0', borderRadius: '4px', padding: '4px 6px', fontSize: '0.75rem', color: '#64748B', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+
+                                    {altAcik && (
+                                      <div style={{ padding: '0.625rem 0.75rem', background: '#fff' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: '0.5rem' }}>
+                                          {(ak.seviyeler || []).map((seviye, si) => (
+                                            <div key={si} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0.5rem', background: '#FAFAFA', position: 'relative' }}>
+                                              <button type="button" onClick={() => seviyeSil(kriter.id, ak.id, si)}
+                                                disabled={(ak.seviyeler?.length || 0) <= 2}
+                                                style={{ position: 'absolute', top: '4px', right: '4px', background: 'none', border: 'none', cursor: (ak.seviyeler?.length || 0) <= 2 ? 'not-allowed' : 'pointer', color: '#CBD5E1', fontSize: '0.7rem', padding: 0 }}>✕</button>
+                                              <input value={seviye.ad}
+                                                onChange={e => seviyeGuncelle(kriter.id, ak.id, si, 'ad', e.target.value)}
+                                                placeholder="Seviye adı"
+                                                style={{ width: '100%', border: 'none', borderBottom: '1px solid #E2E8F0', background: 'transparent', fontSize: '0.78rem', fontWeight: '600', color: '#1E293B', outline: 'none', paddingBottom: '2px', boxSizing: 'border-box', marginBottom: '4px' }} />
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                                                <span style={{ fontSize: '0.68rem', color: '#94A3B8' }}>Puan:</span>
+                                                <input type="number" min="0" max="100" value={seviye.puan}
+                                                  onChange={e => seviyeGuncelle(kriter.id, ak.id, si, 'puan', e.target.value)}
+                                                  style={{ width: '44px', border: '1px solid #E2E8F0', borderRadius: '4px', padding: '2px 4px', fontSize: '0.78rem', textAlign: 'center' }} />
+                                              </div>
+                                              <textarea value={seviye.aciklama}
+                                                onChange={e => seviyeGuncelle(kriter.id, ak.id, si, 'aciklama', e.target.value)}
+                                                placeholder="Açıklama (isteğe bağlı)" rows={2}
+                                                style={{ width: '100%', border: '1px solid #E2E8F0', borderRadius: '4px', padding: '3px 5px', fontSize: '0.72rem', color: '#64748B', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                                            </div>
+                                          ))}
+                                          <div onClick={() => seviyeEkle(kriter.id, ak.id)}
+                                            style={{ border: '1.5px dashed #E2E8F0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94A3B8', fontSize: '0.78rem', minHeight: '80px' }}>
+                                            + Seviye
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
-                                ))}
-                                <div onClick={() => seviyeEkle(kriter.id)}
-                                  style={{ border: '1.5px dashed #E2E8F0', borderRadius: '8px', padding: '0.625rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94A3B8', fontSize: '0.8rem', minHeight: '80px' }}>
-                                  + Seviye
-                                </div>
-                              </div>
+                                )
+                              })}
+                              <button type="button" onClick={() => altEkle(kriter.id)}
+                                style={{ padding: '6px', background: '#F0FDF4', border: '1.5px dashed #86EFAC', borderRadius: '7px', fontSize: '0.78rem', fontWeight: '600', color: '#16A34A', cursor: 'pointer' }}>
+                                + Alt Kriter Ekle
+                              </button>
                             </div>
                           )}
                         </div>
@@ -344,12 +478,18 @@ export default function KurumRubrikler() {
                   </div>
                 </div>
               </div>
+
               {hata && <div style={{ margin: '0 1.75rem 1rem', fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>{hata}</div>}
+
               <div style={{ padding: '1rem 1.75rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F1F5F9' }}>
-                <span style={{ fontSize: '0.8rem', color: '#94A3B8' }}>{form.kriterler.length} kriter · toplam maks {maxPuan(form.kriterler)} puan</span>
+                <span style={{ fontSize: '0.8rem', color: '#94A3B8' }}>
+                  {form.kriterler.length} ana başlık · {toplamAltKriter(form.kriterler)} alt kriter · maks {toplamMaksPuan(form.kriterler)} puan
+                </span>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button type="button" onClick={modalKapat} style={{ padding: '0.6rem 1.25rem', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#374151' }}>İptal</button>
-                  <button type="submit" disabled={kaydediyor} style={{ padding: '0.6rem 1.5rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+                  <button type="button" onClick={modalKapat}
+                    style={{ padding: '0.6rem 1.25rem', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#374151' }}>İptal</button>
+                  <button type="submit" disabled={kaydediyor}
+                    style={{ padding: '0.6rem 1.5rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
                     {kaydediyor ? 'Kaydediliyor...' : 'Kaydet'}
                   </button>
                 </div>
@@ -363,7 +503,7 @@ export default function KurumRubrikler() {
       {onizleme && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, overflowY: 'auto', padding: '2rem 1rem' }}
           onClick={e => e.target === e.currentTarget && setOnizleme(null)}>
-          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '800px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: '1.75rem' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '900px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: '1.75rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
               <div>
                 <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B' }}>{onizleme.ad}</h2>
@@ -371,41 +511,63 @@ export default function KurumRubrikler() {
               </div>
               <button onClick={() => setOnizleme(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: '#94A3B8' }}>✕</button>
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                <thead>
-                  <tr style={{ background: '#F8FAFC' }}>
-                    <th style={{ padding: '0.625rem 0.875rem', textAlign: 'left', color: '#64748B', fontWeight: '600', borderBottom: '2px solid #E2E8F0', minWidth: '140px' }}>Kriter</th>
-                    {onizleme.kriterler[0]?.seviyeler.map((s, i) => (
-                      <th key={i} style={{ padding: '0.625rem 0.875rem', textAlign: 'center', color: '#64748B', fontWeight: '600', borderBottom: '2px solid #E2E8F0' }}>
-                        {s.ad || `Seviye ${i + 1}`}
-                        <div style={{ fontWeight: '400', fontSize: '0.7rem', color: '#94A3B8' }}>{s.puan} puan</div>
-                      </th>
-                    ))}
-                    <th style={{ padding: '0.625rem 0.875rem', textAlign: 'center', color: '#64748B', fontWeight: '600', borderBottom: '2px solid #E2E8F0' }}>Maks.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {onizleme.kriterler.map((k, ki) => (
-                    <tr key={k.id} style={{ background: ki % 2 === 0 ? '#fff' : '#FAFAFA' }}>
-                      <td style={{ padding: '0.75rem 0.875rem', fontWeight: '600', color: '#1E293B', borderBottom: '1px solid #F1F5F9', verticalAlign: 'top' }}>{k.ad}</td>
-                      {k.seviyeler.map((sv, si) => (
-                        <td key={si} style={{ padding: '0.75rem 0.875rem', color: '#64748B', borderBottom: '1px solid #F1F5F9', verticalAlign: 'top', textAlign: 'center', maxWidth: '160px' }}>
-                          {sv.aciklama || <span style={{ color: '#CBD5E1' }}>—</span>}
-                        </td>
+            {(() => {
+              const ilkSev = onizleme.kriterler?.[0]?.altKriterler?.[0]?.seviyeler || []
+              return (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr style={{ background: '#1B3A6B' }}>
+                        <th style={{ padding: '0.625rem 0.875rem', textAlign: 'left', color: '#fff', fontWeight: '600', borderBottom: '2px solid #E2E8F0', minWidth: '180px' }}>Kriter</th>
+                        {ilkSev.map((sv, i) => (
+                          <th key={i} style={{ padding: '0.625rem 0.875rem', textAlign: 'center', color: '#fff', fontWeight: '600', borderBottom: '2px solid #E2E8F0', minWidth: '120px' }}>
+                            {sv.ad || `Seviye ${i + 1}`}
+                            <div style={{ fontWeight: '400', fontSize: '0.7rem', color: 'rgba(255,255,255,0.65)' }}>{sv.puan} puan</div>
+                          </th>
+                        ))}
+                        <th style={{ padding: '0.625rem 0.875rem', textAlign: 'center', color: '#fff', fontWeight: '600', borderBottom: '2px solid #E2E8F0' }}>Maks.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {onizleme.kriterler.map((k, ki) => (
+                        <>
+                          <tr key={'ana_' + k.id} style={{ background: '#EEF2FF' }}>
+                            <td colSpan={2 + ilkSev.length}
+                              style={{ padding: '0.5rem 0.875rem', fontWeight: '700', color: '#4338CA', fontSize: '0.85rem', borderBottom: '1px solid #E2E8F0' }}>
+                              {ki + 1}. {k.ad}
+                            </td>
+                          </tr>
+                          {(k.altKriterler || []).map((ak, aki) => (
+                            <tr key={ak.id} style={{ background: aki % 2 === 0 ? '#fff' : '#FAFAFA' }}>
+                              <td style={{ padding: '0.625rem 0.875rem 0.625rem 1.75rem', fontWeight: '500', color: '#374151', borderBottom: '1px solid #F1F5F9', verticalAlign: 'top' }}>
+                                ↳ {ak.ad}
+                              </td>
+                              {(ak.seviyeler || []).map((sv, si) => (
+                                <td key={si} style={{ padding: '0.625rem 0.875rem', color: '#64748B', borderBottom: '1px solid #F1F5F9', verticalAlign: 'top', textAlign: 'center', maxWidth: '150px', lineHeight: '1.4' }}>
+                                  {sv.aciklama || <span style={{ color: '#CBD5E1' }}>—</span>}
+                                </td>
+                              ))}
+                              <td style={{ padding: '0.625rem 0.875rem', fontWeight: '700', color: '#1B3A6B', borderBottom: '1px solid #F1F5F9', textAlign: 'center' }}>
+                                {Math.max(...(ak.seviyeler || []).map(s => s.puan || 0), 0)}
+                              </td>
+                            </tr>
+                          ))}
+                        </>
                       ))}
-                      <td style={{ padding: '0.75rem 0.875rem', fontWeight: '700', color: '#1B3A6B', borderBottom: '1px solid #F1F5F9', textAlign: 'center' }}>
-                        {Math.max(...k.seviyeler.map(s => s.puan || 0))}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr style={{ background: '#F8FAFC' }}>
-                    <td colSpan={1 + (onizleme.kriterler[0]?.seviyeler.length || 0)} style={{ padding: '0.625rem 0.875rem', fontWeight: '600', color: '#64748B', textAlign: 'right', fontSize: '0.8rem' }}>Toplam Maksimum:</td>
-                    <td style={{ padding: '0.625rem 0.875rem', fontWeight: '800', color: '#1B3A6B', textAlign: 'center' }}>{maxPuan(onizleme.kriterler)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                      <tr style={{ background: '#F8FAFC' }}>
+                        <td colSpan={1 + ilkSev.length}
+                          style={{ padding: '0.625rem 0.875rem', fontWeight: '600', color: '#64748B', textAlign: 'right', fontSize: '0.8rem' }}>
+                          Toplam Maksimum:
+                        </td>
+                        <td style={{ padding: '0.625rem 0.875rem', fontWeight: '800', color: '#1B3A6B', textAlign: 'center' }}>
+                          {toplamMaksPuan(onizleme.kriterler)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
