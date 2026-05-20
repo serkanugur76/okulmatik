@@ -38,11 +38,12 @@ export default function KurumSiniflar() {
   const [hata, setHata]                 = useState('')
 
   // Import state
-  const [importModal, setImportModal]   = useState(false)
-  const [importSinif, setImportSinif]   = useState(null)   // hangi sınıfa import
-  const [importSatirlar, setImportSatirlar] = useState([]) // parse edilmiş satırlar
-  const [importing, setImporting]       = useState(false)
-  const [importHata, setImportHata]     = useState('')
+  const [importModal, setImportModal]       = useState(false)
+  const [importSinif, setImportSinif]       = useState(null)   // tek sınıf modu
+  const [importKurumId, setImportKurumId]   = useState(null)   // çoklu sınıf modu
+  const [importSatirlar, setImportSatirlar] = useState([])
+  const [importing, setImporting]           = useState(false)
+  const [importHata, setImportHata]         = useState('')
 
   useEffect(() => {
     if (sayimKurumlar.length === 0) { setSiniflarMap({}); return }
@@ -101,13 +102,26 @@ export default function KurumSiniflar() {
     XLSX.writeFile(wb, 'ogrenci_sablonu.xlsx')
   }
 
+  // Tek sınıf modu
   function importAc(sinif) {
-    setImportSinif(sinif)
-    setImportSatirlar([])
-    setImportHata('')
-    setImportModal(true)
+    setImportSinif(sinif); setImportKurumId(null)
+    setImportSatirlar([]); setImportHata(''); setImportModal(true)
   }
-  function importKapat() { setImportModal(false); setImportSinif(null); setImportSatirlar([]) }
+  // Çoklu sınıf modu (tüm alt kurum)
+  function importKurumAc(kurumId) {
+    setImportKurumId(kurumId); setImportSinif(null)
+    setImportSatirlar([]); setImportHata(''); setImportModal(true)
+  }
+  function importKapat() { setImportModal(false); setImportSinif(null); setImportKurumId(null); setImportSatirlar([]) }
+
+  // Sınıf adını normalize et: "1-A" = "1A" = "1 A" = "1a"
+  function sinifNormalize(s) { return s?.toString().toLowerCase().replace(/[\s\-_]/g, '') || '' }
+
+  // Bir satırın sınıfını eşleştir
+  function sinifEsle(sinifAdi, kurumId) {
+    const siniflar = siniflarMap[kurumId] || []
+    return siniflar.find(s => sinifNormalize(s.ad) === sinifNormalize(sinifAdi)) || null
+  }
 
   function dosyaOku(e) {
     const dosya = e.target.files[0]
@@ -129,18 +143,25 @@ export default function KurumSiniflar() {
           }
         }
 
+        const hedefKurumId = importKurumId || importSinif?._kurumId
+
         const satirlar = rows.slice(dataStart).filter(r => r[0]?.toString().trim()).map(r => {
           const { ad, soyad } = adSoyadAyir(r[0]?.toString().trim() || '')
+          const sinifHamAd    = r[2]?.toString().trim() || ''
+          const eslenenSinif  = importKurumId ? sinifEsle(sinifHamAd, hedefKurumId) : null
+
           return {
-            ad,
-            soyad,
-            ogrenciNo:    r[1]?.toString().trim() || '',   // TC NO
-            // r[2] = Sınıf/Şb — sinifId zaten bilindiğinden yalnızca referans
-            anneAdSoyad:  r[3]?.toString().trim() || '',
-            anneTelefon:  r[4]?.toString().trim() || '',
-            babaAdSoyad:  r[5]?.toString().trim() || '',
-            babaTelefon:  r[6]?.toString().trim() || '',
-            email:        r[7]?.toString().trim() || '',
+            ad, soyad,
+            ogrenciNo:   r[1]?.toString().trim() || '',
+            _sinifHam:   sinifHamAd,                          // orijinal metin
+            _sinifId:    importKurumId ? (eslenenSinif?.id  || null) : importSinif?.id,
+            _sinifAd:    importKurumId ? (eslenenSinif?.ad  || null) : importSinif?.ad,
+            _eslenmedi:  importKurumId && !eslenenSinif,
+            anneAdSoyad: r[3]?.toString().trim() || '',
+            anneTelefon: r[4]?.toString().trim() || '',
+            babaAdSoyad: r[5]?.toString().trim() || '',
+            babaTelefon: r[6]?.toString().trim() || '',
+            email:       r[7]?.toString().trim() || '',
           }
         })
 
@@ -180,14 +201,16 @@ export default function KurumSiniflar() {
     setImporting(true)
     try {
       const batch = writeBatch(db)
-      importSatirlar.forEach(satir => {
-        const ref = doc(collection(db, 'kurumlar', importSinif._kurumId, 'ogrenciler'))
+      const hedefKurumId = importKurumId || importSinif._kurumId
+      const yazilacaklar = importSatirlar.filter(s => !s._eslenmedi)
+      yazilacaklar.forEach(satir => {
+        const ref = doc(collection(db, 'kurumlar', hedefKurumId, 'ogrenciler'))
         batch.set(ref, {
           ad: satir.ad, soyad: satir.soyad, ogrenciNo: satir.ogrenciNo,
           anneAdSoyad: satir.anneAdSoyad, anneTelefon: satir.anneTelefon,
           babaAdSoyad: satir.babaAdSoyad, babaTelefon: satir.babaTelefon,
           email: satir.email,
-          sinifId: importSinif.id, sinifAd: importSinif.ad,
+          sinifId: satir._sinifId || '', sinifAd: satir._sinifAd || '',
           olusturmaTarihi: serverTimestamp(),
         })
       })
@@ -268,6 +291,11 @@ export default function KurumSiniflar() {
                     {kampus && <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>›</span>}
                     <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B' }}>{k.ad}</span>
                     <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>{grupSiniflar.length} sınıf</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); importKurumAc(k.id) }}
+                      style={{ marginLeft: '0.75rem', padding: '2px 10px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#065F46', cursor: 'pointer' }}>
+                      📥 Toplu Ekle
+                    </button>
                   </div>
 
                   {acik && (
@@ -378,7 +406,9 @@ export default function KurumSiniflar() {
               <button onClick={importKapat} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: '#94A3B8' }}>✕</button>
             </div>
             <p style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '1.5rem' }}>
-              <strong>{importSinif?.ad}</strong> sınıfına toplu öğrenci ekle
+              {importSinif
+                ? <><strong>{importSinif.ad}</strong> sınıfına toplu öğrenci ekle</>
+                : <><strong>{erisimKurumlar.find(k => k.id === importKurumId)?.ad}</strong> — tüm sınıflara toplu ekle (Sınıf/Şb sütununa göre)</>}
             </p>
 
             {/* Adım 1: Şablon */}
@@ -411,6 +441,14 @@ export default function KurumSiniflar() {
             {/* Önizleme */}
             {importSatirlar.length > 0 && (
               <div style={{ marginBottom: '1.25rem' }}>
+                {(() => {
+                  const eslenmeyenler = importSatirlar.filter(s => s._eslenmedi)
+                  return eslenmeyenler.length > 0 && (
+                    <div style={{ background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '8px', padding: '0.625rem 0.875rem', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#92400E' }}>
+                      ⚠ {eslenmeyenler.length} satırda sınıf eşleşmedi ({[...new Set(eslenmeyenler.map(s => s._sinifHam))].join(', ')}) — bu satırlar atlanacak
+                    </div>
+                  )
+                })()}
                 <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B', marginBottom: '0.5rem' }}>
                   Önizleme ({importSatirlar.length} satır{importSatirlar.length > 5 ? `, ilk 5 gösteriliyor` : ''})
                 </div>
@@ -418,22 +456,24 @@ export default function KurumSiniflar() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                     <thead>
                       <tr style={{ background: '#F8FAFC' }}>
-                        {['Ad', 'Soyad', 'TC No', 'Anne', 'Anne Tel', 'Baba', 'Baba Tel', 'E-posta'].map(h => (
+                        {[...(importKurumId ? ['Sınıf'] : []), 'Ad', 'Soyad', 'TC No', 'Anne', 'Baba'].map(h => (
                           <th key={h} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', color: '#64748B', fontWeight: '600', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {importSatirlar.slice(0, 5).map((satir, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                        <tr key={i} style={{ borderBottom: '1px solid #F1F5F9', background: satir._eslenmedi ? '#FEF2F2' : 'transparent' }}>
+                          {importKurumId && (
+                            <td style={{ padding: '0.5rem 0.75rem', whiteSpace: 'nowrap', color: satir._eslenmedi ? '#991B1B' : '#065F46', fontWeight: '600', fontSize: '0.75rem' }}>
+                              {satir._eslenmedi ? `⚠ ${satir._sinifHam}` : satir._sinifAd}
+                            </td>
+                          )}
                           <td style={{ padding: '0.5rem 0.75rem', color: '#1E293B', whiteSpace: 'nowrap' }}>{satir.ad}</td>
                           <td style={{ padding: '0.5rem 0.75rem', color: '#1E293B', whiteSpace: 'nowrap' }}>{satir.soyad || '—'}</td>
                           <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{satir.ogrenciNo || '—'}</td>
                           <td style={{ padding: '0.5rem 0.75rem', color: '#64748B', whiteSpace: 'nowrap' }}>{satir.anneAdSoyad || '—'}</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{satir.anneTelefon || '—'}</td>
                           <td style={{ padding: '0.5rem 0.75rem', color: '#64748B', whiteSpace: 'nowrap' }}>{satir.babaAdSoyad || '—'}</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{satir.babaTelefon || '—'}</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748B' }}>{satir.email || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -451,7 +491,12 @@ export default function KurumSiniflar() {
               <button onClick={importKapat} style={{ padding: '0.6rem 1.25rem', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#374151' }}>İptal</button>
               <button onClick={topluKaydet} disabled={importing || importSatirlar.length === 0}
                 style={{ padding: '0.6rem 1.25rem', background: importSatirlar.length === 0 ? '#94A3B8' : '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: importSatirlar.length === 0 ? 'not-allowed' : 'pointer' }}>
-                {importing ? 'Kaydediliyor...' : `${importSatirlar.length} Öğrenci Ekle`}
+                {importing ? 'Kaydediliyor...' : (() => {
+                const yazilacak = importSatirlar.filter(s => !s._eslenmedi).length
+                return importKurumId
+                  ? `${yazilacak} Öğrenci Ekle${importSatirlar.length !== yazilacak ? ` (${importSatirlar.length - yazilacak} atlanıyor)` : ''}`
+                  : `${importSatirlar.length} Öğrenci Ekle`
+              })()}
               </button>
             </div>
           </div>
