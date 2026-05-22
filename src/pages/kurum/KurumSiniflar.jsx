@@ -374,15 +374,58 @@ export default function KurumSiniflar() {
                     </button>
                   </div>
 
-                  {acik && (
+                  {acik && (() => {
+                    // Seviyeye göre grupla
+                    const seviyeleri = [...new Set(grupSiniflar.map(s => s.seviye || ''))].sort((a, b) => (Number(a)||99) - (Number(b)||99))
+                    const seviyeGruplari = seviyeleri.map(sev => ({
+                      seviye: sev,
+                      siniflar: grupSiniflar.filter(s => (s.seviye || '') === sev),
+                    }))
+                    return (
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
-                        <tr>{['Sınıf Adı', 'Seviye', 'Şube', 'Öğrenci', 'Rubrikler', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                        <tr>{['Sınıf Adı', 'Şube', 'Öğrenci', 'Rubrikler', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {grupSiniflar.length === 0 ? (
-                          <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
-                        ) : grupSiniflar.map(sinif => {
+                          <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
+                        ) : seviyeGruplari.map(({ seviye: sev, siniflar: sevSiniflar }) => {
+                          const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length, 0)
+                          const seviyeNo = Number(sev) || 0
+                          const sevRubrikler = (rubriklerMap[k.id] || []).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
+                          return (
+                          <>
+                            {/* Seviye grup başlığı */}
+                            <tr key={`sev-${sev}`}>
+                              <td colSpan={6} style={{
+                                padding: '0.5rem 1rem',
+                                background: '#F1F5F9',
+                                borderTop: '2px solid #E2E8F0',
+                                borderBottom: '1px solid #E2E8F0',
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>
+                                    {sev ? `${sev}. Sınıf` : 'Seviyesiz'}
+                                  </span>
+                                  <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
+                                    {sevSiniflar.length} şube · {sevSayiOgrenci} öğrenci
+                                  </span>
+                                  {sevRubrikler.length > 0 && (
+                                    <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                                      {sevRubrikler.map(r => (
+                                        <span key={r.id} style={{
+                                          padding: '1px 7px', background: '#EEF2FF',
+                                          border: '1px solid #C7D2FE', borderRadius: '20px',
+                                          fontSize: '0.7rem', fontWeight: '600', color: '#4338CA',
+                                        }}>📋 {r.ad}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            {/* Seviyeye ait sınıf satırları */}
+                            {sevSiniflar.map(sinif => {
                           const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
                           const sinifSeviye = Number(sinif.seviye) || 0
                           const sinifRubrikler = (rubriklerMap[k.id] || []).filter(r =>
@@ -391,16 +434,15 @@ export default function KurumSiniflar() {
                           return (
                           <tr key={sinif.id}>
                             <td style={s.td}><strong>{sinif.ad}</strong></td>
-                            <td style={s.td}>{sinif.seviye || '—'}</td>
                             <td style={s.td}>{sinif.sube || '—'}</td>
                             <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center' }}>
                               {sinifOgrenciSayisi}
                             </td>
                             <td style={s.td}>
                               {sinifSeviye === 0 ? (
-                                <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>Seviye yok</span>
+                                <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
                               ) : sinifRubrikler.length === 0 ? (
-                                <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>Atanmamış</span>
+                                <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
                               ) : (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                                   {sinifRubrikler.map(r => (
@@ -438,9 +480,13 @@ export default function KurumSiniflar() {
                           </tr>
                         )
                         })}
+                          </>
+                        )
+                        })}
                       </tbody>
                     </table>
-                  )}
+                    )
+                  })()}
                 </div>
               )
             })}
