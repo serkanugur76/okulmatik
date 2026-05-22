@@ -17,7 +17,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
 const yeniAltKriter = () => ({ id: 'ak' + uid(), ad: '', seviyeler: VARSAYILAN_SEVİYELER.map(s => ({ ...s })) })
 const yeniAnaKriter = () => { const ak = yeniAltKriter(); return { id: 'k' + uid(), ad: '', altKriterler: [ak] } }
 
-const BOŞ_FORM = { ad: '', aciklama: '', kriterler: [] }
+const BOŞ_FORM = { ad: '', aciklama: '', kriterler: [], hedefSeviyeler: [] }
 
 function toplamAltKriter(kriterler) {
   return (kriterler || []).reduce((t, k) => t + (k.altKriterler?.length || 0), 0)
@@ -37,6 +37,7 @@ export default function KurumRubrikler() {
 
   const [rubrikler,     setRubrikler]     = useState([])
   const [sablonlar,     setSablonlar]     = useState([])
+  const [siniflar,      setSiniflar]      = useState([])
   const [modal,         setModal]         = useState(false)
   const [duzenlenen,    setDuzenlenen]    = useState(null)
   const [form,          setForm]          = useState(BOŞ_FORM)
@@ -54,6 +55,15 @@ export default function KurumRubrikler() {
     return onSnapshot(q, snap => setSablonlar(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
   }, [])
 
+  // Sınıflar
+  useEffect(() => {
+    if (!hedefKurumId) { setSiniflar([]); return }
+    return onSnapshot(
+      collection(db, 'kurumlar', hedefKurumId, 'siniflar'),
+      snap => setSiniflar(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    )
+  }, [hedefKurumId])
+
   // Kurum rubrikleri
   useEffect(() => {
     if (!hedefKurumId) { setRubrikler([]); return }
@@ -67,6 +77,7 @@ export default function KurumRubrikler() {
     if (rubrik) {
       setForm({
         ad: rubrik.ad, aciklama: rubrik.aciklama || '',
+        hedefSeviyeler: rubrik.hedefSeviyeler || [],
         kriterler: (rubrik.kriterler || []).map(k => ({
           ...k,
           altKriterler: (k.altKriterler || []).map(ak => ({
@@ -84,6 +95,16 @@ export default function KurumRubrikler() {
     setHata(''); setModal(true)
   }
   function modalKapat() { setModal(false); setDuzenlenen(null) }
+
+  // Sınıf seviyesi toggle
+  function seviyeToggle(sev) {
+    setForm(f => ({
+      ...f,
+      hedefSeviyeler: f.hedefSeviyeler.includes(sev)
+        ? f.hedefSeviyeler.filter(s => s !== sev)
+        : [...f.hedefSeviyeler, sev].sort((a, b) => a - b),
+    }))
+  }
 
   // Şablondan kopyala — yeni ID'ler üret
   function sablondanKopyala(sablon) {
@@ -196,7 +217,7 @@ export default function KurumRubrikler() {
     }
     setKaydediyor(true)
     try {
-      const veri = { ad: form.ad.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler }
+      const veri = { ad: form.ad.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler, hedefSeviyeler: form.hedefSeviyeler }
       if (duzenlenen) {
         await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'rubrikler', duzenlenen.id), veri)
       } else {
@@ -345,17 +366,29 @@ export default function KurumRubrikler() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['Rubrik Adı', 'Yapı', 'Maks. Puan', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}
+              {['Rubrik Adı', 'Sınıf Seviyeleri', 'Yapı', 'Maks. Puan', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
             {rubrikler.length === 0 ? (
-              <tr><td colSpan={4} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Henüz rubrik eklenmemiş</td></tr>
+              <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Henüz rubrik eklenmemiş</td></tr>
             ) : rubrikler.map(r => (
               <tr key={r.id}>
                 <td style={s.td}>
                   <div style={{ fontWeight: '600', color: '#1E293B' }}>{r.ad}</div>
                   {r.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>{r.aciklama}</div>}
+                </td>
+                <td style={s.td}>
+                  {!r.hedefSeviyeler?.length
+                    ? <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Tüm sınıflar</span>
+                    : <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                        {r.hedefSeviyeler.map(sev => (
+                          <span key={sev} style={{ background: '#EEF2FF', color: '#4338CA', padding: '1px 7px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '600' }}>
+                            {sev}. Sınıf
+                          </span>
+                        ))}
+                      </div>
+                  }
                 </td>
                 <td style={s.td}>
                   <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', marginRight: '4px' }}>
@@ -443,6 +476,39 @@ export default function KurumRubrikler() {
                       placeholder="Kısa açıklama (isteğe bağlı)" />
                   </div>
                 </div>
+
+                {/* Sınıf Seviyeleri */}
+                {(() => {
+                  const seviyeleri = [...new Set(siniflar.map(s => Number(s.seviye)).filter(Boolean))].sort((a, b) => a - b)
+                  if (!seviyeleri.length) return null
+                  return (
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
+                        Sınıf Seviyeleri
+                        <span style={{ fontWeight: '400', color: '#94A3B8', fontSize: '0.8rem', marginLeft: '6px' }}>
+                          (boş bırakılırsa tüm sınıflara uygulanır)
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {seviyeleri.map(sev => {
+                          const secili = form.hedefSeviyeler.includes(sev)
+                          return (
+                            <button key={sev} type="button" onClick={() => seviyeToggle(sev)}
+                              style={{
+                                padding: '4px 12px', borderRadius: '999px', border: '1.5px solid',
+                                borderColor: secili ? '#4338CA' : '#E2E8F0',
+                                background:  secili ? '#4338CA' : '#fff',
+                                color:       secili ? '#fff' : '#64748B',
+                                fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.15s',
+                              }}>
+                              {sev}. Sınıf
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.25rem', marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>

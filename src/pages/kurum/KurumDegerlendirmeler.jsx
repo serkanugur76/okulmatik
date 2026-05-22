@@ -115,10 +115,26 @@ export default function KurumDegerlendirmeler() {
   // Rubrik / dönem değişince değişiklikleri sıfırla
   useEffect(() => { setDegisiklikler({}) }, [secilenRubrikId, secilenDonem])
 
-  const secilenRubrik = rubrikler.find(r => r.id === secilenRubrikId) || null
+  // Seçili sınıfın seviyesi
+  const secilenSinif  = siniflar.find(s => s.id === secilenSinifId)
+  const secilenSeviye = secilenSinif?.seviye ? Number(secilenSinif.seviye) : null
+
+  // Seçili sınıf seviyesiyle eşleşen rubrikler
+  const ilgiliRubrikler = rubrikler.filter(r =>
+    !r.hedefSeviyeler?.length || (secilenSeviye && r.hedefSeviyeler.includes(secilenSeviye))
+  )
+
+  const secilenRubrik = ilgiliRubrikler.find(r => r.id === secilenRubrikId) || null
+
+  // Rubrik listesi değişince seçili rubriki güncelle
+  useEffect(() => {
+    if (!secilenRubrikId || !ilgiliRubrikler.find(r => r.id === secilenRubrikId)) {
+      setSecilenRubrikId(ilgiliRubrikler[0]?.id || null)
+    }
+  }, [secilenSinifId, rubrikler.length])
 
   const filtreliOgrenciler = useMemo(() => {
-    const liste = secilenSinifId ? ogrenciler.filter(o => o.sinifId === secilenSinifId) : ogrenciler
+    const liste = secilenSinifId ? ogrenciler.filter(o => o.sinifId === secilenSinifId) : []
     return liste.slice().sort((a, b) => {
       const sa = siniflar.find(s => s.id === a.sinifId)
       const sb = siniflar.find(s => s.id === b.sinifId)
@@ -346,9 +362,38 @@ export default function KurumDegerlendirmeler() {
         </div>
       ) : (
         <>
+          {/* ── 1. Sınıf Seçimi (zorunlu) ── */}
+          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #E2E8F0', padding: '1rem 1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', whiteSpace: 'nowrap' }}>Sınıf:</span>
+            <select value={secilenSinifId} onChange={e => setSecilenSinifId(e.target.value)}
+              style={{ padding: '6px 10px', border: '1.5px solid ' + (secilenSinifId ? '#1B3A6B' : '#FCD34D'), borderRadius: '7px', fontSize: '0.875rem', background: '#fff', color: '#374151', cursor: 'pointer', fontWeight: secilenSinifId ? '600' : '400' }}>
+              <option value="">— Önce bir sınıf seçin —</option>
+              {siniflar.slice().sort((a, b) => (Number(a.seviye)||0)-(Number(b.seviye)||0) || (a.sube||'').localeCompare(b.sube||'')).map(sf => {
+                const say = ogrenciler.filter(o => o.sinifId === sf.id).length
+                return <option key={sf.id} value={sf.id}>{sf.ad} ({say} öğrenci)</option>
+              })}
+            </select>
+            {secilenSinif && (
+              <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
+                {secilenSinif.seviye}. sınıf seviyesi · {ilgiliRubrikler.length} rubrik mevcut
+              </span>
+            )}
+          </div>
+
+          {/* Sınıf seçilmeden alt kısımlar gizli */}
+          {!secilenSinifId ? (
+            <div style={{ background: '#F8FAFC', borderRadius: '10px', border: '1px dashed #CBD5E1', padding: '3rem', textAlign: 'center', color: '#94A3B8', fontSize: '0.9rem' }}>
+              Değerlendirme yapmak için yukarıdan bir sınıf seçin
+            </div>
+          ) : ilgiliRubrikler.length === 0 ? (
+            <div style={{ background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px', padding: '1.5rem', color: '#92400E', fontSize: '0.875rem' }}>
+              ⚠ Bu sınıf seviyesine atanmış rubrik yok. <strong>Rubrikler</strong> sayfasından rubriklere sınıf seviyesi atayın.
+            </div>
+          ) : (
+            <>
           {/* ── Rubrik Sekmeleri ── */}
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '1rem' }}>
-            {rubrikler.map(r => (
+            {ilgiliRubrikler.map(r => (
               <button key={r.id} onClick={() => setSecilenRubrikId(r.id)}
                 style={{
                   padding: '7px 16px', borderRadius: '20px', border: '1.5px solid',
@@ -378,30 +423,21 @@ export default function KurumDegerlendirmeler() {
             ))}
           </div>
 
-          {/* ── Filtre + Butonlar ── */}
-          <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
-            <select value={secilenSinifId} onChange={e => setSecilenSinifId(e.target.value)}
-              style={{ padding: '6px 10px', border: '1.5px solid #E2E8F0', borderRadius: '7px', fontSize: '0.825rem', background: '#fff', color: '#374151', cursor: 'pointer' }}>
-              <option value="">Tüm sınıflar ({ogrenciler.length} öğrenci)</option>
-              {siniflar.slice().sort((a, b) => (Number(a.seviye)||0)-(Number(b.seviye)||0) || (a.sube||'').localeCompare(b.sube||'')).map(sf => {
-                const say = ogrenciler.filter(o => o.sinifId === sf.id).length
-                return <option key={sf.id} value={sf.id}>{sf.ad} ({say})</option>
-              })}
-            </select>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
-              <button onClick={sablonIndir}
-                style={{ padding: '6px 14px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '7px', fontSize: '0.8rem', fontWeight: '600', color: '#4338CA', cursor: 'pointer' }}>
-                ⬇ Şablon İndir
-              </button>
-              <button onClick={() => { setImportSatirlar([]); setImportHata(''); setImportModal(true) }}
-                style={{ padding: '6px 14px', background: '#F0FDF4', border: '1px solid #A7F3D0', borderRadius: '7px', fontSize: '0.8rem', fontWeight: '600', color: '#065F46', cursor: 'pointer' }}>
-                📥 E-Tablodan Aktar
-              </button>
-            </div>
+          {/* ── Araç Çubuğu ── */}
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+            <button onClick={sablonIndir}
+              style={{ padding: '6px 14px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '7px', fontSize: '0.8rem', fontWeight: '600', color: '#4338CA', cursor: 'pointer' }}>
+              ⬇ Şablon İndir
+            </button>
+            <button onClick={() => { setImportSatirlar([]); setImportHata(''); setImportModal(true) }}
+              style={{ padding: '6px 14px', background: '#F0FDF4', border: '1px solid #A7F3D0', borderRadius: '7px', fontSize: '0.8rem', fontWeight: '600', color: '#065F46', cursor: 'pointer' }}>
+              📥 E-Tablodan Aktar
+            </button>
           </div>
 
           {/* ── Puanlama Tablosu ── */}
           {secilenRubrik && (() => {
+
             const akler = altKriterListesi(secilenRubrik)
             return (
               <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
@@ -490,6 +526,8 @@ export default function KurumDegerlendirmeler() {
               </div>
             )
           })()}
+            </>
+          )}
         </>
       )}
 
