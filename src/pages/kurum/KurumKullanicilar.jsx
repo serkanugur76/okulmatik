@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  collection, onSnapshot, doc, updateDoc, getDoc,
-  query, orderBy,
+  collection, onSnapshot, doc, updateDoc, getDoc, setDoc, deleteDoc,
+  query, orderBy, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
@@ -12,10 +12,17 @@ const ROL_ETİKET = {
   ogretmen:    { etiket: 'Öğretmen',    renk: '#065F46', bg: '#D1FAE5' },
 }
 
-const BOŞ_FORM = { email: '', rol: 'ogretmen' }
+const BOŞ_FORM = { email: '', rol: 'ogretmen', hedefKurumId: '' }
 
 export default function KurumKullanicilar() {
-  const { secilenKurumId: kurumId } = useKurumYonetim()
+  const { secilenKurumId: kurumId, erisimKurumlar } = useKurumYonetim()
+
+  // Alt kurumlar listesi (kurum atama için)
+  const altKurumlar = erisimKurumlar.filter(k => {
+    if (!k.parentId) return false
+    const u = erisimKurumlar.find(x => x.id === k.parentId)
+    return !!u?.parentId
+  })
   const [kullanicilar, setKullanicilar] = useState([])
   const [bekleyenler, setBekleyenler]   = useState([])
   const [googleAltyapisi, setGoogleAltyapisi] = useState(false)
@@ -44,7 +51,7 @@ export default function KurumKullanicilar() {
 
   function modalAc(k = null) {
     setDuzenlenen(k)
-    setForm(k ? { ad: k.ad || '', email: k.email, rol: k.rol } : BOŞ_FORM)
+    setForm(k ? { ad: k.ad || '', email: k.email, rol: k.rol, hedefKurumId: k.kurumId || '' } : BOŞ_FORM)
     setHata('')
     setBasari('')
     setModal(true)
@@ -59,9 +66,30 @@ export default function KurumKullanicilar() {
     setHata('')
     try {
       if (duzenlenen) {
-        await updateDoc(doc(db, 'kurumlar', kurumId, 'kullanicilar', duzenlenen.id), {
-          ad: form.ad, rol: form.rol,
+        const uid = duzenlenen.id
+        const eskiKurumId = duzenlenen.kurumId || kurumId
+        const yeniKurumId = form.hedefKurumId || eskiKurumId
+
+        // Global kullanicilar kaydını güncelle
+        await updateDoc(doc(db, 'kullanicilar', uid), {
+          ad: form.ad, rol: form.rol, kurumId: yeniKurumId,
         })
+
+        if (yeniKurumId !== eskiKurumId) {
+          // Eski kurumdan kaldır, yeni kuruma ekle
+          const batch = writeBatch(db)
+          batch.delete(doc(db, 'kurumlar', eskiKurumId, 'kullanicilar', uid))
+          batch.set(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), {
+            ad: form.ad, email: duzenlenen.email,
+            rol: form.rol, kurumId: yeniKurumId, durum: 'aktif',
+          })
+          await batch.commit()
+        } else {
+          await updateDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), {
+            ad: form.ad, rol: form.rol,
+          })
+        }
+
         setBasari('Kullanıcı güncellendi.')
         setTimeout(modalKapat, 1200)
       } else {
@@ -226,6 +254,25 @@ export default function KurumKullanicilar() {
                   <option value="kurum_admin">Kurum Admin</option>
                 </select>
               </div>
+              {duzenlenen && altKurumlar.length > 1 && (
+                <div style={s.alan}>
+                  <label style={s.etiket}>Kurum (Kampüs / Okul)</label>
+                  <select style={s.girdi} value={form.hedefKurumId}
+                    onChange={e => setForm(f => ({ ...f, hedefKurumId: e.target.value }))}>
+                    <option value="">— Seçin —</option>
+                    {altKurumlar.map(k => {
+                      const kampus = erisimKurumlar.find(x => x.id === k.parentId)
+                      const label = kampus?.parentId ? `${kampus.ad} · ${k.ad}` : k.ad
+                      return <option key={k.id} value={k.id}>{label}</option>
+                    })}
+                  </select>
+                  {form.hedefKurumId !== (duzenlenen.kurumId || '') && form.hedefKurumId && (
+                    <div style={{ fontSize: '0.78rem', color: '#D97706', marginTop: '3px' }}>
+                      ⚠ Kullanıcı yeni kuruma taşınacak
+                    </div>
+                  )}
+                </div>
+              )}
               {basari && <p style={{ fontSize: '0.875rem', color: '#065F46', background: '#D1FAE5', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{basari}</p>}
               {hata && <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{hata}</p>}
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
