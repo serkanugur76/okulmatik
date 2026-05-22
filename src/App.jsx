@@ -51,9 +51,15 @@ export default function App() {
             </KorunanRoute>
           }>
             <Route index element={<Dashboard />} />
-            <Route path="kurumlar"    element={<Kurumlar />} />
+            <Route path="kurumlar"     element={<Kurumlar />} />
             <Route path="kullanicilar" element={<PlatformKullanicilar />} />
-            <Route path="rubrikler"   element={<PlatformRubrikler />} />
+            <Route path="rubrikler"    element={<PlatformRubrikler />} />
+            {/* Kurum operasyon sayfaları — platform admin seçili kurumu yönetir */}
+            <Route path="kurum/siniflar"         element={<KurumSiniflar />} />
+            <Route path="kurum/ogrenciler"       element={<KurumOgrenciler />} />
+            <Route path="kurum/kullanicilar"     element={<KurumKullanicilar />} />
+            <Route path="kurum/rubrikler"        element={<KurumRubrikler />} />
+            <Route path="kurum/degerlendirmeler" element={<KurumDegerlendirmeler />} />
           </Route>
           <Route path="/kurum" element={
             <KorunanRoute izinliRoller={['kurum_admin']}>

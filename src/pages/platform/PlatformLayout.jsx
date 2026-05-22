@@ -1,16 +1,61 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { KurumYonetimProvider, useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
-const menuler = [
-  { yol: '/platform',               etiket: 'Dashboard',  ikon: '📊' },
-  { yol: '/platform/kurumlar',      etiket: 'Kurumlar',   ikon: '🏫' },
-  { yol: '/platform/kullanicilar',  etiket: 'Kullanıcılar', ikon: '👥' },
-  { yol: '/platform/rubrikler',     etiket: 'Rubrikler',  ikon: '📋' },
+// ── Platform yönetim menüsü (kurumdan bağımsız) ───────────────────────────────
+const PLATFORM_MENULER = [
+  { yol: '/platform',              etiket: 'Dashboard',    ikon: '📊', end: true },
+  { yol: '/platform/kurumlar',     etiket: 'Kurumlar',     ikon: '🏛' },
+  { yol: '/platform/kullanicilar', etiket: 'Kullanıcılar', ikon: '👥' },
+  { yol: '/platform/rubrikler',    etiket: 'Rubrik Şablonlar', ikon: '📋' },
 ]
 
-export default function PlatformLayout() {
+// ── Kurum operasyon menüsü (seçili kuruma bağlı) ─────────────────────────────
+const KURUM_MENULER = [
+  { yol: '/platform/kurum/siniflar',         etiket: 'Sınıflar',         ikon: '🏫' },
+  { yol: '/platform/kurum/ogrenciler',       etiket: 'Öğrenciler',       ikon: '🎒' },
+  { yol: '/platform/kurum/kullanicilar',     etiket: 'Kurum Kullanıcılar', ikon: '👤' },
+  { yol: '/platform/kurum/rubrikler',        etiket: 'Kurum Rubrikler',  ikon: '📝' },
+  { yol: '/platform/kurum/degerlendirmeler', etiket: 'Değerlendirmeler', ikon: '✅' },
+]
+
+const SIDEBAR_BG   = '#1E1B4B'   // indigo koyu — platform admin rengi
+const SIDEBAR_AKT  = '#4338CA'   // aktif menü
+const BORDER_COLOR = 'rgba(255,255,255,0.1)'
+
+function MenuLink({ yol, ikon, etiket, end = false }) {
+  return (
+    <NavLink
+      to={yol}
+      end={end}
+      style={({ isActive }) => ({
+        display: 'flex', alignItems: 'center', gap: '0.75rem',
+        padding: '0.65rem 1.25rem', textDecoration: 'none',
+        color: isActive ? '#fff' : 'rgba(255,255,255,0.65)',
+        background: isActive ? SIDEBAR_AKT : 'transparent',
+        borderLeft: isActive ? '3px solid #818CF8' : '3px solid transparent',
+        fontSize: '0.875rem', fontWeight: isActive ? '600' : '400',
+        transition: 'all 0.15s',
+      })}
+    >
+      <span>{ikon}</span>
+      <span>{etiket}</span>
+    </NavLink>
+  )
+}
+
+function PlatformSidebar() {
   const { profil, cikisYap } = useAuth()
+  const { erisimKurumlar, secilenKurumId, secilenKurum, setSecilenKurumId } = useKurumYonetim()
   const navigate = useNavigate()
+
+  const rootKurumlar   = erisimKurumlar.filter(k => !k.parentId)
+  const kampusKurumlar = erisimKurumlar.filter(k => k.parentId && erisimKurumlar.find(x => x.id === k.parentId && !x.parentId))
+  const altKurumlar    = erisimKurumlar.filter(k => {
+    if (!k.parentId) return false
+    const ust = erisimKurumlar.find(x => x.id === k.parentId)
+    return !!ust?.parentId
+  })
 
   async function handleCikis() {
     await cikisYap()
@@ -18,60 +63,107 @@ export default function PlatformLayout() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
-      {/* Sidebar */}
-      <aside style={{
-        width: '240px', minHeight: '100vh', background: '#1B3A6B',
-        display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0,
-      }}>
-        {/* Logo */}
-        <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>📚 Okulmatik</div>
-          <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', marginTop: '0.25rem' }}>Platform Yönetimi</div>
+    <aside style={{
+      width: '240px', minHeight: '100vh', background: SIDEBAR_BG,
+      display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0,
+    }}>
+      {/* Logo + badge */}
+      <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: `1px solid ${BORDER_COLOR}` }}>
+        <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#fff' }}>📚 Okulmatik</div>
+        <div style={{
+          display: 'inline-block', marginTop: '0.375rem',
+          fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.08em',
+          background: '#4338CA', color: '#C7D2FE',
+          padding: '2px 8px', borderRadius: '999px', textTransform: 'uppercase',
+        }}>
+          ⚙ Platform Yöneticisi
+        </div>
+      </div>
+
+      <nav style={{ flex: 1, overflowY: 'auto', paddingBottom: '0.5rem' }}>
+        {/* ── Platform Yönetimi ── */}
+        <div style={{ padding: '0.75rem 1.25rem 0.25rem', fontSize: '0.65rem', fontWeight: '700',
+          color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          Platform
+        </div>
+        {PLATFORM_MENULER.map(m => (
+          <MenuLink key={m.yol} {...m} />
+        ))}
+
+        {/* ── Kurum Operasyonları ── */}
+        <div style={{ padding: '0.875rem 1.25rem 0.25rem', fontSize: '0.65rem', fontWeight: '700',
+          color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase',
+          borderTop: `1px solid ${BORDER_COLOR}`, marginTop: '0.5rem' }}>
+          Kurum Operasyonları
         </div>
 
-        {/* Menü */}
-        <nav style={{ flex: 1, padding: '1rem 0' }}>
-          {menuler.map(m => (
-            <NavLink
-              key={m.yol}
-              to={m.yol}
-              end={m.yol === '/platform'}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                padding: '0.75rem 1.25rem', textDecoration: 'none',
-                color: isActive ? '#fff' : 'rgba(255,255,255,0.65)',
-                background: isActive ? 'rgba(255,255,255,0.12)' : 'transparent',
-                borderLeft: isActive ? '3px solid #60A5FA' : '3px solid transparent',
-                fontSize: '0.9rem', fontWeight: isActive ? '600' : '400',
-                transition: 'all 0.15s',
-              })}
-            >
-              <span>{m.ikon}</span>
-              <span>{m.etiket}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Alt kullanıcı alanı */}
-        <div style={{ padding: '1rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.5rem' }}>
-            {profil?.ad || profil?.email}
-          </div>
-          <button onClick={handleCikis} style={{
-            width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.1)',
-            color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px',
-            fontSize: '0.8rem', cursor: 'pointer',
-          }}>
-            Çıkış Yap
-          </button>
+        {/* Kurum seçici */}
+        <div style={{ padding: '0 1rem 0.5rem' }}>
+          <select
+            value={secilenKurumId || ''}
+            onChange={e => setSecilenKurumId(e.target.value || null)}
+            style={{
+              width: '100%', background: 'rgba(255,255,255,0.1)', color: '#fff',
+              border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px',
+              padding: '0.375rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer',
+            }}
+          >
+            <option value="" style={{ background: SIDEBAR_BG }}>— Kurum seçin —</option>
+            {rootKurumlar.map(k => (
+              <option key={k.id} value={k.id} style={{ background: SIDEBAR_BG }}>🏛 {k.ad}</option>
+            ))}
+            {kampusKurumlar.map(k => (
+              <option key={k.id} value={k.id} style={{ background: SIDEBAR_BG }}>🏫 {k.ad}</option>
+            ))}
+            {altKurumlar.map(k => {
+              const ust = erisimKurumlar.find(x => x.id === k.parentId)
+              return (
+                <option key={k.id} value={k.id} style={{ background: SIDEBAR_BG }}>
+                  🏢 {ust ? `${ust.ad} · ` : ''}{k.ad}
+                </option>
+              )
+            })}
+          </select>
+          {secilenKurum && (
+            <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginTop: '3px', paddingLeft: '2px' }}>
+              {secilenKurum.tip === 'kurum' ? 'Ana Kurum'
+                : secilenKurum.tip === 'kampus' ? 'Kampüs'
+                : 'Alt Kurum'}
+            </div>
+          )}
         </div>
-      </aside>
 
-      {/* İçerik */}
-      <main style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
-        <Outlet />
-      </main>
-    </div>
+        {KURUM_MENULER.map(m => (
+          <MenuLink key={m.yol} {...m} />
+        ))}
+      </nav>
+
+      {/* Kullanıcı + çıkış */}
+      <div style={{ padding: '1rem 1.25rem', borderTop: `1px solid ${BORDER_COLOR}` }}>
+        <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginBottom: '0.5rem' }}>
+          {profil?.ad || profil?.email}
+        </div>
+        <button onClick={handleCikis} style={{
+          width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.08)',
+          color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px',
+          fontSize: '0.8rem', cursor: 'pointer',
+        }}>
+          Çıkış Yap
+        </button>
+      </div>
+    </aside>
+  )
+}
+
+export default function PlatformLayout() {
+  return (
+    <KurumYonetimProvider>
+      <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
+        <PlatformSidebar />
+        <main style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
+          <Outlet />
+        </main>
+      </div>
+    </KurumYonetimProvider>
   )
 }
