@@ -312,7 +312,7 @@ export default function KurumRubrikler() {
 
         const aciklar = {}; kriterler.forEach(k => { aciklar[k.id] = false })
         setDuzenlenen(null)
-        setForm({ ad: dosya.name.replace(/\.xlsx?$/i, '').replace(/_/g, ' '), aciklama: '', kriterler })
+        setForm({ ad: dosya.name.replace(/\.xlsx?$/i, '').replace(/_/g, ' '), ders: '', aciklama: '', kriterler, hedefSeviyeler: [] })
         setAcikAna(aciklar)
         setAcikAlt({})
         setHata('')
