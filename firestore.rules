@@ -29,14 +29,24 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/kurumlar/$(kullaniciBilgisi().kurumId)).data.tip;
     }
     // Kullanıcının kendi kurumunun rootKurumId'sini döndürür
-    // (kampüs/altKurum admin kendi root kurumunu okuyabilsin)
     function kullanicininRootKurumId() {
       let kulKurum = get(/databases/$(database)/documents/kurumlar/$(kullaniciBilgisi().kurumId)).data;
       return kulKurum.get('rootKurumId', kullaniciBilgisi().kurumId);
     }
+    // Kullanıcının kendi kurumunun parentId'sini döndürür (altKurum → kampüs erişimi için)
+    function kullanicininParentKurumId() {
+      return get(/databases/$(database)/documents/kurumlar/$(kullaniciBilgisi().kurumId)).data.get('parentId', '');
+    }
+
+    // Aynı organizasyon: kullanıcı ve hedef kurum aynı root'a ait mi?
+    // Rubrik gibi paylaşılan kaynakların tüm organizasyon içinde okunmasına izin verir.
+    function ayniOrganizasyon(kurumId) {
+      let hedefRootId = get(/databases/$(database)/documents/kurumlar/$(kurumId)).data.get('rootKurumId', kurumId);
+      return kullanicininRootKurumId() == hedefRootId
+          || kullanicininRootKurumId() == kurumId;
+    }
 
     // altKurum admini sadece 'ogretmen' rolünde kullanıcı yazabilir
-    // (platformAdmin veya altKurum değilse her rol geçerli, altKurum ise sadece ogretmen)
     function rolYazmaIzni() {
       return platformAdmin()
           || kullanicininKurumTip() != 'altKurum'
@@ -64,7 +74,8 @@ service cloud.firestore {
         || kullaniciBilgisi().kurumId == kurumId
         || kullaniciBilgisi().kurumId == resource.data.rootKurumId
         || kullaniciBilgisi().kurumId == resource.data.parentId
-        || kullanicininRootKurumId() == kurumId;
+        || kullanicininRootKurumId() == kurumId
+        || kullanicininParentKurumId() == kurumId;
       allow write: if platformAdmin()
         || (kullaniciBilgisi().rol == 'kurum_admin'
             && (kullaniciBilgisi().kurumId == kurumId
@@ -88,8 +99,10 @@ service cloud.firestore {
       allow read:  if request.auth != null;   // tüm giriş yapmış kullanıcılar okuyabilir
       allow write: if platformAdmin();         // sadece platform admin yazabilir
     }
+    // Kurum rubrikleri: aynı organizasyondaki herkes okuyabilir (inheritance),
+    // yazmak için kurumAdmin veya platformAdmin gerekir
     match /kurumlar/{kurumId}/rubrikler/{rubrikId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow read:  if kurumUyesi(kurumId) || platformAdmin() || ayniOrganizasyon(kurumId);
       allow write: if kurumAdmin(kurumId) || platformAdmin();
     }
     match /kurumlar/{kurumId}/puanlar/{kayitId} {

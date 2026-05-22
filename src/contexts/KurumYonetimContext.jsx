@@ -53,8 +53,11 @@ export function KurumYonetimProvider({ children }) {
         if (!anaSnap.exists()) { setYukleniyor(false); return }
         const anaKurum = { id: kurumId, ...anaSnap.data() }
 
-        // 2. Kampüs / altKurum admini ise root kurumu da çek (başlık gösterimi için)
-        let rootKurum = null
+        // 2. Ata kurumları çek (rubrik inheritance için tüm üst hiyerarşi görünmeli)
+        let rootKurum   = null
+        let kampusKurum = null
+
+        // Root kurumu çek (kampüs veya altKurum admin için)
         if (anaKurum.rootKurumId && anaKurum.rootKurumId !== kurumId) {
           try {
             const rootSnap = await getDoc(doc(db, 'kurumlar', anaKurum.rootKurumId))
@@ -64,7 +67,22 @@ export function KurumYonetimProvider({ children }) {
           }
         }
 
-        setErisimKurumlar(rootKurum ? [rootKurum, anaKurum] : [anaKurum])
+        // altKurum admin ise parent kampüsü de çek (root'tan farklıysa)
+        if (
+          anaKurum.parentId &&
+          anaKurum.parentId !== kurumId &&
+          anaKurum.parentId !== anaKurum.rootKurumId
+        ) {
+          try {
+            const kampusSnap = await getDoc(doc(db, 'kurumlar', anaKurum.parentId))
+            if (kampusSnap.exists()) kampusKurum = { id: anaKurum.parentId, ...kampusSnap.data() }
+          } catch (err) {
+            console.warn('Kampüs yüklenemedi:', err.message)
+          }
+        }
+
+        const ustKurumlar = [rootKurum, kampusKurum].filter(Boolean)
+        setErisimKurumlar([...ustKurumlar, anaKurum])
 
         // 3. Alt kurumları yükle
         try {
@@ -74,7 +92,7 @@ export function KurumYonetimProvider({ children }) {
           ])
           const map = new Map()
           ;[...rootQ.docs, ...parentQ.docs].forEach(d => map.set(d.id, { id: d.id, ...d.data() }))
-          setErisimKurumlar(rootKurum ? [rootKurum, anaKurum, ...map.values()] : [anaKurum, ...map.values()])
+          setErisimKurumlar([...ustKurumlar, anaKurum, ...map.values()])
         } catch (err) {
           console.error('Alt kurum yükleme hatası:', err.code, err.message)
         }
