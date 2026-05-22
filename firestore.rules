@@ -42,11 +42,13 @@ service cloud.firestore {
       // resource.data kullanılır — get() çağrısı gerektirmez, collection query'de çalışır
       allow read:  if platformAdmin()
         || kullaniciBilgisi().kurumId == kurumId
-        || kullaniciBilgisi().kurumId == resource.data.rootKurumId;
+        || kullaniciBilgisi().kurumId == resource.data.rootKurumId
+        || kullaniciBilgisi().kurumId == resource.data.parentId;
       allow write: if platformAdmin()
         || (kullaniciBilgisi().rol == 'kurum_admin'
             && (kullaniciBilgisi().kurumId == kurumId
-                || kullaniciBilgisi().kurumId == resource.data.rootKurumId));
+                || kullaniciBilgisi().kurumId == resource.data.rootKurumId
+                || kullaniciBilgisi().kurumId == resource.data.parentId));
     }
     match /kurumlar/{kurumId}/siniflar/{sinifId} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin();
