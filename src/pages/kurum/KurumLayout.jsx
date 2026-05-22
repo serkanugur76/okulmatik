@@ -12,26 +12,29 @@ const menuler = [
 ]
 
 function KurumLayoutInner() {
-  const { profil, cikisYap } = useAuth()
+  const { profil, cikisYap, platformAdmin } = useAuth()
   const { erisimKurumlar, secilenKurumId, setSecilenKurumId } = useKurumYonetim()
   const navigate = useNavigate()
 
   // Root kurum (parentId yok)
   const rootKurum = erisimKurumlar.find(k => !k.parentId)
 
-  // Seçilebilir kurumlar: sadece kampüs ve alt kurumlar
-  const secilebilir = erisimKurumlar.filter(k => k.parentId)
+  // Platform admin: tüm kurumlar seçilebilir
+  // Kurum admin: sadece kampüs ve alt kurumlar (root her zaman başlıkta sabit)
+  const secilebilir = platformAdmin
+    ? erisimKurumlar
+    : erisimKurumlar.filter(k => k.parentId)
 
-  // Seçili kurumun tam yolu: Gelecek Okulları - Mezitli Kampüsü - İlkokul
-  function tamYol(kurum) {
-    if (!kurum || !kurum.parentId) return kurum?.ad || ''
-    const ust = erisimKurumlar.find(k => k.id === kurum.parentId)
-    if (!ust || !ust.parentId) {
-      // Kampüs seviyesi: Root - Kampüs
-      return `${rootKurum?.ad || ''} - ${kurum.ad}`
+  // Dropdown etiketleri
+  function kurumEtiketi(k) {
+    if (!k.parentId) return `🏛 ${k.ad}`
+    if (k.tip === 'kampus') {
+      return platformAdmin ? `🏫 ${k.ad}` : k.ad
     }
-    // Alt kurum seviyesi: Root - Kampüs - AltKurum
-    return `${rootKurum?.ad || ''} - ${ust.ad} - ${kurum.ad}`
+    const ust = erisimKurumlar.find(x => x.id === k.parentId)
+    return platformAdmin
+      ? `🏢 ${ust?.ad ? ust.ad + ' - ' : ''}${k.ad}`
+      : `${ust?.ad ? ust.ad + ' - ' : ''}${k.ad}`
   }
 
   const secilenKurum = erisimKurumlar.find(k => k.id === secilenKurumId)
@@ -50,15 +53,17 @@ function KurumLayoutInner() {
         <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>📚 Okulmatik</div>
 
-          {/* Root kurum adı — sabit */}
-          <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'rgba(255,255,255,0.85)', marginTop: '0.5rem' }}>
-            {rootKurum?.ad || '—'}
-          </div>
+          {/* Root kurum adı — platform admin için dropdown'da var, kurum admin için sabit başlık */}
+          {!platformAdmin && (
+            <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'rgba(255,255,255,0.85)', marginTop: '0.5rem' }}>
+              {rootKurum?.ad || '—'}
+            </div>
+          )}
 
-          {/* Kampüs/Alt kurum seçici */}
+          {/* Kurum seçici */}
           {secilebilir.length > 0 && (
             <select
-              value={secilenKurumId && secilenKurum?.parentId ? secilenKurumId : ''}
+              value={secilenKurumId || ''}
               onChange={e => setSecilenKurumId(e.target.value || rootKurum?.id)}
               style={{
                 marginTop: '0.5rem', width: '100%',
@@ -67,25 +72,25 @@ function KurumLayoutInner() {
                 padding: '0.375rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer',
               }}
             >
-              <option value="" style={{ background: '#1B3A6B' }}>— Kurum seçin —</option>
-              {secilebilir.map(k => {
-                const ust = erisimKurumlar.find(x => x.id === k.parentId)
-                const etiket = k.tip === 'altKurum' && ust
-                  ? `${ust.ad} - ${k.ad}`
-                  : k.ad
-                return (
-                  <option key={k.id} value={k.id} style={{ background: '#1B3A6B' }}>
-                    {etiket}
-                  </option>
-                )
-              })}
+              {!platformAdmin && (
+                <option value="" style={{ background: '#1B3A6B' }}>— Kurum seçin —</option>
+              )}
+              {secilebilir.map(k => (
+                <option key={k.id} value={k.id} style={{ background: '#1B3A6B' }}>
+                  {kurumEtiketi(k)}
+                </option>
+              ))}
             </select>
           )}
 
-          {/* Seçili kurumun tam yolu */}
-          {secilenKurum?.parentId && (
+          {/* Seçili kurumun alt bilgisi */}
+          {secilenKurum && (
             <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginTop: '0.375rem', lineHeight: '1.3' }}>
-              {tamYol(secilenKurum)}
+              {secilenKurum.tip === 'kampus'
+                ? `- ${secilenKurum.ad}`
+                : secilenKurum.parentId
+                  ? `- ${erisimKurumlar.find(x => x.id === secilenKurum.parentId)?.ad || ''} - ${secilenKurum.ad}`
+                  : secilenKurum.ad}
             </div>
           )}
         </div>
