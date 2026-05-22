@@ -74,6 +74,7 @@ export default function KurumDegerlendirmeler() {
   const [secilenSinifId,  setSecilenSinifId]  = useState('')
   const [degisiklikler,   setDegisiklikler]   = useState({})
   const [kaydediyor,      setKaydediyor]      = useState(false)
+  const [secilenAnaKriterId, setSecilenAnaKriterId] = useState(null)
 
   // ── Import ───────────────────────────────────────────────
   const [importModal,    setImportModal]    = useState(false)
@@ -133,6 +134,11 @@ export default function KurumDegerlendirmeler() {
 
   // Rubrik / dönem değişince değişiklikleri sıfırla
   useEffect(() => { setDegisiklikler({}) }, [secilenRubrikId, secilenDonem])
+
+  // Rubrik değişince ilk ana kriteri seç
+  useEffect(() => {
+    setSecilenAnaKriterId(secilenRubrik?.kriterler?.[0]?.id || null)
+  }, [secilenRubrikId]) // eslint-disable-line
 
   // Seçili sınıfın seviyesi
   const secilenSinif  = siniflar.find(s => s.id === secilenSinifId)
@@ -478,10 +484,16 @@ export default function KurumDegerlendirmeler() {
 
           {/* ── Puanlama Tablosu ── */}
           {secilenRubrik && (() => {
+            // Seçili ana kriter (tab)
+            const secilenAnaKriter = secilenRubrik.kriterler.find(k => k.id === secilenAnaKriterId)
+              || secilenRubrik.kriterler[0]
+            const aklerFiltreli = (secilenAnaKriter?.altKriterler || []).map(ak => ({
+              ...ak, anaAd: secilenAnaKriter.ad, anaId: secilenAnaKriter.id,
+            }))
 
-            const akler = altKriterListesi(secilenRubrik)
             return (
               <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+                {/* Başlık */}
                 <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1B3A6B' }}>
                     {secilenRubrik.ad} — {secilenDonem}. Dönem
@@ -490,36 +502,50 @@ export default function KurumDegerlendirmeler() {
                     4=Mükemmel · 3=İyi · 2=Gelişiyor · 1=Başlangıç
                   </span>
                 </div>
+
+                {/* Ana Kriter Tabları */}
+                {secilenRubrik.kriterler.length > 0 && (
+                  <div style={{
+                    display: 'flex', gap: '4px', padding: '0.625rem 0.875rem',
+                    borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
+                    overflowX: 'auto', flexWrap: 'nowrap',
+                  }}>
+                    {secilenRubrik.kriterler.map((k, idx) => {
+                      const secili = (secilenAnaKriterId || secilenRubrik.kriterler[0]?.id) === k.id
+                      return (
+                        <button key={k.id} onClick={() => setSecilenAnaKriterId(k.id)}
+                          style={{
+                            padding: '5px 14px', borderRadius: '6px', border: '1.5px solid',
+                            borderColor:  secili ? '#1B3A6B' : '#E2E8F0',
+                            background:   secili ? '#1B3A6B' : '#fff',
+                            color:        secili ? '#fff' : '#64748B',
+                            fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
+                            whiteSpace: 'nowrap', transition: 'all 0.15s',
+                          }}>
+                          {idx + 1}. {k.ad}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                     <thead>
-                      {/* Satır 1: Sabit + Ana Kriter başlıkları + Ort */}
                       <tr>
-                        <th rowSpan={2} style={{ ...thFix, width: '36px', verticalAlign: 'middle' }}>#</th>
-                        <th rowSpan={2} style={{ ...thFix, textAlign: 'left', minWidth: '160px', verticalAlign: 'middle' }}>Ad Soyad</th>
-                        <th rowSpan={2} style={{ ...thFix, minWidth: '72px', verticalAlign: 'middle' }}>Sınıf</th>
-                        {secilenRubrik.kriterler.map(k => (
-                          <th key={k.id}
-                            colSpan={k.altKriterler?.length || 1}
-                            style={{ ...thAna, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                            {k.ad}
-                          </th>
+                        <th style={{ ...thFix, width: '36px' }}>#</th>
+                        <th style={{ ...thFix, textAlign: 'left', minWidth: '160px' }}>Ad Soyad</th>
+                        <th style={{ ...thFix, minWidth: '72px' }}>Sınıf</th>
+                        {aklerFiltreli.map(ak => (
+                          <th key={ak.id} style={thAlt}>{ak.ad}</th>
                         ))}
-                        <th rowSpan={2} style={{ ...thFix, minWidth: '80px', verticalAlign: 'middle' }}>Dönem Ort.</th>
-                      </tr>
-                      {/* Satır 2: Alt Kriter adları */}
-                      <tr>
-                        {secilenRubrik.kriterler.flatMap(k =>
-                          (k.altKriterler || []).map(ak => (
-                            <th key={ak.id} style={thAlt}>{ak.ad}</th>
-                          ))
-                        )}
+                        <th style={{ ...thFix, minWidth: '80px' }}>Dönem Ort.</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filtreliOgrenciler.length === 0 ? (
                         <tr>
-                          <td colSpan={4 + akler.length} style={{ ...td, padding: '2.5rem', color: '#94A3B8' }}>
+                          <td colSpan={4 + aklerFiltreli.length} style={{ ...td, padding: '2.5rem', color: '#94A3B8' }}>
                             Öğrenci bulunamadı
                           </td>
                         </tr>
@@ -541,7 +567,7 @@ export default function KurumDegerlendirmeler() {
                               {degisti && <span style={{ marginLeft: '4px', fontSize: '0.65rem', color: '#D97706' }}>●</span>}
                             </td>
                             <td style={{ ...td, color: '#64748B', fontSize: '0.75rem' }}>{sinif?.ad || '—'}</td>
-                            {akler.map(ak => {
+                            {aklerFiltreli.map(ak => {
                               const p  = getPuan(ogr.id, ak.id)
                               const st = p ? PUAN_BG[p] : { background: '#F8FAFC', color: '#94A3B8' }
                               return (
