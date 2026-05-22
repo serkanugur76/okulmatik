@@ -47,7 +47,20 @@ export default function KurumDegerlendirmeler() {
 
   const ust    = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
-  const hedefKurumId = seviye === 'altKurum' ? secilenKurumId : null
+
+  // Alt kurumlar listesi (öğrenci/sınıf/değerlendirme için seçilecek)
+  const sayimKurumlar = useMemo(() => {
+    if (seviye === 'root')   return erisimKurumlar.filter(k => { if (!k.parentId) return false; const u = erisimKurumlar.find(x => x.id === k.parentId); return !!u?.parentId })
+    if (seviye === 'kampus') return erisimKurumlar.filter(k => k.parentId === secilenKurumId)
+    return secilenKurum ? [secilenKurum] : []
+  }, [seviye, secilenKurumId, erisimKurumlar]) // eslint-disable-line
+
+  // Root/kampüs seviyesinde hangi altKurum seçili?
+  const [secilenAltKurumId, setSecilenAltKurumId] = useState('')
+  useEffect(() => { setSecilenAltKurumId('') }, [secilenKurumId])
+
+  // Asıl veri kurumu: altKurum seviyesinde doğrudan secilenKurumId, üst seviyede seçileni
+  const hedefKurumId = seviye === 'altKurum' ? secilenKurumId : (secilenAltKurumId || null)
 
   // ── Veri ─────────────────────────────────────────────────
   const [rubrikler,  setRubrikler]  = useState([])
@@ -68,16 +81,22 @@ export default function KurumDegerlendirmeler() {
   const [importing,      setImporting]      = useState(false)
   const [importHata,     setImportHata]     = useState('')
 
-  // Rubrikler
+  // Rubrikler — tüm erişilebilir kurumlardan yükle (root/kampüs/altKurum)
   useEffect(() => {
-    if (!hedefKurumId) { setRubrikler([]); setSecilenRubrikId(null); return }
-    const q = query(collection(db, 'kurumlar', hedefKurumId, 'rubrikler'), orderBy('olusturmaTarihi', 'asc'))
-    return onSnapshot(q, snap => {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setRubrikler(list)
-      setSecilenRubrikId(prev => list.find(r => r.id === prev) ? prev : list[0]?.id || null)
+    const allIds = [...new Set(erisimKurumlar.map(k => k.id))]
+    if (!allIds.length) { setRubrikler([]); setSecilenRubrikId(null); return }
+    const parcalar = {}
+    const unsubs = allIds.map(kid => {
+      const q = query(collection(db, 'kurumlar', kid, 'rubrikler'), orderBy('olusturmaTarihi', 'asc'))
+      return onSnapshot(q, snap => {
+        parcalar[kid] = snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() }))
+        const hepsi = [...new Map(allIds.flatMap(id => parcalar[id] || []).map(r => [r.id, r])).values()]
+        setRubrikler(hepsi)
+        setSecilenRubrikId(prev => hepsi.find(r => r.id === prev) ? prev : hepsi[0]?.id || null)
+      })
     })
-  }, [hedefKurumId])
+    return () => unsubs.forEach(u => u())
+  }, [erisimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
 
   // Öğrenciler
   useEffect(() => {
@@ -339,16 +358,6 @@ export default function KurumDegerlendirmeler() {
   const td    = { padding: '0.5rem 0.5rem', textAlign: 'center', borderBottom: '1px solid #F1F5F9', fontSize: '0.8rem' }
   const tdAd  = { padding: '0.5rem 0.75rem', textAlign: 'left', borderBottom: '1px solid #F1F5F9', fontSize: '0.8rem', fontWeight: '500' }
 
-  if (!hedefKurumId) return (
-    <div>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Değerlendirmeler</h1>
-      <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Rubrik bazlı dönem değerlendirmesi</p>
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
-        Değerlendirme yapmak için sol menüden bir alt kurum seçin
-      </div>
-    </div>
-  )
-
   return (
     <div style={{ paddingBottom: '80px' }}>
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Değerlendirmeler</h1>
@@ -356,9 +365,29 @@ export default function KurumDegerlendirmeler() {
         <strong>{secilenKurum?.ad}</strong> — rubrik bazlı dönem değerlendirmesi
       </p>
 
+      {/* ── AltKurum Seçici (root/kampüs seviyesinde göster) ── */}
+      {seviye !== 'altKurum' && (
+        <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#3730A3', whiteSpace: 'nowrap' }}>🏫 Kurum:</span>
+          <select value={secilenAltKurumId} onChange={e => { setSecilenAltKurumId(e.target.value); setSecilenSinifId('') }}
+            style={{ padding: '6px 10px', border: '1.5px solid ' + (secilenAltKurumId ? '#4F46E5' : '#FCD34D'), borderRadius: '7px', fontSize: '0.875rem', background: '#fff', color: '#374151', cursor: 'pointer', fontWeight: secilenAltKurumId ? '600' : '400' }}>
+            <option value="">— Değerlendirme yapılacak okulu seçin —</option>
+            {sayimKurumlar.map(k => {
+              const kampus = erisimKurumlar.find(x => x.id === k.parentId)
+              const label = kampus?.parentId ? `${kampus.ad} · ${k.ad}` : k.ad
+              return <option key={k.id} value={k.id}>{label}</option>
+            })}
+          </select>
+        </div>
+      )}
+
       {rubrikler.length === 0 ? (
         <div style={{ background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px', padding: '1.5rem', color: '#92400E', fontSize: '0.875rem' }}>
           ⚠ Henüz rubrik eklenmemiş. <strong>Rubrikler</strong> sayfasından önce rubrik oluşturun.
+        </div>
+      ) : !hedefKurumId ? (
+        <div style={{ background: '#F8FAFC', borderRadius: '10px', border: '1px dashed #CBD5E1', padding: '3rem', textAlign: 'center', color: '#94A3B8', fontSize: '0.9rem' }}>
+          Değerlendirme yapmak için yukarıdan bir okul seçin
         </div>
       ) : (
         <>
