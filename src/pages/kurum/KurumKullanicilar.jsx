@@ -51,7 +51,7 @@ export default function KurumKullanicilar() {
 
   function modalAc(k = null) {
     setDuzenlenen(k)
-    setForm(k ? { ad: k.ad || '', email: k.email, rol: k.rol, hedefKurumId: k.kurumId || '' } : BOŞ_FORM)
+    setForm(k ? { ad: k.ad || '', email: k.email, rol: k.rol, hedefKurumId: k.kurumId || kurumId || '' } : BOŞ_FORM)
     setHata('')
     setBasari('')
     setModal(true)
@@ -69,6 +69,7 @@ export default function KurumKullanicilar() {
         const uid = duzenlenen.id
         const eskiKurumId = duzenlenen.kurumId || kurumId
         const yeniKurumId = form.hedefKurumId || eskiKurumId
+        if (!yeniKurumId) { setHata('Lütfen bir kurum seçin.'); setKaydediyor(false); return }
 
         // Global kullanicilar kaydını güncelle
         await updateDoc(doc(db, 'kullanicilar', uid), {
@@ -259,7 +260,7 @@ export default function KurumKullanicilar() {
                   <label style={s.etiket}>Kurum (Kampüs / Okul)</label>
                   <select style={s.girdi} value={form.hedefKurumId}
                     onChange={e => setForm(f => ({ ...f, hedefKurumId: e.target.value }))}>
-                    <option value="">— Seçin —</option>
+                    {!form.hedefKurumId && <option value="">— Seçin —</option>}
                     {altKurumlar.map(k => {
                       const kampus = erisimKurumlar.find(x => x.id === k.parentId)
                       const label = kampus?.parentId ? `${kampus.ad} · ${k.ad}` : k.ad
