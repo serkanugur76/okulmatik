@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc,
@@ -32,8 +32,21 @@ export default function KurumRubrikler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
 
   const ust    = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
-  const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
-  const hedefKurumId = seviye === 'altKurum' ? secilenKurumId : null
+
+  // Yeni rubrik her seviyede secilenKurumId'ye kaydedilir
+  const hedefKurumId = secilenKurumId || null
+
+  // Rubrik listesi için: secilenKurum + üst seviyeleri (kampüs, root)
+  const listKurumIds = useMemo(() => {
+    if (!secilenKurumId) return []
+    const ids = [secilenKurumId]
+    if (secilenKurum?.parentId) {
+      ids.push(secilenKurum.parentId)
+      const kampus = erisimKurumlar.find(k => k.id === secilenKurum.parentId)
+      if (kampus?.parentId) ids.push(kampus.parentId)
+    }
+    return [...new Set(ids)]
+  }, [secilenKurumId, secilenKurum?.parentId, erisimKurumlar.map(k=>k.id).join(',')]) // eslint-disable-line
 
   const [rubrikler,     setRubrikler]     = useState([])
   const [sablonlar,     setSablonlar]     = useState([])
@@ -54,12 +67,21 @@ export default function KurumRubrikler() {
     return onSnapshot(q, snap => setSablonlar(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
   }, [])
 
-  // Kurum rubrikleri
+  // Kurum rubrikleri — seçili kurum + üst seviyeleri birleştirir
   useEffect(() => {
-    if (!hedefKurumId) { setRubrikler([]); return }
-    const q = query(collection(db, 'kurumlar', hedefKurumId, 'rubrikler'), orderBy('olusturmaTarihi', 'desc'))
-    return onSnapshot(q, snap => setRubrikler(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-  }, [hedefKurumId])
+    if (listKurumIds.length === 0) { setRubrikler([]); return }
+    const parçalar = {}
+    const unsubs = listKurumIds.map(kid => {
+      const q = query(collection(db, 'kurumlar', kid, 'rubrikler'), orderBy('olusturmaTarihi', 'desc'))
+      return onSnapshot(q, snap => {
+        parçalar[kid] = snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() }))
+        // Tüm seviyeleri birleştir, deduplicate
+        const hepsi = listKurumIds.flatMap(id => parçalar[id] || [])
+        setRubrikler([...new Map(hepsi.map(r => [r.id, r])).values()])
+      })
+    })
+    return () => unsubs.forEach(u => u())
+  }, [listKurumIds.join(',')]) // eslint-disable-line
 
   // ── Modal ────────────────────────────────────────────────
   function modalAc(rubrik = null) {
@@ -194,7 +216,7 @@ export default function KurumRubrikler() {
   // ── Kaydet ───────────────────────────────────────────────
   async function kaydet(e) {
     e.preventDefault()
-    if (!hedefKurumId) { setHata('Lütfen bir alt kurum seçin.'); return }
+    if (!hedefKurumId) { setHata('Önce sol menüden bir kurum seçin.'); return }
     if (!form.ad.trim()) { setHata('Rubrik adı zorunludur.'); return }
     if (!form.hedefSeviyeler.length) { setHata('En az bir sınıf seviyesi seçilmelidir.'); return }
     if (!form.kriterler.length) { setHata('En az bir ana başlık ekleyin.'); return }
@@ -207,12 +229,14 @@ export default function KurumRubrikler() {
       }
     }
     setKaydediyor(true)
+    // Düzenleme: rubriğin kendi kurumuna yaz; yeni kayıt: seçili kuruma
+    const saveKurumId = duzenlenen?._kurumId || hedefKurumId
     try {
       const veri = { ad: form.ad.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler, hedefSeviyeler: form.hedefSeviyeler }
       if (duzenlenen) {
-        await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'rubrikler', duzenlenen.id), veri)
+        await updateDoc(doc(db, 'kurumlar', saveKurumId, 'rubrikler', duzenlenen.id), veri)
       } else {
-        await addDoc(collection(db, 'kurumlar', hedefKurumId, 'rubrikler'), {
+        await addDoc(collection(db, 'kurumlar', saveKurumId, 'rubrikler'), {
           ...veri, olusturmaTarihi: serverTimestamp(),
         })
       }
@@ -297,7 +321,7 @@ export default function KurumRubrikler() {
 
   async function sil(rubrik) {
     if (!window.confirm(`"${rubrik.ad}" rubriğini silmek istediğinize emin misiniz?`)) return
-    await deleteDoc(doc(db, 'kurumlar', hedefKurumId, 'rubrikler', rubrik.id))
+    await deleteDoc(doc(db, 'kurumlar', rubrik._kurumId || hedefKurumId, 'rubrikler', rubrik.id))
   }
 
   // ── Stiller ──────────────────────────────────────────────
@@ -309,16 +333,6 @@ export default function KurumRubrikler() {
     etiket: { fontSize: '0.875rem', fontWeight: '500', color: '#374151' },
     girdi:  { padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', color: '#1E293B', width: '100%', boxSizing: 'border-box' },
   }
-
-  if (!hedefKurumId) return (
-    <div>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Rubrikler</h1>
-      <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Değerlendirme rubriklerini yönetin</p>
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
-        Rubrik yönetimi için sol menüden bir alt kurum seçin
-      </div>
-    </div>
-  )
 
   return (
     <div>
@@ -366,7 +380,17 @@ export default function KurumRubrikler() {
             ) : rubrikler.map(r => (
               <tr key={r.id}>
                 <td style={s.td}>
-                  <div style={{ fontWeight: '600', color: '#1E293B' }}>{r.ad}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: '600', color: '#1E293B' }}>{r.ad}</span>
+                    {r._kurumId !== hedefKurumId && (() => {
+                      const k = erisimKurumlar.find(x => x.id === r._kurumId)
+                      return k ? (
+                        <span style={{ fontSize: '0.68rem', background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', borderRadius: '999px', padding: '1px 7px', fontWeight: '600' }}>
+                          ↑ {k.ad}
+                        </span>
+                      ) : null
+                    })()}
+                  </div>
                   {r.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>{r.aciklama}</div>}
                 </td>
                 <td style={s.td}>
