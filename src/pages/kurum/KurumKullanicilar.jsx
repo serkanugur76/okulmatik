@@ -17,12 +17,15 @@ const BOŞ_FORM = { email: '', rol: 'ogretmen', hedefKurumId: '' }
 export default function KurumKullanicilar() {
   const { secilenKurumId: kurumId, erisimKurumlar } = useKurumYonetim()
 
-  // Alt kurumlar listesi (kurum atama için)
-  const altKurumlar = erisimKurumlar.filter(k => {
+  // Kurum atama için tüm seviyeleri gruplandır
+  const rootKurumlar   = erisimKurumlar.filter(k => !k.parentId)
+  const kampusKurumlar = erisimKurumlar.filter(k => k.parentId && !erisimKurumlar.find(x => x.id === k.parentId)?.parentId)
+  const altKurumlar    = erisimKurumlar.filter(k => {
     if (!k.parentId) return false
     const u = erisimKurumlar.find(x => x.id === k.parentId)
     return !!u?.parentId
   })
+  const atanabilirKurumlar = erisimKurumlar.length > 0
   const [kullanicilar, setKullanicilar] = useState([])
   const [bekleyenler, setBekleyenler]   = useState([])
   const [googleAltyapisi, setGoogleAltyapisi] = useState(false)
@@ -255,21 +258,36 @@ export default function KurumKullanicilar() {
                   <option value="kurum_admin">Kurum Admin</option>
                 </select>
               </div>
-              {duzenlenen && altKurumlar.length > 1 && (
+              {duzenlenen && erisimKurumlar.length > 1 && (
                 <div style={s.alan}>
-                  <label style={s.etiket}>Kurum (Kampüs / Okul)</label>
+                  <label style={s.etiket}>Yönetim Kapsamı</label>
                   <select style={s.girdi} value={form.hedefKurumId}
                     onChange={e => setForm(f => ({ ...f, hedefKurumId: e.target.value }))}>
                     {!form.hedefKurumId && <option value="">— Seçin —</option>}
+                    {rootKurumlar.map(k => (
+                      <option key={k.id} value={k.id}>🏛 {k.ad} — tüm kampüsler</option>
+                    ))}
+                    {kampusKurumlar.map(k => (
+                      <option key={k.id} value={k.id}>🏫 {k.ad} — tüm alt okullar</option>
+                    ))}
                     {altKurumlar.map(k => {
                       const kampus = erisimKurumlar.find(x => x.id === k.parentId)
-                      const label = kampus?.parentId ? `${kampus.ad} · ${k.ad}` : k.ad
-                      return <option key={k.id} value={k.id}>{label}</option>
+                      return <option key={k.id} value={k.id}>🏢 {kampus ? `${kampus.ad} · ` : ''}{k.ad}</option>
                     })}
                   </select>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '3px' }}>
+                    {form.hedefKurumId && (() => {
+                      if (rootKurumlar.find(k => k.id === form.hedefKurumId))
+                        return '✓ Tüm kampüs ve alt okulları yönetir'
+                      if (kampusKurumlar.find(k => k.id === form.hedefKurumId))
+                        return '✓ Bu kampüse bağlı tüm okulları yönetir'
+                      if (altKurumlar.find(k => k.id === form.hedefKurumId))
+                        return '✓ Yalnızca bu okulu yönetir'
+                    })()}
+                  </div>
                   {form.hedefKurumId !== (duzenlenen.kurumId || '') && form.hedefKurumId && (
-                    <div style={{ fontSize: '0.78rem', color: '#D97706', marginTop: '3px' }}>
-                      ⚠ Kullanıcı yeni kuruma taşınacak
+                    <div style={{ fontSize: '0.78rem', color: '#D97706', marginTop: '2px' }}>
+                      ⚠ Kullanıcı yeni kapsama taşınacak
                     </div>
                   )}
                 </div>

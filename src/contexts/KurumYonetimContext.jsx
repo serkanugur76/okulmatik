@@ -27,13 +27,17 @@ export function KurumYonetimProvider({ children }) {
         const anaKurum = { id: kurumId, ...anaSnap.data() }
         setErisimKurumlar([anaKurum])
 
-        // 2. rootKurumId == kurumId olan tüm alt kurumlar (tek sorgu)
+        // 2. rootKurumId == kurumId  →  root admin: tüm kampüs + alt kurumlar
+        // 3. parentId    == kurumId  →  kampüs admin: sadece kendi alt kurumları
+        // İki sorgu çalıştır, dedup et
         try {
-          const altSnap = await getDocs(
-            query(collection(db, 'kurumlar'), where('rootKurumId', '==', kurumId), orderBy('olusturmaTarihi', 'asc'))
-          )
-          const altlar = altSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-          setErisimKurumlar([anaKurum, ...altlar])
+          const [rootSnap, parentSnap] = await Promise.all([
+            getDocs(query(collection(db, 'kurumlar'), where('rootKurumId', '==', kurumId), orderBy('olusturmaTarihi', 'asc'))),
+            getDocs(query(collection(db, 'kurumlar'), where('parentId',    '==', kurumId), orderBy('olusturmaTarihi', 'asc'))),
+          ])
+          const map = new Map()
+          ;[...rootSnap.docs, ...parentSnap.docs].forEach(d => map.set(d.id, { id: d.id, ...d.data() }))
+          setErisimKurumlar([anaKurum, ...map.values()])
         } catch (err) {
           console.error('Alt kurum yükleme hatası:', err.code, err.message)
         }

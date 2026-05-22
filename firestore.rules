@@ -9,11 +9,16 @@ service cloud.firestore {
       return kullaniciBilgisi().rol == 'platform_admin';
     }
 
-    // Alt koleksiyonlar için: kurumlar dokümanını okuyup rootKurumId kontrolü
+    // Alt koleksiyonlar için: kurumlar dokümanını okuyup hiyerarşi kontrolü
+    // - k.kurumId == kurumId          → doğrudan eşleşme (alt kurum admini)
+    // - k.kurumId == kurum.rootKurumId → root admin, tüm alt kurumları yönetir
+    // - k.kurumId == kurum.parentId    → kampüs admini, kendi alt kurumlarını yönetir
     function kurumUyesi(kurumId) {
       let k = kullaniciBilgisi();
       let kurum = get(/databases/$(database)/documents/kurumlar/$(kurumId)).data;
-      return k.kurumId == kurumId || k.kurumId == kurum.rootKurumId;
+      return k.kurumId == kurumId
+          || k.kurumId == kurum.rootKurumId
+          || k.kurumId == kurum.parentId;
     }
     function kurumAdmin(kurumId) {
       return kullaniciBilgisi().rol == 'kurum_admin' && kurumUyesi(kurumId);
