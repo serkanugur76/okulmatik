@@ -52,20 +52,29 @@ export function KurumYonetimProvider({ children }) {
         const anaSnap = await getDoc(doc(db, 'kurumlar', kurumId))
         if (!anaSnap.exists()) { setYukleniyor(false); return }
         const anaKurum = { id: kurumId, ...anaSnap.data() }
-        setErisimKurumlar([anaKurum])
 
-        // 2. Alt kurumları yükle
-        //    - rootKurumId == kurumId  → root admin tüm ağacı görür
-        //    - parentId    == kurumId  → kampüs admin kendi alt kurumlarını görür
-        //    altKurum admini için her iki sorgu da boş döner → sadece kendi kurumu kalır
+        // 2. Kampüs / altKurum admini ise root kurumu da çek (başlık gösterimi için)
+        let rootKurum = null
+        if (anaKurum.rootKurumId && anaKurum.rootKurumId !== kurumId) {
+          try {
+            const rootSnap = await getDoc(doc(db, 'kurumlar', anaKurum.rootKurumId))
+            if (rootSnap.exists()) rootKurum = { id: anaKurum.rootKurumId, ...rootSnap.data() }
+          } catch (err) {
+            console.warn('Root kurum yüklenemedi:', err.message)
+          }
+        }
+
+        setErisimKurumlar(rootKurum ? [rootKurum, anaKurum] : [anaKurum])
+
+        // 3. Alt kurumları yükle
         try {
-          const [rootSnap, parentSnap] = await Promise.all([
+          const [rootQ, parentQ] = await Promise.all([
             getDocs(query(collection(db, 'kurumlar'), where('rootKurumId', '==', kurumId))),
             getDocs(query(collection(db, 'kurumlar'), where('parentId',    '==', kurumId))),
           ])
           const map = new Map()
-          ;[...rootSnap.docs, ...parentSnap.docs].forEach(d => map.set(d.id, { id: d.id, ...d.data() }))
-          setErisimKurumlar([anaKurum, ...map.values()])
+          ;[...rootQ.docs, ...parentQ.docs].forEach(d => map.set(d.id, { id: d.id, ...d.data() }))
+          setErisimKurumlar(rootKurum ? [rootKurum, anaKurum, ...map.values()] : [anaKurum, ...map.values()])
         } catch (err) {
           console.error('Alt kurum yükleme hatası:', err.code, err.message)
         }

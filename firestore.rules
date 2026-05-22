@@ -28,6 +28,12 @@ service cloud.firestore {
     function kullanicininKurumTip() {
       return get(/databases/$(database)/documents/kurumlar/$(kullaniciBilgisi().kurumId)).data.tip;
     }
+    // Kullanıcının kendi kurumunun rootKurumId'sini döndürür
+    // (kampüs/altKurum admin kendi root kurumunu okuyabilsin)
+    function kullanicininRootKurumId() {
+      let kulKurum = get(/databases/$(database)/documents/kurumlar/$(kullaniciBilgisi().kurumId)).data;
+      return kulKurum.get('rootKurumId', kullaniciBilgisi().kurumId);
+    }
 
     // altKurum admini sadece 'ogretmen' rolünde kullanıcı yazabilir
     // (platformAdmin veya altKurum değilse her rol geçerli, altKurum ise sadece ogretmen)
@@ -54,11 +60,11 @@ service cloud.firestore {
       allow write: if platformAdmin();
     }
     match /kurumlar/{kurumId} {
-      // resource.data kullanılır — get() çağrısı gerektirmez, collection query'de çalışır
       allow read:  if platformAdmin()
         || kullaniciBilgisi().kurumId == kurumId
         || kullaniciBilgisi().kurumId == resource.data.rootKurumId
-        || kullaniciBilgisi().kurumId == resource.data.parentId;
+        || kullaniciBilgisi().kurumId == resource.data.parentId
+        || kullanicininRootKurumId() == kurumId;
       allow write: if platformAdmin()
         || (kullaniciBilgisi().rol == 'kurum_admin'
             && (kullaniciBilgisi().kurumId == kurumId
