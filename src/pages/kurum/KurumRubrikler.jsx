@@ -206,6 +206,7 @@ export default function KurumRubrikler() {
     e.preventDefault()
     if (!hedefKurumId) { setHata('Lütfen bir alt kurum seçin.'); return }
     if (!form.ad.trim()) { setHata('Rubrik adı zorunludur.'); return }
+    if (!form.hedefSeviyeler.length) { setHata('En az bir sınıf seviyesi seçilmelidir.'); return }
     if (!form.kriterler.length) { setHata('En az bir ana başlık ekleyin.'); return }
     for (const k of form.kriterler) {
       if (!k.ad.trim()) { setHata('Tüm ana başlıklara ad verilmelidir.'); return }
@@ -484,9 +485,9 @@ export default function KurumRubrikler() {
                   return (
                     <div style={{ marginBottom: '1.25rem' }}>
                       <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                        Sınıf Seviyeleri
+                        Sınıf Seviyeleri <span style={{ color: '#EF4444' }}>*</span>
                         <span style={{ fontWeight: '400', color: '#94A3B8', fontSize: '0.8rem', marginLeft: '6px' }}>
-                          (boş bırakılırsa tüm sınıflara uygulanır)
+                          (en az bir seviye seçilmeli)
                         </span>
                       </div>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
