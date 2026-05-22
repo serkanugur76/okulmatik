@@ -26,18 +26,15 @@ service cloud.firestore {
 
     // Kullanıcının kendi kurumunun tip'ini döndürür (kurum / kampus / altKurum)
     function kullanicininKurumTip() {
-      let k = kullaniciBilgisi();
-      if (!('kurumId' in k) || k.kurumId == null) return 'bilinmiyor';
-      return get(/databases/$(database)/documents/kurumlar/$(k.kurumId)).data.tip;
+      return get(/databases/$(database)/documents/kurumlar/$(kullaniciBilgisi().kurumId)).data.tip;
     }
 
     // altKurum admini sadece 'ogretmen' rolünde kullanıcı yazabilir
+    // (platformAdmin veya altKurum değilse her rol geçerli, altKurum ise sadece ogretmen)
     function rolYazmaIzni() {
-      if (platformAdmin()) return true;
-      if (kullaniciBilgisi().rol != 'kurum_admin') return false;
-      if (kullanicininKurumTip() == 'altKurum')
-        return request.resource.data.rol == 'ogretmen';
-      return true;
+      return platformAdmin()
+          || kullanicininKurumTip() != 'altKurum'
+          || request.resource.data.rol == 'ogretmen';
     }
 
     match /yetkiliKullanicilar/{email} {
