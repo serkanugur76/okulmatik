@@ -30,6 +30,7 @@ export default function KurumSiniflar() {
 
   const [siniflarMap, setSiniflarMap]     = useState({})
   const [ogrencilerMap, setOgrencilerMap] = useState({})  // kurumId → ogrenci[]
+  const [rubriklerMap, setRubriklerMap]   = useState({})  // kurumId → rubrik[]
   const [acikGruplar, setAcikGruplar]     = useState({})
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
@@ -82,6 +83,21 @@ export default function KurumSiniflar() {
       })
     )
     setOgrencilerMap(prev => {
+      const ids = new Set(sayimKurumlar.map(k => k.id))
+      const t = {}; Object.keys(prev).forEach(id => { if (ids.has(id)) t[id] = prev[id] }); return t
+    })
+    return () => unsubs.forEach(u => u())
+  }, [sayimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
+
+  // Rubrikler için subscription
+  useEffect(() => {
+    if (sayimKurumlar.length === 0) { setRubriklerMap({}); return }
+    const unsubs = sayimKurumlar.map(k =>
+      onSnapshot(collection(db, 'kurumlar', k.id, 'rubrikler'), snap => {
+        setRubriklerMap(prev => ({ ...prev, [k.id]: snap.docs.map(d => ({ id: d.id, ...d.data() })) }))
+      })
+    )
+    setRubriklerMap(prev => {
       const ids = new Set(sayimKurumlar.map(k => k.id))
       const t = {}; Object.keys(prev).forEach(id => { if (ids.has(id)) t[id] = prev[id] }); return t
     })
@@ -361,13 +377,17 @@ export default function KurumSiniflar() {
                   {acik && (
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
-                        <tr>{['Sınıf Adı', 'Seviye', 'Şube', 'Öğrenci', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                        <tr>{['Sınıf Adı', 'Seviye', 'Şube', 'Öğrenci', 'Rubrikler', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {grupSiniflar.length === 0 ? (
-                          <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
+                          <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
                         ) : grupSiniflar.map(sinif => {
                           const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
+                          const sinifSeviye = Number(sinif.seviye) || 0
+                          const sinifRubrikler = (rubriklerMap[k.id] || []).filter(r =>
+                            sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye)
+                          )
                           return (
                           <tr key={sinif.id}>
                             <td style={s.td}><strong>{sinif.ad}</strong></td>
@@ -375,6 +395,26 @@ export default function KurumSiniflar() {
                             <td style={s.td}>{sinif.sube || '—'}</td>
                             <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center' }}>
                               {sinifOgrenciSayisi}
+                            </td>
+                            <td style={s.td}>
+                              {sinifSeviye === 0 ? (
+                                <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>Seviye yok</span>
+                              ) : sinifRubrikler.length === 0 ? (
+                                <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>Atanmamış</span>
+                              ) : (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                                  {sinifRubrikler.map(r => (
+                                    <span key={r.id} style={{
+                                      display: 'inline-block', padding: '2px 8px',
+                                      background: '#EEF2FF', border: '1px solid #C7D2FE',
+                                      borderRadius: '20px', fontSize: '0.72rem',
+                                      fontWeight: '600', color: '#4338CA', whiteSpace: 'nowrap',
+                                    }}>
+                                      📋 {r.ad}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </td>
                             <td style={s.td}>
                               {sinif.ogretmenAd ? (
