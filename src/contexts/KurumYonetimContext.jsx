@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from './AuthContext'
 
@@ -32,8 +32,8 @@ export function KurumYonetimProvider({ children }) {
         // İki sorgu çalıştır, dedup et
         try {
           const [rootSnap, parentSnap] = await Promise.all([
-            getDocs(query(collection(db, 'kurumlar'), where('rootKurumId', '==', kurumId), orderBy('olusturmaTarihi', 'asc'))),
-            getDocs(query(collection(db, 'kurumlar'), where('parentId',    '==', kurumId), orderBy('olusturmaTarihi', 'asc'))),
+            getDocs(query(collection(db, 'kurumlar'), where('rootKurumId', '==', kurumId))),
+            getDocs(query(collection(db, 'kurumlar'), where('parentId',    '==', kurumId))),
           ])
           const map = new Map()
           ;[...rootSnap.docs, ...parentSnap.docs].forEach(d => map.set(d.id, { id: d.id, ...d.data() }))
