@@ -32,7 +32,7 @@ service cloud.firestore {
     match /kullanicilar/{uid} {
       allow read:  if request.auth.uid == uid || platformAdmin();
       allow write: if request.auth.uid == uid || platformAdmin()
-                   || (kurumAdmin(kullaniciBilgisi().kurumId) && request.resource.data.kurumId == kullaniciBilgisi().kurumId);
+                   || (kullaniciBilgisi().rol == 'kurum_admin' && kurumUyesi(request.resource.data.kurumId));
     }
     match /platform/kurumlar/{kurumId} {
       allow read:  if platformAdmin() || kurumAdmin(kurumId);
