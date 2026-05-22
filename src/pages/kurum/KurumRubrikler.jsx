@@ -17,7 +17,15 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
 const yeniAltKriter = () => ({ id: 'ak' + uid(), ad: '', seviyeler: VARSAYILAN_SEVİYELER.map(s => ({ ...s })) })
 const yeniAnaKriter = () => { const ak = yeniAltKriter(); return { id: 'k' + uid(), ad: '', altKriterler: [ak] } }
 
-const BOŞ_FORM = { ad: '', aciklama: '', kriterler: [], hedefSeviyeler: [] }
+const BOŞ_FORM = { ad: '', ders: '', aciklama: '', kriterler: [], hedefSeviyeler: [] }
+
+const DERS_LİSTESİ = [
+  'Türkçe', 'Matematik', 'Fen Bilimleri', 'Sosyal Bilgiler', 'İngilizce',
+  'Din Kültürü ve Ahlak Bilgisi', 'Görsel Sanatlar', 'Müzik',
+  'Beden Eğitimi ve Spor', 'Bilişim Teknolojileri', 'Teknoloji ve Tasarım',
+  'Trafik Güvenliği', 'Türk Dili ve Edebiyatı', 'Tarih', 'Coğrafya',
+  'Fizik', 'Kimya', 'Biyoloji',
+]
 
 function toplamAltKriter(kriterler) {
   return (kriterler || []).reduce((t, k) => t + (k.altKriterler?.length || 0), 0)
@@ -82,7 +90,7 @@ export default function KurumRubrikler() {
     setDuzenlenen(rubrik)
     if (rubrik) {
       setForm({
-        ad: rubrik.ad, aciklama: rubrik.aciklama || '',
+        ad: rubrik.ad, ders: rubrik.ders || '', aciklama: rubrik.aciklama || '',
         hedefSeviyeler: rubrik.hedefSeviyeler || [],
         kriterler: (rubrik.kriterler || []).map(k => ({
           ...k,
@@ -123,7 +131,7 @@ export default function KurumRubrikler() {
         seviyeler: (ak.seviyeler || []).map(s => ({ ...s })),
       })),
     }))
-    setForm({ ad: sablon.ad, aciklama: sablon.aciklama || '', kriterler })
+    setForm({ ad: sablon.ad, ders: sablon.ders || '', aciklama: sablon.aciklama || '', kriterler })
     const a = {}; kriterler.forEach(k => { a[k.id] = false }); setAcikAna(a)
     setSablonSecici(false)
     setHata(''); setModal(true)
@@ -212,6 +220,7 @@ export default function KurumRubrikler() {
     e.preventDefault()
     if (!hedefKurumId) { setHata('Önce sol menüden bir kurum seçin.'); return }
     if (!form.ad.trim()) { setHata('Rubrik adı zorunludur.'); return }
+    if (!form.ders.trim()) { setHata('Ders adı zorunludur.'); return }
     if (!form.hedefSeviyeler.length) { setHata('En az bir sınıf seviyesi seçilmelidir.'); return }
     if (!form.kriterler.length) { setHata('En az bir ana başlık ekleyin.'); return }
     for (const k of form.kriterler) {
@@ -226,7 +235,7 @@ export default function KurumRubrikler() {
     // Düzenleme: rubriğin kendi kurumuna yaz; yeni kayıt: seçili kuruma
     const saveKurumId = duzenlenen?._kurumId || hedefKurumId
     try {
-      const veri = { ad: form.ad.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler, hedefSeviyeler: form.hedefSeviyeler }
+      const veri = { ad: form.ad.trim(), ders: form.ders.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler, hedefSeviyeler: form.hedefSeviyeler }
       if (duzenlenen) {
         await updateDoc(doc(db, 'kurumlar', saveKurumId, 'rubrikler', duzenlenen.id), veri)
       } else {
@@ -360,69 +369,86 @@ export default function KurumRubrikler() {
         </div>
       </div>
 
-      {/* Rubrik Listesi */}
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {['Rubrik Adı', 'Sınıf Seviyeleri', 'Yapı', 'Maks. Puan', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {rubrikler.length === 0 ? (
-              <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Henüz rubrik eklenmemiş</td></tr>
-            ) : rubrikler.map(r => (
-              <tr key={r.id}>
-                <td style={s.td}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: '600', color: '#1E293B' }}>{r.ad}</span>
-                    {r._kurumId !== hedefKurumId && (() => {
-                      const k = erisimKurumlar.find(x => x.id === r._kurumId)
-                      return k ? (
-                        <span style={{ fontSize: '0.68rem', background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', borderRadius: '999px', padding: '1px 7px', fontWeight: '600' }}>
-                          ↑ {k.ad}
-                        </span>
-                      ) : null
-                    })()}
+      {/* Rubrik Listesi — derse göre gruplandırılmış */}
+      {rubrikler.length === 0 ? (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
+          Henüz rubrik eklenmemiş
+        </div>
+      ) : (() => {
+        const dersler = [...new Set(rubrikler.map(r => r.ders || '—'))].sort((a, b) => a.localeCompare(b, 'tr'))
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {dersler.map(ders => {
+              const grup = rubrikler.filter(r => (r.ders || '—') === ders)
+              return (
+                <div key={ders} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+                  {/* Ders başlığı */}
+                  <div style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', padding: '0.625rem 1rem', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>📚 {ders}</span>
+                    <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{grup.length} rubrik</span>
                   </div>
-                  {r.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>{r.aciklama}</div>}
-                </td>
-                <td style={s.td}>
-                  {!r.hedefSeviyeler?.length
-                    ? <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Tüm sınıflar</span>
-                    : <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                        {r.hedefSeviyeler.map(sev => (
-                          <span key={sev} style={{ background: '#EEF2FF', color: '#4338CA', padding: '1px 7px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '600' }}>
-                            {sev}. Sınıf
-                          </span>
-                        ))}
-                      </div>
-                  }
-                </td>
-                <td style={s.td}>
-                  <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', marginRight: '4px' }}>
-                    {r.kriterler?.length || 0} başlık
-                  </span>
-                  <span style={{ background: '#F0FDF4', color: '#065F46', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>
-                    {toplamAltKriter(r.kriterler)} kriter
-                  </span>
-                </td>
-                <td style={s.td}>
-                  <span style={{ fontWeight: '700', color: '#1B3A6B' }}>{toplamMaksPuan(r.kriterler)}</span>
-                  <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}> puan</span>
-                </td>
-                <td style={s.td}>
-                  <div style={{ display: 'flex', gap: '0.375rem' }}>
-                    <button style={s.eylem} onClick={() => setOnizleme(r)}>Önizle</button>
-                    <button style={s.eylem} onClick={() => modalAc(r)}>Düzenle</button>
-                    <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(r)}>Sil</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>{['Rubrik Adı', 'Sınıf Seviyeleri', 'Yapı', 'Maks. Puan', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {grup.map(r => (
+                        <tr key={r.id}>
+                          <td style={s.td}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: '600', color: '#1E293B' }}>{r.ad}</span>
+                              {r._kurumId !== hedefKurumId && (() => {
+                                const k = erisimKurumlar.find(x => x.id === r._kurumId)
+                                return k ? (
+                                  <span style={{ fontSize: '0.68rem', background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', borderRadius: '999px', padding: '1px 7px', fontWeight: '600' }}>
+                                    ↑ {k.ad}
+                                  </span>
+                                ) : null
+                              })()}
+                            </div>
+                            {r.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>{r.aciklama}</div>}
+                          </td>
+                          <td style={s.td}>
+                            {!r.hedefSeviyeler?.length
+                              ? <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Tüm sınıflar</span>
+                              : <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                                  {r.hedefSeviyeler.map(sev => (
+                                    <span key={sev} style={{ background: '#EEF2FF', color: '#4338CA', padding: '1px 7px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '600' }}>
+                                      {sev}. Sınıf
+                                    </span>
+                                  ))}
+                                </div>
+                            }
+                          </td>
+                          <td style={s.td}>
+                            <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', marginRight: '4px' }}>
+                              {r.kriterler?.length || 0} başlık
+                            </span>
+                            <span style={{ background: '#F0FDF4', color: '#065F46', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>
+                              {toplamAltKriter(r.kriterler)} kriter
+                            </span>
+                          </td>
+                          <td style={s.td}>
+                            <span style={{ fontWeight: '700', color: '#1B3A6B' }}>{toplamMaksPuan(r.kriterler)}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}> puan</span>
+                          </td>
+                          <td style={s.td}>
+                            <div style={{ display: 'flex', gap: '0.375rem' }}>
+                              <button style={s.eylem} onClick={() => setOnizleme(r)}>Önizle</button>
+                              <button style={s.eylem} onClick={() => modalAc(r)}>Düzenle</button>
+                              <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(r)}>Sil</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* ── Şablon Seçici Modal ── */}
       {sablonSecici && (
@@ -471,13 +497,24 @@ export default function KurumRubrikler() {
             </div>
             <form onSubmit={kaydet}>
               <div style={{ padding: '0 1.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                   <div style={s.alan}>
                     <label style={s.etiket}>Rubrik Adı *</label>
                     <input style={s.girdi} value={form.ad}
                       onChange={e => setForm(f => ({ ...f, ad: e.target.value }))}
-                      placeholder="Bilişim Teknolojileri Rubriği" autoFocus />
+                      placeholder="3. Dönem Değerlendirme" autoFocus />
                   </div>
+                  <div style={s.alan}>
+                    <label style={s.etiket}>Ders <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input style={s.girdi} value={form.ders} list="ders-listesi"
+                      onChange={e => setForm(f => ({ ...f, ders: e.target.value }))}
+                      placeholder="Bilişim Teknolojileri" />
+                    <datalist id="ders-listesi">
+                      {DERS_LİSTESİ.map(d => <option key={d} value={d} />)}
+                    </datalist>
+                  </div>
+                </div>
+                <div style={{ marginBottom: '1.25rem' }}>
                   <div style={s.alan}>
                     <label style={s.etiket}>Açıklama</label>
                     <input style={s.girdi} value={form.aciklama}

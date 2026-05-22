@@ -420,21 +420,33 @@ export default function KurumDegerlendirmeler() {
             </div>
           ) : (
             <>
-          {/* ── Rubrik Sekmeleri ── */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '1rem' }}>
-            {ilgiliRubrikler.map(r => (
-              <button key={r.id} onClick={() => setSecilenRubrikId(r.id)}
-                style={{
-                  padding: '7px 16px', borderRadius: '20px', border: '1.5px solid',
-                  borderColor: secilenRubrikId === r.id ? '#1B3A6B' : '#CBD5E1',
-                  background:  secilenRubrikId === r.id ? '#1B3A6B' : '#fff',
-                  color:       secilenRubrikId === r.id ? '#fff' : '#475569',
-                  fontSize: '0.825rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.15s',
-                }}>
-                {r.ad}
-              </button>
-            ))}
-          </div>
+          {/* ── Rubrik Sekmeleri — derse göre gruplandırılmış ── */}
+          {(() => {
+            const dersler = [...new Set(ilgiliRubrikler.map(r => r.ders || '—'))].sort((a,b) => a.localeCompare(b,'tr'))
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+                {dersler.map(ders => (
+                  <div key={ders} style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748B', minWidth: '120px', whiteSpace: 'nowrap' }}>
+                      📚 {ders}
+                    </span>
+                    {ilgiliRubrikler.filter(r => (r.ders || '—') === ders).map(r => (
+                      <button key={r.id} onClick={() => setSecilenRubrikId(r.id)}
+                        style={{
+                          padding: '6px 14px', borderRadius: '20px', border: '1.5px solid',
+                          borderColor: secilenRubrikId === r.id ? '#1B3A6B' : '#CBD5E1',
+                          background:  secilenRubrikId === r.id ? '#1B3A6B' : '#fff',
+                          color:       secilenRubrikId === r.id ? '#fff' : '#475569',
+                          fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.15s',
+                        }}>
+                        {r.ad}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
 
           {/* ── Dönem Seçici ── */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>

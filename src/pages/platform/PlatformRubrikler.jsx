@@ -17,7 +17,15 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
 const yeniAltKriter  = () => ({ id: 'ak' + uid(), ad: '', seviyeler: VARSAYILAN_SEVİYELER.map(s => ({ ...s })) })
 const yeniAnaKriter  = () => { const ak = yeniAltKriter(); return { id: 'k' + uid(), ad: '', altKriterler: [ak] } }
 
-const BOŞ_FORM = { ad: '', aciklama: '', kriterler: [] }
+const BOŞ_FORM = { ad: '', ders: '', aciklama: '', kriterler: [] }
+
+const DERS_LİSTESİ = [
+  'Türkçe', 'Matematik', 'Fen Bilimleri', 'Sosyal Bilgiler', 'İngilizce',
+  'Din Kültürü ve Ahlak Bilgisi', 'Görsel Sanatlar', 'Müzik',
+  'Beden Eğitimi ve Spor', 'Bilişim Teknolojileri', 'Teknoloji ve Tasarım',
+  'Trafik Güvenliği', 'Türk Dili ve Edebiyatı', 'Tarih', 'Coğrafya',
+  'Fizik', 'Kimya', 'Biyoloji',
+]
 
 function toplamAltKriter(kriterler) {
   return (kriterler || []).reduce((t, k) => t + (k.altKriterler?.length || 0), 0)
@@ -51,7 +59,7 @@ export default function PlatformRubrikler() {
     setDuzenlenen(sablon)
     if (sablon) {
       setForm({
-        ad: sablon.ad, aciklama: sablon.aciklama || '',
+        ad: sablon.ad, ders: sablon.ders || '', aciklama: sablon.aciklama || '',
         kriterler: (sablon.kriterler || []).map(k => ({
           ...k,
           altKriterler: (k.altKriterler || []).map(ak => ({
@@ -152,6 +160,7 @@ export default function PlatformRubrikler() {
   async function kaydet(e) {
     e.preventDefault()
     if (!form.ad.trim()) { setHata('Rubrik adı zorunludur.'); return }
+    if (!form.ders.trim()) { setHata('Ders adı zorunludur.'); return }
     if (!form.kriterler.length) { setHata('En az bir ana başlık ekleyin.'); return }
     for (const k of form.kriterler) {
       if (!k.ad.trim()) { setHata('Tüm ana başlıklara ad verilmelidir.'); return }
@@ -163,7 +172,7 @@ export default function PlatformRubrikler() {
     }
     setKaydediyor(true)
     try {
-      const veri = { ad: form.ad.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler }
+      const veri = { ad: form.ad.trim(), ders: form.ders.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler }
       if (duzenlenen) {
         await updateDoc(doc(db, 'rubrikSablonlar', duzenlenen.id), veri)
       } else {
@@ -295,49 +304,63 @@ export default function PlatformRubrikler() {
         </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {['Rubrik Adı', 'Yapı', 'Maks. Puan', 'Oluşturan', 'İşlemler'].map(h => (
-                <th key={h} style={s.th}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sablonlar.length === 0 ? (
-              <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Henüz şablon eklenmemiş</td></tr>
-            ) : sablonlar.map(sablon => (
-              <tr key={sablon.id}>
-                <td style={s.td}>
-                  <div style={{ fontWeight: '600', color: '#1E293B' }}>{sablon.ad}</div>
-                  {sablon.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>{sablon.aciklama}</div>}
-                </td>
-                <td style={s.td}>
-                  <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', marginRight: '4px' }}>
-                    {sablon.kriterler?.length || 0} başlık
-                  </span>
-                  <span style={{ background: '#F0FDF4', color: '#065F46', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>
-                    {toplamAltKriter(sablon.kriterler)} kriter
-                  </span>
-                </td>
-                <td style={s.td}>
-                  <span style={{ fontWeight: '700', color: '#1B3A6B' }}>{toplamMaksPuan(sablon.kriterler)}</span>
-                  <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}> puan</span>
-                </td>
-                <td style={{ ...s.td, fontSize: '0.8rem', color: '#64748B' }}>{sablon.olusturanAd || '—'}</td>
-                <td style={s.td}>
-                  <div style={{ display: 'flex', gap: '0.375rem' }}>
-                    <button style={s.eylem} onClick={() => setOnizleme(sablon)}>Önizle</button>
-                    <button style={s.eylem} onClick={() => modalAc(sablon)}>Düzenle</button>
-                    <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sablon)}>Sil</button>
+      {sablonlar.length === 0 ? (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
+          Henüz şablon eklenmemiş
+        </div>
+      ) : (() => {
+        const dersler = [...new Set(sablonlar.map(r => r.ders || '—'))].sort((a, b) => a.localeCompare(b, 'tr'))
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {dersler.map(ders => {
+              const grup = sablonlar.filter(r => (r.ders || '—') === ders)
+              return (
+                <div key={ders} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+                  <div style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', padding: '0.625rem 1rem', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>📚 {ders}</span>
+                    <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{grup.length} şablon</span>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>{['Rubrik Adı', 'Yapı', 'Maks. Puan', 'Oluşturan', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {grup.map(sablon => (
+                        <tr key={sablon.id}>
+                          <td style={s.td}>
+                            <div style={{ fontWeight: '600', color: '#1E293B' }}>{sablon.ad}</div>
+                            {sablon.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>{sablon.aciklama}</div>}
+                          </td>
+                          <td style={s.td}>
+                            <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', marginRight: '4px' }}>
+                              {sablon.kriterler?.length || 0} başlık
+                            </span>
+                            <span style={{ background: '#F0FDF4', color: '#065F46', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>
+                              {toplamAltKriter(sablon.kriterler)} kriter
+                            </span>
+                          </td>
+                          <td style={s.td}>
+                            <span style={{ fontWeight: '700', color: '#1B3A6B' }}>{toplamMaksPuan(sablon.kriterler)}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}> puan</span>
+                          </td>
+                          <td style={{ ...s.td, fontSize: '0.8rem', color: '#64748B' }}>{sablon.olusturanAd || '—'}</td>
+                          <td style={s.td}>
+                            <div style={{ display: 'flex', gap: '0.375rem' }}>
+                              <button style={s.eylem} onClick={() => setOnizleme(sablon)}>Önizle</button>
+                              <button style={s.eylem} onClick={() => modalAc(sablon)}>Düzenle</button>
+                              <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sablon)}>Sil</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* ── Oluştur / Düzenle Modal ── */}
       {modal && (
@@ -355,14 +378,25 @@ export default function PlatformRubrikler() {
 
             <form onSubmit={kaydet}>
               <div style={{ padding: '0 1.75rem' }}>
-                {/* Rubrik adı & açıklama */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                {/* Rubrik adı, ders & açıklama */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                   <div style={s.alan}>
                     <label style={s.etiket}>Rubrik Adı *</label>
                     <input style={s.girdi} value={form.ad}
                       onChange={e => setForm(f => ({ ...f, ad: e.target.value }))}
-                      placeholder="Bilişim Teknolojileri Rubriği" autoFocus />
+                      placeholder="3. Dönem Değerlendirme" autoFocus />
                   </div>
+                  <div style={s.alan}>
+                    <label style={s.etiket}>Ders <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input style={s.girdi} value={form.ders} list="ders-listesi-platform"
+                      onChange={e => setForm(f => ({ ...f, ders: e.target.value }))}
+                      placeholder="Bilişim Teknolojileri" />
+                    <datalist id="ders-listesi-platform">
+                      {DERS_LİSTESİ.map(d => <option key={d} value={d} />)}
+                    </datalist>
+                  </div>
+                </div>
+                <div style={{ marginBottom: '1.25rem' }}>
                   <div style={s.alan}>
                     <label style={s.etiket}>Açıklama</label>
                     <input style={s.girdi} value={form.aciklama}
