@@ -89,20 +89,45 @@ export default function KurumSiniflar() {
     return () => unsubs.forEach(u => u())
   }, [sayimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
 
-  // Rubrikler için subscription
+  // Rubrikler için subscription — altKurum + kampüs + root hepsini dinle
+  const rubrikKurumIds = useMemo(() => {
+    const ids = new Set()
+    sayimKurumlar.forEach(k => {
+      ids.add(k.id)                                                         // altKurum
+      if (k.parentId) {
+        ids.add(k.parentId)                                                 // kampüs
+        const kampus = erisimKurumlar.find(x => x.id === k.parentId)
+        if (kampus?.parentId) ids.add(kampus.parentId)                     // root
+      }
+    })
+    return [...ids]
+  }, [sayimKurumlar.map(k => k.id).join(','), erisimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
+
   useEffect(() => {
-    if (sayimKurumlar.length === 0) { setRubriklerMap({}); return }
-    const unsubs = sayimKurumlar.map(k =>
-      onSnapshot(collection(db, 'kurumlar', k.id, 'rubrikler'), snap => {
-        setRubriklerMap(prev => ({ ...prev, [k.id]: snap.docs.map(d => ({ id: d.id, ...d.data() })) }))
+    if (rubrikKurumIds.length === 0) { setRubriklerMap({}); return }
+    const unsubs = rubrikKurumIds.map(id =>
+      onSnapshot(collection(db, 'kurumlar', id, 'rubrikler'), snap => {
+        setRubriklerMap(prev => ({ ...prev, [id]: snap.docs.map(d => ({ id: d.id, ...d.data() })) }))
       })
     )
     setRubriklerMap(prev => {
-      const ids = new Set(sayimKurumlar.map(k => k.id))
+      const ids = new Set(rubrikKurumIds)
       const t = {}; Object.keys(prev).forEach(id => { if (ids.has(id)) t[id] = prev[id] }); return t
     })
     return () => unsubs.forEach(u => u())
-  }, [sayimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
+  }, [rubrikKurumIds.join(',')]) // eslint-disable-line
+
+  // Bir altKurum için tüm seviyelerdeki (altKurum + kampüs + root) rubrikleri birleştirir
+  function kurumRubrikleri(kurumId) {
+    const k = erisimKurumlar.find(x => x.id === kurumId)
+    const kampus = k?.parentId ? erisimKurumlar.find(x => x.id === k.parentId) : null
+    const all = [
+      ...(rubriklerMap[kurumId]         || []),
+      ...(k?.parentId                   ? (rubriklerMap[k.parentId]      || []) : []),
+      ...(kampus?.parentId              ? (rubriklerMap[kampus.parentId] || []) : []),
+    ]
+    return [...new Map(all.map(r => [r.id, r])).values()]
+  }
 
   // ── Sınıf CRUD ──────────────────────────────────────────
   function modalAc(sinif = null) {
@@ -392,7 +417,7 @@ export default function KurumSiniflar() {
                         ) : seviyeGruplari.map(({ seviye: sev, siniflar: sevSiniflar }) => {
                           const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length, 0)
                           const seviyeNo = Number(sev) || 0
-                          const sevRubrikler = (rubriklerMap[k.id] || []).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
+                          const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
                           return (
                           <>
                             {/* Seviye grup başlığı */}
@@ -428,7 +453,7 @@ export default function KurumSiniflar() {
                             {sevSiniflar.map(sinif => {
                           const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
                           const sinifSeviye = Number(sinif.seviye) || 0
-                          const sinifRubrikler = (rubriklerMap[k.id] || []).filter(r =>
+                          const sinifRubrikler = kurumRubrikleri(k.id).filter(r =>
                             sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye)
                           )
                           return (
