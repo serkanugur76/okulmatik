@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
+import { useAuth } from '../../contexts/AuthContext'
 
 const VARSAYILAN_SEVİYELER = [
   { ad: 'Başlangıç', puan: 1, aciklama: '' },
@@ -38,11 +39,15 @@ function toplamMaksPuan(kriterler) {
 
 export default function KurumRubrikler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
+  const { kurumId: benimKurumId, platformAdmin } = useAuth()
 
   const ust    = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
 
-  // Yeni rubrik her seviyede secilenKurumId'ye kaydedilir
-  const hedefKurumId = secilenKurumId || null
+  // Yeni rubrik: platform admin → seçili kuruma; diğerleri → kendi kurumuna
+  const hedefKurumId = platformAdmin ? (secilenKurumId || null) : (benimKurumId || null)
+
+  // Bu rubriki düzenleyip silebilir miyiz?
+  const yazabilir = (r) => platformAdmin || r._kurumId === benimKurumId
 
   // Rubrik listesi için: erişilebilir tüm kurumlar (rubrikler alt kurumlarda saklanır)
   const listKurumIds = useMemo(() => {
@@ -397,13 +402,13 @@ export default function KurumRubrikler() {
                           <td style={s.td}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                               <span style={{ fontWeight: '600', color: '#1E293B' }}>{r.ad}</span>
-                              {r._kurumId !== hedefKurumId && (() => {
+                              {!yazabilir(r) && (() => {
                                 const k = erisimKurumlar.find(x => x.id === r._kurumId)
-                                return k ? (
-                                  <span style={{ fontSize: '0.68rem', background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', borderRadius: '999px', padding: '1px 7px', fontWeight: '600' }}>
-                                    ↑ {k.ad}
+                                return (
+                                  <span style={{ fontSize: '0.68rem', background: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1', borderRadius: '999px', padding: '1px 7px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                    🔒 {k?.ad || 'Üst kurum'}
                                   </span>
-                                ) : null
+                                )
                               })()}
                             </div>
                             {r.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>{r.aciklama}</div>}
@@ -435,8 +440,12 @@ export default function KurumRubrikler() {
                           <td style={s.td}>
                             <div style={{ display: 'flex', gap: '0.375rem' }}>
                               <button style={s.eylem} onClick={() => setOnizleme(r)}>Önizle</button>
-                              <button style={s.eylem} onClick={() => modalAc(r)}>Düzenle</button>
-                              <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(r)}>Sil</button>
+                              {yazabilir(r) && (
+                                <>
+                                  <button style={s.eylem} onClick={() => modalAc(r)}>Düzenle</button>
+                                  <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(r)}>Sil</button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>

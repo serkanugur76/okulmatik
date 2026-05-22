@@ -99,11 +99,15 @@ service cloud.firestore {
       allow read:  if request.auth != null;   // tüm giriş yapmış kullanıcılar okuyabilir
       allow write: if platformAdmin();         // sadece platform admin yazabilir
     }
-    // Kurum rubrikleri: aynı organizasyondaki herkes okuyabilir (inheritance),
-    // yazmak için kurumAdmin veya platformAdmin gerekir
+    // Kurum rubrikleri:
+    // OKUMA  → aynı organizasyondaki herkes (üst kurumun rubriklerini alt seviyeler görebilir)
+    // YAZMA  → sadece o kurumun tam sahibi (kullaniciBilgisi().kurumId == kurumId) veya platformAdmin
+    //          → üst seviye alt seviyenin rubriğini düzenleyemez/silemez
     match /kurumlar/{kurumId}/rubrikler/{rubrikId} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin() || ayniOrganizasyon(kurumId);
-      allow write: if kurumAdmin(kurumId) || platformAdmin();
+      allow write: if platformAdmin()
+                   || (kullaniciBilgisi().rol == 'kurum_admin'
+                       && kullaniciBilgisi().kurumId == kurumId);
     }
     match /kurumlar/{kurumId}/puanlar/{kayitId} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin();
