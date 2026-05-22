@@ -6,17 +6,44 @@ import { useAuth } from './AuthContext'
 const KurumYonetimContext = createContext(null)
 
 /**
- * Kullanıcının erişebildiği tüm kurumları (kendi kurumu + alt kurumlar) yükler.
- * secilenKurumId ile hangi kurumun verisi gösterileceğini yönetir.
+ * Hiyerarşi:
+ *   platform_admin  → tüm kurumlar
+ *   kurum_admin @ tip:'kurum'    → kendi kurumu + tüm alt kampüs + altKurumlar
+ *   kurum_admin @ tip:'kampus'   → kendi kampüsü + kendi altKurumları
+ *   kurum_admin @ tip:'altKurum' → sadece kendi altKurumu
  */
 export function KurumYonetimProvider({ children }) {
-  const { kurumId } = useAuth()
+  const { kurumId, platformAdmin } = useAuth()
   const [erisimKurumlar, setErisimKurumlar] = useState([])
   const [secilenKurumId, setSecilenKurumId] = useState(null)
   const [yukleniyor, setYukleniyor]         = useState(true)
 
   useEffect(() => {
-    if (!kurumId) return
+    // ── Platform Admin: tüm kurumları yükle ──────────────────────────────────
+    if (platformAdmin) {
+      async function yukleHepsi() {
+        try {
+          const snap = await getDocs(collection(db, 'kurumlar'))
+          const hepsi = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          // root → kampüs → altKurum sıralaması
+          const tipSira = { kurum: 0, kampus: 1, altKurum: 2 }
+          hepsi.sort((a, b) => (tipSira[a.tip] ?? 3) - (tipSira[b.tip] ?? 3))
+          setErisimKurumlar(hepsi)
+          // İlk root kurumu seçili getir
+          const ilkKok = hepsi.find(k => !k.parentId)
+          if (ilkKok) setSecilenKurumId(ilkKok.id)
+        } catch (err) {
+          console.error('Platform admin kurum yükleme hatası:', err)
+        } finally {
+          setYukleniyor(false)
+        }
+      }
+      yukleHepsi()
+      return
+    }
+
+    // ── Kurum Admin ──────────────────────────────────────────────────────────
+    if (!kurumId) { setYukleniyor(false); return }
     setSecilenKurumId(kurumId)
 
     async function yukle() {
@@ -27,9 +54,10 @@ export function KurumYonetimProvider({ children }) {
         const anaKurum = { id: kurumId, ...anaSnap.data() }
         setErisimKurumlar([anaKurum])
 
-        // 2. rootKurumId == kurumId  →  root admin: tüm kampüs + alt kurumlar
-        // 3. parentId    == kurumId  →  kampüs admin: sadece kendi alt kurumları
-        // İki sorgu çalıştır, dedup et
+        // 2. Alt kurumları yükle
+        //    - rootKurumId == kurumId  → root admin tüm ağacı görür
+        //    - parentId    == kurumId  → kampüs admin kendi alt kurumlarını görür
+        //    altKurum admini için her iki sorgu da boş döner → sadece kendi kurumu kalır
         try {
           const [rootSnap, parentSnap] = await Promise.all([
             getDocs(query(collection(db, 'kurumlar'), where('rootKurumId', '==', kurumId))),
@@ -48,7 +76,7 @@ export function KurumYonetimProvider({ children }) {
       }
     }
     yukle()
-  }, [kurumId])
+  }, [kurumId, platformAdmin])
 
   const secilenKurum = erisimKurumlar.find(k => k.id === secilenKurumId) || null
 

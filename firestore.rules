@@ -24,6 +24,22 @@ service cloud.firestore {
       return kullaniciBilgisi().rol == 'kurum_admin' && kurumUyesi(kurumId);
     }
 
+    // Kullanıcının kendi kurumunun tip'ini döndürür (kurum / kampus / altKurum)
+    function kullanicininKurumTip() {
+      let k = kullaniciBilgisi();
+      if (!('kurumId' in k) || k.kurumId == null) return 'bilinmiyor';
+      return get(/databases/$(database)/documents/kurumlar/$(k.kurumId)).data.tip;
+    }
+
+    // altKurum admini sadece 'ogretmen' rolünde kullanıcı yazabilir
+    function rolYazmaIzni() {
+      if (platformAdmin()) return true;
+      if (kullaniciBilgisi().rol != 'kurum_admin') return false;
+      if (kullanicininKurumTip() == 'altKurum')
+        return request.resource.data.rol == 'ogretmen';
+      return true;
+    }
+
     match /yetkiliKullanicilar/{email} {
       allow read:  if (request.auth != null && request.auth.token.email == email) || platformAdmin();
       allow write: if platformAdmin();
@@ -32,7 +48,9 @@ service cloud.firestore {
     match /kullanicilar/{uid} {
       allow read:  if request.auth.uid == uid || platformAdmin();
       allow write: if request.auth.uid == uid || platformAdmin()
-                   || (kullaniciBilgisi().rol == 'kurum_admin' && kurumUyesi(request.resource.data.kurumId));
+                   || (kullaniciBilgisi().rol == 'kurum_admin'
+                       && kurumUyesi(request.resource.data.kurumId)
+                       && rolYazmaIzni());
     }
     match /platform/kurumlar/{kurumId} {
       allow read:  if platformAdmin() || kurumAdmin(kurumId);

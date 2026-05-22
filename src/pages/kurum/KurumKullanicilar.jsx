@@ -4,17 +4,41 @@ import {
   query, orderBy, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
+import { useAuth } from '../../contexts/AuthContext'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { davetEt, davetIptal } from '../../services/davetEt'
 
 const ROL_ETİKET = {
-  kurum_admin: { etiket: 'Kurum Admin', renk: '#0369A1', bg: '#E0F2FE' },
-  ogretmen:    { etiket: 'Öğretmen',    renk: '#065F46', bg: '#D1FAE5' },
+  platform_admin: { etiket: 'Platform Admin', renk: '#7C3AED', bg: '#EDE9FE' },
+  kurum_admin:    { etiket: 'Kurum Admin',    renk: '#0369A1', bg: '#E0F2FE' },
+  ogretmen:       { etiket: 'Öğretmen',       renk: '#065F46', bg: '#D1FAE5' },
+}
+
+// Seviyeye göre atanabilir roller
+// platform_admin ve root/kampüs kurum admini: kurum_admin + ogretmen
+// altKurum admini: sadece ogretmen
+const ROL_SEÇENEKLERİ = {
+  platform_admin: [
+    { value: 'ogretmen',    label: 'Öğretmen' },
+    { value: 'kurum_admin', label: 'Kurum Admin' },
+  ],
+  kurum:    [
+    { value: 'ogretmen',    label: 'Öğretmen' },
+    { value: 'kurum_admin', label: 'Kurum Admin' },
+  ],
+  kampus:   [
+    { value: 'ogretmen',    label: 'Öğretmen' },
+    { value: 'kurum_admin', label: 'Kurum Admin' },
+  ],
+  altKurum: [
+    { value: 'ogretmen',    label: 'Öğretmen' },
+  ],
 }
 
 const BOŞ_FORM = { email: '', rol: 'ogretmen', hedefKurumId: '' }
 
 export default function KurumKullanicilar() {
+  const { kurumId: kullanicininKurumId, platformAdmin } = useAuth()
   const { secilenKurumId: kurumId, erisimKurumlar } = useKurumYonetim()
 
   // Kurum atama için tüm seviyeleri gruplandır
@@ -26,6 +50,13 @@ export default function KurumKullanicilar() {
     return !!u?.parentId
   })
   const atanabilirKurumlar = erisimKurumlar.length > 0
+
+  // Kullanıcının kendi seviyesi → hangi rolleri atayabilir
+  const kullanicininKurumu = erisimKurumlar.find(k => k.id === kullanicininKurumId)
+  const kullanicininSeviyesi = platformAdmin
+    ? 'platform_admin'
+    : (kullanicininKurumu?.tip || 'kurum')
+  const atanabilirRoller = ROL_SEÇENEKLERİ[kullanicininSeviyesi] || ROL_SEÇENEKLERİ.kurum
   const [kullanicilar, setKullanicilar] = useState([])
   const [bekleyenler, setBekleyenler]   = useState([])
   const [googleAltyapisi, setGoogleAltyapisi] = useState(false)
@@ -254,9 +285,15 @@ export default function KurumKullanicilar() {
               <div style={s.alan}>
                 <label style={s.etiket}>Rol</label>
                 <select style={s.girdi} value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))}>
-                  <option value="ogretmen">Öğretmen</option>
-                  <option value="kurum_admin">Kurum Admin</option>
+                  {atanabilirRoller.map(r => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
                 </select>
+                {kullanicininSeviyesi === 'altKurum' && (
+                  <span style={{ fontSize: '0.75rem', color: '#92400E', background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px', marginTop: '4px' }}>
+                    ℹ Alt kurum admini yalnızca öğretmen ekleyebilir
+                  </span>
+                )}
               </div>
               {duzenlenen && erisimKurumlar.length > 1 && (
                 <div style={s.alan}>
