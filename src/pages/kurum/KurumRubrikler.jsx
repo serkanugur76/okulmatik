@@ -36,17 +36,11 @@ export default function KurumRubrikler() {
   // Yeni rubrik her seviyede secilenKurumId'ye kaydedilir
   const hedefKurumId = secilenKurumId || null
 
-  // Rubrik listesi için: secilenKurum + üst seviyeleri (kampüs, root)
+  // Rubrik listesi için: erişilebilir tüm kurumlar (rubrikler alt kurumlarda saklanır)
   const listKurumIds = useMemo(() => {
     if (!secilenKurumId) return []
-    const ids = [secilenKurumId]
-    if (secilenKurum?.parentId) {
-      ids.push(secilenKurum.parentId)
-      const kampus = erisimKurumlar.find(k => k.id === secilenKurum.parentId)
-      if (kampus?.parentId) ids.push(kampus.parentId)
-    }
-    return [...new Set(ids)]
-  }, [secilenKurumId, secilenKurum?.parentId, erisimKurumlar.map(k=>k.id).join(',')]) // eslint-disable-line
+    return [...new Set(erisimKurumlar.map(k => k.id))]
+  }, [secilenKurumId, erisimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
 
   const [rubrikler,     setRubrikler]     = useState([])
   const [sablonlar,     setSablonlar]     = useState([])
