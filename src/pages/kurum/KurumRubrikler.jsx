@@ -37,7 +37,6 @@ export default function KurumRubrikler() {
 
   const [rubrikler,     setRubrikler]     = useState([])
   const [sablonlar,     setSablonlar]     = useState([])
-  const [siniflar,      setSiniflar]      = useState([])
   const [modal,         setModal]         = useState(false)
   const [duzenlenen,    setDuzenlenen]    = useState(null)
   const [form,          setForm]          = useState(BOŞ_FORM)
@@ -54,15 +53,6 @@ export default function KurumRubrikler() {
     const q = query(collection(db, 'rubrikSablonlar'), orderBy('olusturmaTarihi', 'desc'))
     return onSnapshot(q, snap => setSablonlar(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
   }, [])
-
-  // Sınıflar
-  useEffect(() => {
-    if (!hedefKurumId) { setSiniflar([]); return }
-    return onSnapshot(
-      collection(db, 'kurumlar', hedefKurumId, 'siniflar'),
-      snap => setSiniflar(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    )
-  }, [hedefKurumId])
 
   // Kurum rubrikleri
   useEffect(() => {
@@ -478,38 +468,37 @@ export default function KurumRubrikler() {
                   </div>
                 </div>
 
-                {/* Sınıf Seviyeleri */}
-                {(() => {
-                  const seviyeleri = [...new Set(siniflar.map(s => Number(s.seviye)).filter(Boolean))].sort((a, b) => a - b)
-                  if (!seviyeleri.length) return null
-                  return (
-                    <div style={{ marginBottom: '1.25rem' }}>
-                      <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                        Sınıf Seviyeleri <span style={{ color: '#EF4444' }}>*</span>
-                        <span style={{ fontWeight: '400', color: '#94A3B8', fontSize: '0.8rem', marginLeft: '6px' }}>
-                          (en az bir seviye seçilmeli)
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {seviyeleri.map(sev => {
-                          const secili = form.hedefSeviyeler.includes(sev)
-                          return (
-                            <button key={sev} type="button" onClick={() => seviyeToggle(sev)}
-                              style={{
-                                padding: '4px 12px', borderRadius: '999px', border: '1.5px solid',
-                                borderColor: secili ? '#4338CA' : '#E2E8F0',
-                                background:  secili ? '#4338CA' : '#fff',
-                                color:       secili ? '#fff' : '#64748B',
-                                fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.15s',
-                              }}>
-                              {sev}. Sınıf
-                            </button>
-                          )
-                        })}
-                      </div>
+                {/* Sınıf Seviyeleri — 1-12 sabit liste */}
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
+                    Sınıf Seviyeleri <span style={{ color: '#EF4444' }}>*</span>
+                    <span style={{ fontWeight: '400', color: '#94A3B8', fontSize: '0.8rem', marginLeft: '6px' }}>
+                      Bu rubrik hangi sınıflara uygulanacak?
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[1,2,3,4,5,6,7,8,9,10,11,12].map(sev => {
+                      const secili = form.hedefSeviyeler.includes(sev)
+                      return (
+                        <button key={sev} type="button" onClick={() => seviyeToggle(sev)}
+                          style={{
+                            padding: '5px 13px', borderRadius: '999px', border: '1.5px solid',
+                            borderColor: secili ? '#4338CA' : '#E2E8F0',
+                            background:  secili ? '#4338CA' : '#fff',
+                            color:       secili ? '#fff' : '#64748B',
+                            fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.15s',
+                          }}>
+                          {sev}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {form.hedefSeviyeler.length > 0 && (
+                    <div style={{ marginTop: '0.375rem', fontSize: '0.78rem', color: '#4338CA' }}>
+                      ✓ Seçili: {form.hedefSeviyeler.join(', ')}. sınıf
                     </div>
-                  )
-                })()}
+                  )}
+                </div>
 
                 <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.25rem', marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
