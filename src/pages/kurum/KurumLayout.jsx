@@ -39,6 +39,22 @@ function OgretmenKurumSecici({ erisimKurumlar, onSec, profil, onCikis }) {
     )
   }
 
+  // Kampüsler (parentKurumIdler'den yüklenenler — sadece başlık/gruplandırma için)
+  const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
+  // Seçilebilir kurumlar (altKurum veya doğrudan atananlar)
+  const secilebilir = erisimKurumlar.filter(k => k.tip !== 'kampus')
+
+  // Kampüs altında gruplanmış okul listesi
+  const gruplar = kampusler
+    .map(kp => ({
+      kampus: kp,
+      okullar: secilebilir.filter(k => k.parentId === kp.id),
+    }))
+    .filter(g => g.okullar.length > 0)
+
+  // Hiçbir kampüse bağlı olmayan direkt kurumlar
+  const kampussuz = secilebilir.filter(k => !kampusler.find(kp => kp.id === k.parentId))
+
   return (
     <div style={{ minHeight: '100vh', background: '#F1F5F9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
       {/* Başlık */}
@@ -51,9 +67,43 @@ function OgretmenKurumSecici({ erisimKurumlar, onSec, profil, onCikis }) {
         </div>
       </div>
 
-      {/* Kurum kartları */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', width: '100%', maxWidth: '720px' }}>
-        {erisimKurumlar.map(k => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', width: '100%', maxWidth: '840px' }}>
+
+        {/* Kampüs kartları — içinde okullar listelenir */}
+        {gruplar.map(({ kampus, okullar }) => (
+          <div key={kampus.id} style={{
+            background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '14px',
+            overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+          }}>
+            {/* Kampüs başlığı */}
+            <div style={{ padding: '1rem 1.25rem', background: '#F8FAFC', borderBottom: '1px solid #F1F5F9' }}>
+              <div style={{ fontSize: '1.25rem', marginBottom: '0.3rem' }}>🏫</div>
+              <div style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1E293B' }}>{kampus.ad}</div>
+              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '0.15rem' }}>
+                {okullar.length} okul
+              </div>
+            </div>
+            {/* Okul butonları */}
+            <div style={{ padding: '0.5rem' }}>
+              {okullar.map(okul => (
+                <button key={okul.id} onClick={() => onSec(okul.id)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem',
+                    padding: '0.75rem 0.875rem', background: 'none', border: 'none',
+                    borderRadius: '8px', cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#EFF6FF' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
+                  <span style={{ fontSize: '1.2rem' }}>🏢</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1E293B' }}>{okul.ad}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Kampüssüz direkt kurumlar (kampüs hiyerarşisi yoksa) */}
+        {kampussuz.map(k => (
           <button key={k.id} onClick={() => onSec(k.id)}
             style={{
               background: '#fff', border: '2px solid #E2E8F0', borderRadius: '14px',
@@ -63,17 +113,10 @@ function OgretmenKurumSecici({ erisimKurumlar, onSec, profil, onCikis }) {
             onMouseEnter={e => { e.currentTarget.style.borderColor = '#1B3A6B'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(27,58,107,0.12)' }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🏢</div>
-            <div style={{ fontWeight: '700', fontSize: '1rem', color: '#1E293B', marginBottom: '0.25rem' }}>
-              {k.ad}
-            </div>
-            {k.parentId && (
-              <div style={{ fontSize: '0.75rem', color: '#64748B' }}>
-                {/* parent kurum adı varsa göster */}
-                {erisimKurumlar.find(x => x.id === k.parentId)?.ad || ''}
-              </div>
-            )}
+            <div style={{ fontWeight: '700', fontSize: '1rem', color: '#1E293B' }}>{k.ad}</div>
           </button>
         ))}
+
       </div>
 
       <button onClick={onCikis}
