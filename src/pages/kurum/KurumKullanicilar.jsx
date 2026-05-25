@@ -77,10 +77,11 @@ export default function KurumKullanicilar() {
   useEffect(() => {
     if (!kurumId || !erisimKurumlar.length) return
 
-    // Üst seviye seçiliyse → tüm altKurumların kullanıcılarını topla
+    // Üst seviye seçiliyse → tüm alt kurumların (her seviyeden) kullanıcılarını topla
     const secilenTip = erisimKurumlar.find(k => k.id === kurumId)?.tip
-    const sorguIds = (secilenTip !== 'altKurum' && altKurumlar.length > 0)
-      ? altKurumlar.map(k => k.id)
+    const altTumKurumlar = erisimKurumlar.filter(k => !!k.parentId) // root olmayan her kurum
+    const sorguIds = (secilenTip !== 'altKurum' && altTumKurumlar.length > 0)
+      ? altTumKurumlar.map(k => k.id)
       : [kurumId]
 
     // Her altKurum'un kullanicilar subcollection'ını ayrı dinle → merge
@@ -107,7 +108,7 @@ export default function KurumKullanicilar() {
     })
 
     return () => { unsubs.forEach(u => u()); u2() }
-  }, [kurumId, altKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
+  }, [kurumId, erisimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
 
   // Sınıfları lazy yükle (cache'de yoksa Firestore'dan çek)
   async function sinifYukle(kid) {
