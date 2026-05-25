@@ -83,7 +83,17 @@ export function KurumYonetimProvider({ children }) {
             .filter(s => s.exists())
             .map(s => ({ id: s.id, ...s.data() }))
 
-          setErisimKurumlar([...parentKurumlar, ...kurumlar])
+          // Root kurum dokümanlarını yükle (rubrik erişimi için — rubrikler root altında saklanıyor)
+          const yuklenecekRootIds = [...new Set(kurumlar.map(k => k.rootKurumId).filter(Boolean))]
+            .filter(rid => !kurumlar.find(k => k.id === rid) && !parentKurumlar.find(k => k.id === rid))
+          const rootSnaplar = yuklenecekRootIds.length
+            ? await Promise.all(yuklenecekRootIds.map(rid => getDoc(doc(db, 'kurumlar', rid))))
+            : []
+          const rootKurumlar = rootSnaplar
+            .filter(s => s.exists())
+            .map(s => ({ id: s.id, ...s.data() }))
+
+          setErisimKurumlar([...rootKurumlar, ...parentKurumlar, ...kurumlar])
           // Tek kurum → direkt seç; birden fazla → null (kurum seçici gösterilecek)
           setSecilenKurumId(kurumlar.length === 1 ? kurumlar[0].id : null)
         } catch (err) {

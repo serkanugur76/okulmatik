@@ -24,6 +24,14 @@ function kurumAdminEtiketi(k, erisimKurumlar) {
   return { etiket: 'Kurum Admin', renk: '#0369A1', bg: '#E0F2FE' }
 }
 
+const DERS_LİSTESİ = [
+  'Türkçe', 'Matematik', 'Fen Bilimleri', 'Sosyal Bilgiler', 'İngilizce',
+  'Din Kültürü ve Ahlak Bilgisi', 'Görsel Sanatlar', 'Müzik',
+  'Beden Eğitimi ve Spor', 'Bilişim Teknolojileri', 'Teknoloji ve Tasarım',
+  'Trafik Güvenliği', 'Türk Dili ve Edebiyatı', 'Tarih', 'Coğrafya',
+  'Fizik', 'Kimya', 'Biyoloji',
+]
+
 // Seviyeye göre atanabilir roller
 const ROL_SEÇENEKLERİ = {
   platform_admin: [
@@ -46,6 +54,7 @@ const ROL_SEÇENEKLERİ = {
 const BOŞ_FORM = {
   email: '', ad: '', rol: 'ogretmen', hedefKurumId: '',
   rubrikOlustur: false,
+  branslar: [],
   sinifAtamalari: [], // [{ kurumId, siniflar: [id, ...] }]
 }
 
@@ -147,6 +156,7 @@ export default function KurumKullanicilar() {
         ad: k.ad || '', email: k.email, rol: k.rol,
         hedefKurumId: k.kurumId || kurumId || '',
         rubrikOlustur: k.modulIzinler?.rubrik_olustur || false,
+        branslar: k.branslar || [],
         sinifAtamalari: atamalar,
       })
       // Mevcut atamaların sınıflarını önceden yükle
@@ -210,12 +220,14 @@ export default function KurumKullanicilar() {
       sinifIdler:       [...new Set(atamalari.flatMap(a => a.siniflar || []))],
       erisimKurumIdler: [...new Set(atamalari.map(a => a.kurumId).filter(Boolean))],
       parentKurumIdler,
+      branslar:         form.branslar || [],
     } : {
       modulIzinler:     {},
       sinifAtamalari:   [],
       sinifIdler:       [],
       erisimKurumIdler: [],
       parentKurumIdler: [],
+      branslar:         [],
     }
 
     try {
@@ -483,6 +495,39 @@ export default function KurumKullanicilar() {
                     <span style={{ fontSize: '0.75rem', color: '#B45309', marginLeft: '1.5rem' }}>
                       ✓ Rubrik oluşturabilir ve düzenleyebilir
                     </span>
+                  </div>
+
+                  {/* Branşlar */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
+                      Branşlar
+                      <span style={{ fontSize: '0.75rem', fontWeight: '400', color: '#94A3B8', marginLeft: '0.5rem' }}>
+                        Öğretmenin göreceği rubrikler branşa göre filtrelenir
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {DERS_LİSTESİ.map(ders => {
+                        const secili = (form.branslar || []).includes(ders)
+                        return (
+                          <button type="button" key={ders}
+                            onClick={() => setForm(f => ({
+                              ...f,
+                              branslar: secili
+                                ? (f.branslar || []).filter(b => b !== ders)
+                                : [...(f.branslar || []), ders],
+                            }))}
+                            style={{
+                              padding: '4px 12px', borderRadius: '999px', border: '1.5px solid',
+                              borderColor: secili ? '#1B3A6B' : '#E2E8F0',
+                              background:  secili ? '#1B3A6B' : '#fff',
+                              color:       secili ? '#fff' : '#64748B',
+                              fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.1s',
+                            }}>
+                            {ders}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
 
                   {/* Sınıf Atamaları */}

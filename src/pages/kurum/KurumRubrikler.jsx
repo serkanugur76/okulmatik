@@ -39,7 +39,10 @@ function toplamMaksPuan(kriterler) {
 
 export default function KurumRubrikler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
-  const { kurumId: benimKurumId, platformAdmin } = useAuth()
+  const { kurumId: benimKurumId, platformAdmin, profil } = useAuth()
+
+  const ogretmenModu   = profil?.rol === 'ogretmen'
+  const ogretmenBranslar = profil?.branslar || []
 
   const ust    = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
 
@@ -351,43 +354,76 @@ export default function KurumRubrikler() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{rubrikler.length} rubrik</span>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {sablonlar.length > 0 && (
-            <button onClick={() => setSablonSecici(true)}
-              style={{ padding: '0.6rem 1.1rem', background: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-              📋 Şablondan Ekle
+        {/* Koordinatör olmayan öğretmen rubrik oluşturamaz */}
+        {!ogretmenModu && (
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {sablonlar.length > 0 && (
+              <button onClick={() => setSablonSecici(true)}
+                style={{ padding: '0.6rem 1.1rem', background: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+                📋 Şablondan Ekle
+              </button>
+            )}
+            <button onClick={sablonXlsxIndir}
+              style={{ padding: '0.6rem 1.1rem', background: '#F0FDF4', color: '#065F46', border: '1px solid #A7F3D0', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+              ⬇ Şablon İndir
             </button>
-          )}
-          <button onClick={sablonXlsxIndir}
-            style={{ padding: '0.6rem 1.1rem', background: '#F0FDF4', color: '#065F46', border: '1px solid #A7F3D0', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-            ⬇ Şablon İndir
-          </button>
-          <button onClick={() => xlsxRef.current?.click()}
-            style={{ padding: '0.6rem 1.1rem', background: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-            📥 Excel'den Yükle
-          </button>
-          <input ref={xlsxRef} type="file" accept=".xlsx,.xls" onChange={rubrikXlsxOku} style={{ display: 'none' }} />
+            <button onClick={() => xlsxRef.current?.click()}
+              style={{ padding: '0.6rem 1.1rem', background: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+              📥 Excel'den Yükle
+            </button>
+            <input ref={xlsxRef} type="file" accept=".xlsx,.xls" onChange={rubrikXlsxOku} style={{ display: 'none' }} />
+            <button onClick={() => modalAc()}
+              style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+              + Sıfırdan Oluştur
+            </button>
+          </div>
+        )}
+        {/* Koordinatör: sadece oluşturma butonu */}
+        {ogretmenModu && profil?.modulIzinler?.rubrik_olustur && (
           <button onClick={() => modalAc()}
             style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-            + Sıfırdan Oluştur
+            + Rubrik Oluştur
           </button>
-        </div>
+        )}
       </div>
 
-      {/* Rubrik Listesi — derse göre gruplandırılmış */}
-      {rubrikler.length === 0 ? (
-        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
-          Henüz rubrik eklenmemiş
+      {/* Öğretmen: branş uyarısı */}
+      {ogretmenModu && ogretmenBranslar.length === 0 && (
+        <div style={{ background: '#FEF9C3', border: '1px solid #FDE047', borderRadius: '10px', padding: '0.875rem 1rem', marginBottom: '1rem', fontSize: '0.875rem', color: '#713F12' }}>
+          ⚠️ Branşınız tanımlanmamış. Kurum yöneticinizden branş ataması yapmasını isteyin.
         </div>
-      ) : (() => {
-        const dersler = [...new Set(rubrikler.map(r => r.ders || '—'))].sort((a, b) => a.localeCompare(b, 'tr'))
+      )}
+      {ogretmenModu && ogretmenBranslar.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '1rem', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: '600' }}>Branşlarım:</span>
+          {ogretmenBranslar.map(b => (
+            <span key={b} style={{ background: '#EEF2FF', color: '#4338CA', padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>{b}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Rubrik Listesi — derse göre gruplandırılmış */}
+      {(() => {
+        // Öğretmen: sadece kendi branşlarındaki rubrikler; branş yoksa tümü
+        const gorunurRubrikler = (ogretmenModu && ogretmenBranslar.length > 0)
+          ? rubrikler.filter(r => ogretmenBranslar.includes(r.ders))
+          : rubrikler
+
+        if (gorunurRubrikler.length === 0) return (
+          <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
+            {ogretmenModu && ogretmenBranslar.length > 0
+              ? 'Branşlarınıza ait rubrik bulunamadı'
+              : 'Henüz rubrik eklenmemiş'}
+          </div>
+        )
+
+        const dersler = [...new Set(gorunurRubrikler.map(r => r.ders || '—'))].sort((a, b) => a.localeCompare(b, 'tr'))
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {dersler.map(ders => {
-              const grup = rubrikler.filter(r => (r.ders || '—') === ders)
+              const grup = gorunurRubrikler.filter(r => (r.ders || '—') === ders)
               return (
                 <div key={ders} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-                  {/* Ders başlığı */}
                   <div style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', padding: '0.625rem 1rem', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
                     <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>📚 {ders}</span>
                     <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{grup.length} rubrik</span>

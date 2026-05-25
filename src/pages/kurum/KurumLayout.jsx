@@ -20,7 +20,7 @@ const OGRETMEN_MENULER = [
 ]
 
 // ── Öğretmen kurum seçici ekranı ─────────────────────────────────────────────
-function OgretmenKurumSecici({ erisimKurumlar, onSec, profil, onCikis }) {
+function OgretmenKurumSecici({ erisimKurumlar, atananKurumIds, onSec, profil, onCikis }) {
   if (erisimKurumlar.length === 0) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9' }}>
@@ -41,8 +41,8 @@ function OgretmenKurumSecici({ erisimKurumlar, onSec, profil, onCikis }) {
 
   // Kampüsler (parentKurumIdler'den yüklenenler — sadece başlık/gruplandırma için)
   const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
-  // Seçilebilir kurumlar (altKurum veya doğrudan atananlar)
-  const secilebilir = erisimKurumlar.filter(k => k.tip !== 'kampus')
+  // Seçilebilir kurumlar: sadece öğretmene atanan kurumlar (root/kampüs dışlar)
+  const secilebilir = erisimKurumlar.filter(k => atananKurumIds.includes(k.id))
 
   // Kampüs altında gruplanmış okul listesi
   const gruplar = kampusler
@@ -153,6 +153,7 @@ function KurumLayoutInner() {
     return (
       <OgretmenKurumSecici
         erisimKurumlar={erisimKurumlar}
+        atananKurumIds={profil?.erisimKurumIdler || []}
         onSec={setSecilenKurumId}
         profil={profil}
         onCikis={handleCikis}

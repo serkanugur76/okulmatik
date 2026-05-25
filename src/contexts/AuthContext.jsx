@@ -41,6 +41,7 @@ export function AuthProvider({ children }) {
                 sinifIdler:       yetki.sinifIdler       || [],
                 erisimKurumIdler: yetki.erisimKurumIdler || [],
                 parentKurumIdler: yetki.parentKurumIdler || [],
+                branslar:         yetki.branslar         || [],
                 olusturmaTarihi: serverTimestamp(),
               }
               await setDoc(doc(db, 'kullanicilar', user.uid), yeniProfil)
