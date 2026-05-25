@@ -158,12 +158,18 @@ export default function KurumKullanicilar() {
     setKaydediyor(true); setHata('')
 
     // Öğretmen için ek alanlar
+    // sinifIdler ve erisimKurumIdler: Firestore rules'da array-contains ile kullanılır
+    const atamalari = form.sinifAtamalari || []
     const ogretmenEkstra = form.rol === 'ogretmen' ? {
-      modulIzinler:   { rubrik_olustur: form.rubrikOlustur || false },
-      sinifAtamalari: form.sinifAtamalari || [],
+      modulIzinler:     { rubrik_olustur: form.rubrikOlustur || false },
+      sinifAtamalari:   atamalari,
+      sinifIdler:       [...new Set(atamalari.flatMap(a => a.siniflar || []))],
+      erisimKurumIdler: [...new Set(atamalari.map(a => a.kurumId).filter(Boolean))],
     } : {
-      modulIzinler:   {},
-      sinifAtamalari: [],
+      modulIzinler:     {},
+      sinifAtamalari:   [],
+      sinifIdler:       [],
+      erisimKurumIdler: [],
     }
 
     try {

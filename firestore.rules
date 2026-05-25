@@ -9,10 +9,7 @@ service cloud.firestore {
       return kullaniciBilgisi().rol == 'platform_admin';
     }
 
-    // Alt koleksiyonlar için: kurumlar dokümanını okuyup hiyerarşi kontrolü
-    // - k.kurumId == kurumId          → doğrudan eşleşme (alt kurum admini)
-    // - k.kurumId == kurum.rootKurumId → root admin, tüm alt kurumları yönetir
-    // - k.kurumId == kurum.parentId    → kampüs admini, kendi alt kurumlarını yönetir
+    // Kurum hiyerarşisi: kendi kurumu, root admin, parent admin
     function kurumUyesi(kurumId) {
       let k = kullaniciBilgisi();
       let kurum = get(/databases/$(database)/documents/kurumlar/$(kurumId)).data;
@@ -24,26 +21,35 @@ service cloud.firestore {
       return kullaniciBilgisi().rol == 'kurum_admin' && kurumUyesi(kurumId);
     }
 
-    // Kullanıcının kendi kurumunun tip'ini döndürür (kurum / kampus / altKurum)
     function kullanicininKurumTip() {
       return get(/databases/$(database)/documents/kurumlar/$(kullaniciBilgisi().kurumId)).data.tip;
     }
-    // Kullanıcının kendi kurumunun rootKurumId'sini döndürür
     function kullanicininRootKurumId() {
       let kulKurum = get(/databases/$(database)/documents/kurumlar/$(kullaniciBilgisi().kurumId)).data;
       return kulKurum.get('rootKurumId', kullaniciBilgisi().kurumId);
     }
-    // Kullanıcının kendi kurumunun parentId'sini döndürür (altKurum → kampüs erişimi için)
     function kullanicininParentKurumId() {
       return get(/databases/$(database)/documents/kurumlar/$(kullaniciBilgisi().kurumId)).data.get('parentId', '');
     }
 
-    // Aynı organizasyon: kullanıcı ve hedef kurum aynı root'a ait mi?
-    // Rubrik gibi paylaşılan kaynakların tüm organizasyon içinde okunmasına izin verir.
+    // Aynı organizasyon: rubrik gibi paylaşılan kaynaklar için
     function ayniOrganizasyon(kurumId) {
       let hedefRootId = get(/databases/$(database)/documents/kurumlar/$(kurumId)).data.get('rootKurumId', kurumId);
       return kullanicininRootKurumId() == hedefRootId
           || kullanicininRootKurumId() == kurumId;
+    }
+
+    // Öğretmen: erisimKurumIdler içinde bu kurum var mı?
+    function ogretmenKurumErisimi(kurumId) {
+      return kullaniciBilgisi().rol == 'ogretmen'
+          && kurumId in kullaniciBilgisi().get('erisimKurumIdler', []);
+    }
+
+    // Öğretmen: hem kurum erişimi var hem de ilgili sınıf atamalı mı?
+    function ogretmenSinifErisimi(kurumId, sinifId) {
+      return kullaniciBilgisi().rol == 'ogretmen'
+          && kurumId in kullaniciBilgisi().get('erisimKurumIdler', [])
+          && sinifId in kullaniciBilgisi().get('sinifIdler', []);
     }
 
     // altKurum admini sadece 'ogretmen' rolünde kullanıcı yazabilir
@@ -52,6 +58,8 @@ service cloud.firestore {
           || kullanicininKurumTip() != 'altKurum'
           || request.resource.data.rol == 'ogretmen';
     }
+
+    // ── Koleksiyonlar ────────────────────────────────────────
 
     match /yetkiliKullanicilar/{email} {
       allow read:  if (request.auth != null && request.auth.token.email == email) || platformAdmin();
@@ -65,68 +73,108 @@ service cloud.firestore {
                        && kurumUyesi(request.resource.data.kurumId)
                        && rolYazmaIzni());
     }
+
     match /platform/kurumlar/{kurumId} {
       allow read:  if platformAdmin() || kurumAdmin(kurumId);
       allow write: if platformAdmin();
     }
+
     match /kurumlar/{kurumId} {
       allow read:  if platformAdmin()
         || kullaniciBilgisi().kurumId == kurumId
         || kullaniciBilgisi().kurumId == resource.data.rootKurumId
         || kullaniciBilgisi().kurumId == resource.data.parentId
         || kullanicininRootKurumId() == kurumId
-        || kullanicininParentKurumId() == kurumId;
+        || kullanicininParentKurumId() == kurumId
+        || ogretmenKurumErisimi(kurumId);
       allow write: if platformAdmin()
         || (kullaniciBilgisi().rol == 'kurum_admin'
             && (kullaniciBilgisi().kurumId == kurumId
                 || kullaniciBilgisi().kurumId == resource.data.rootKurumId
                 || kullaniciBilgisi().kurumId == resource.data.parentId));
     }
+
     match /kurumlar/{kurumId}/siniflar/{sinifId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      // Öğretmen: atandığı sınıfları görebilir
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenSinifErisimi(kurumId, sinifId);
       allow write: if kurumAdmin(kurumId) || platformAdmin();
     }
+
     match /kurumlar/{kurumId}/ogrenciler/{ogrenciId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      // Öğretmen: atandığı sınıftaki öğrencileri görebilir
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || (kullaniciBilgisi().rol == 'ogretmen'
+                       && kurumId in kullaniciBilgisi().get('erisimKurumIdler', [])
+                       && resource.data.sinifId in kullaniciBilgisi().get('sinifIdler', []));
       allow write: if kurumAdmin(kurumId) || platformAdmin();
     }
+
     match /kurumlar/{kurumId}/moduller/{modulId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
       allow write: if kurumAdmin(kurumId) || platformAdmin();
     }
-    // Platform seviyesinde rubrik şablonları
+
+    // Platform rubrikleri: herkes okuyabilir, sadece platform admin yazar
     match /rubrikSablonlar/{sablonId} {
-      allow read:  if request.auth != null;   // tüm giriş yapmış kullanıcılar okuyabilir
-      allow write: if platformAdmin();         // sadece platform admin yazabilir
+      allow read:  if request.auth != null;
+      allow write: if platformAdmin();
     }
+
     // Kurum rubrikleri:
-    // OKUMA  → aynı organizasyondaki herkes (üst kurumun rubriklerini alt seviyeler görebilir)
-    // YAZMA  → sadece o kurumun tam sahibi (kullaniciBilgisi().kurumId == kurumId) veya platformAdmin
-    //          → üst seviye alt seviyenin rubriğini düzenleyemez/silemez
+    // OKUMA  → aynı organizasyon + öğretmen kendi erişim kurumlarından
+    // YAZMA  → tam eşleşen kurum sahibi veya platformAdmin
+    //          koordinatör (ogretmen + rubrik_olustur) kendi kurumuna yazabilir
     match /kurumlar/{kurumId}/rubrikler/{rubrikId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin() || ayniOrganizasyon(kurumId);
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ayniOrganizasyon(kurumId)
+                   || ogretmenKurumErisimi(kurumId);
       allow write: if platformAdmin()
                    || (kullaniciBilgisi().rol == 'kurum_admin'
+                       && kullaniciBilgisi().kurumId == kurumId)
+                   || (kullaniciBilgisi().rol == 'ogretmen'
+                       && kullaniciBilgisi().get('modulIzinler', {}).get('rubrik_olustur', false)
                        && kullaniciBilgisi().kurumId == kurumId);
     }
+
     match /kurumlar/{kurumId}/puanlar/{kayitId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin();
-      allow create: if kurumUyesi(kurumId) || platformAdmin();
-      allow update: if kurumUyesi(kurumId) || platformAdmin();
+      allow read:   if kurumUyesi(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+      allow create: if kurumUyesi(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+      allow update: if kurumUyesi(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
     }
+
     match /kurumlar/{kurumId}/degerlendirmeler/{kayitId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin();
-      allow create: if kurumUyesi(kurumId) || platformAdmin();
-      allow update: if kurumUyesi(kurumId) || platformAdmin();
+      // OKUMA: kurum üyesi veya o kuruma atanmış öğretmen
+      allow read:   if kurumUyesi(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+      // YAZMA: kurum admin + atanmış öğretmen (sadece kendi sınıfına)
+      allow create: if kurumUyesi(kurumId) || platformAdmin()
+                    || (kullaniciBilgisi().rol == 'ogretmen'
+                        && kurumId in kullaniciBilgisi().get('erisimKurumIdler', [])
+                        && request.resource.data.sinifId in kullaniciBilgisi().get('sinifIdler', []));
+      allow update: if kurumUyesi(kurumId) || platformAdmin()
+                    || (kullaniciBilgisi().rol == 'ogretmen'
+                        && kurumId in kullaniciBilgisi().get('erisimKurumIdler', [])
+                        && resource.data.sinifId in kullaniciBilgisi().get('sinifIdler', []));
     }
+
     match /kurumlar/{kurumId}/yorumlar/{yorumId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin();
-      allow write: if kurumUyesi(kurumId) || platformAdmin();
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
+      allow write: if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
     }
+
     match /kurumlar/{kurumId}/raporlar/{raporId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin();
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
       allow write: if kurumAdmin(kurumId) || platformAdmin();
     }
+
     match /kurumlar/{kurumId}/kullanicilar/{uid} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin();
       allow write: if kurumAdmin(kurumId) || platformAdmin();

@@ -36,8 +36,10 @@ export function AuthProvider({ children }) {
                 email: user.email,
                 rol: yetki.rol,
                 kurumId: yetki.kurumId || null,
-                modulIzinler:   yetki.modulIzinler   || {},
-                sinifAtamalari: yetki.sinifAtamalari || [],
+                modulIzinler:     yetki.modulIzinler     || {},
+                sinifAtamalari:   yetki.sinifAtamalari   || [],
+                sinifIdler:       yetki.sinifIdler       || [],
+                erisimKurumIdler: yetki.erisimKurumIdler || [],
                 olusturmaTarihi: serverTimestamp(),
               }
               await setDoc(doc(db, 'kullanicilar', user.uid), yeniProfil)
