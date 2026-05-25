@@ -43,7 +43,7 @@ function OrtBadge({ ort }) {
 }
 
 export default function KurumDegerlendirmeler() {
-  const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
+  const { secilenKurumId, secilenKurum, erisimKurumlar, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
 
   const ust    = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
@@ -59,8 +59,10 @@ export default function KurumDegerlendirmeler() {
   const [secilenAltKurumId, setSecilenAltKurumId] = useState('')
   useEffect(() => { setSecilenAltKurumId('') }, [secilenKurumId])
 
-  // Asıl veri kurumu: altKurum seviyesinde doğrudan secilenKurumId, üst seviyede seçileni
-  const hedefKurumId = seviye === 'altKurum' ? secilenKurumId : (secilenAltKurumId || null)
+  // Asıl veri kurumu: öğretmen → her zaman secilenKurumId; altKurum seviyesinde doğrudan; üst seviyede seçileni
+  const hedefKurumId = ogretmenModu
+    ? (secilenKurumId || null)
+    : seviye === 'altKurum' ? secilenKurumId : (secilenAltKurumId || null)
 
   // ── Veri ─────────────────────────────────────────────────
   const [rubrikler,  setRubrikler]  = useState([])
@@ -371,8 +373,8 @@ export default function KurumDegerlendirmeler() {
         <strong>{secilenKurum?.ad}</strong> — rubrik bazlı dönem değerlendirmesi
       </p>
 
-      {/* ── AltKurum Seçici (root/kampüs seviyesinde göster) ── */}
-      {seviye !== 'altKurum' && (
+      {/* ── AltKurum Seçici (root/kampüs seviyesinde göster; öğretmen modunda gizli) ── */}
+      {seviye !== 'altKurum' && !ogretmenModu && (
         <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#3730A3', whiteSpace: 'nowrap' }}>🏫 Kurum:</span>
           <select value={secilenAltKurumId} onChange={e => { setSecilenAltKurumId(e.target.value); setSecilenSinifId('') }}
@@ -403,10 +405,13 @@ export default function KurumDegerlendirmeler() {
             <select value={secilenSinifId} onChange={e => setSecilenSinifId(e.target.value)}
               style={{ padding: '6px 10px', border: '1.5px solid ' + (secilenSinifId ? '#1B3A6B' : '#FCD34D'), borderRadius: '7px', fontSize: '0.875rem', background: '#fff', color: '#374151', cursor: 'pointer', fontWeight: secilenSinifId ? '600' : '400' }}>
               <option value="">— Önce bir sınıf seçin —</option>
-              {siniflar.slice().sort((a, b) => (Number(a.seviye)||0)-(Number(b.seviye)||0) || (a.sube||'').localeCompare(b.sube||'')).map(sf => {
-                const say = ogrenciler.filter(o => o.sinifId === sf.id).length
-                return <option key={sf.id} value={sf.id}>{sf.ad} ({say} öğrenci)</option>
-              })}
+              {siniflar
+                .filter(sf => !ogretmenModu || ogretmenSinifIdleri.includes(sf.id))
+                .slice().sort((a, b) => (Number(a.seviye)||0)-(Number(b.seviye)||0) || (a.sube||'').localeCompare(b.sube||''))
+                .map(sf => {
+                  const say = ogrenciler.filter(o => o.sinifId === sf.id).length
+                  return <option key={sf.id} value={sf.id}>{sf.ad} ({say} öğrenci)</option>
+                })}
             </select>
             {secilenSinif && (
               <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
@@ -415,8 +420,12 @@ export default function KurumDegerlendirmeler() {
             )}
           </div>
 
-          {/* Sınıf seçilmeden alt kısımlar gizli */}
-          {!secilenSinifId ? (
+          {/* Öğretmen modunda atanmış sınıf yoksa uyarı */}
+          {ogretmenModu && ogretmenSinifIdleri.length === 0 ? (
+            <div style={{ background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px', padding: '1.5rem', color: '#92400E', fontSize: '0.875rem' }}>
+              ⚠ Bu okulda henüz sınıf atamanız yok. Kurum yöneticinizle iletişime geçin.
+            </div>
+          ) : !secilenSinifId ? (
             <div style={{ background: '#F8FAFC', borderRadius: '10px', border: '1px dashed #CBD5E1', padding: '3rem', textAlign: 'center', color: '#94A3B8', fontSize: '0.9rem' }}>
               Değerlendirme yapmak için yukarıdan bir sınıf seçin
             </div>
