@@ -75,18 +75,39 @@ export default function KurumKullanicilar() {
   const [kurumSiniflar, setKurumSiniflar] = useState({})
 
   useEffect(() => {
-    if (!kurumId) return
-    const q1 = query(collection(db, 'kurumlar', kurumId, 'kullanicilar'), orderBy('ad', 'asc'))
-    const q2 = query(collection(db, 'yetkiliKullanicilar'), where('kurumId', '==', kurumId))
-    const u1 = onSnapshot(q1, snap => setKullanicilar(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-    const u2 = onSnapshot(q2, snap => {
-      setBekleyenler(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    if (!kurumId || !erisimKurumlar.length) return
+
+    // Üst seviye seçiliyse → tüm altKurumların kullanıcılarını topla
+    const secilenTip = erisimKurumlar.find(k => k.id === kurumId)?.tip
+    const sorguIds = (secilenTip !== 'altKurum' && altKurumlar.length > 0)
+      ? altKurumlar.map(k => k.id)
+      : [kurumId]
+
+    // Her altKurum'un kullanicilar subcollection'ını ayrı dinle → merge
+    const parcalar = {}
+    const unsubs = sorguIds.map(kid => {
+      const q = query(collection(db, 'kurumlar', kid, 'kullanicilar'), orderBy('ad', 'asc'))
+      return onSnapshot(q, snap => {
+        parcalar[kid] = snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() }))
+        const tumu = [...new Map(
+          Object.values(parcalar).flat().map(k => [k.id, k])
+        ).values()].sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+        setKullanicilar(tumu)
+      })
     })
+
+    // Bekleyen davetler — tüm ilgili kurumlardan
+    const bekleyenQ = sorguIds.length === 1
+      ? query(collection(db, 'yetkiliKullanicilar'), where('kurumId', '==', sorguIds[0]))
+      : query(collection(db, 'yetkiliKullanicilar'), where('kurumId', 'in', sorguIds.slice(0, 30)))
+    const u2 = onSnapshot(bekleyenQ, snap => setBekleyenler(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+
     getDoc(doc(db, 'kurumlar', kurumId)).then(snap => {
       if (snap.exists()) setGoogleAltyapisi(!!snap.data().googleAltyapisi)
     })
-    return () => { u1(); u2() }
-  }, [kurumId])
+
+    return () => { unsubs.forEach(u => u()); u2() }
+  }, [kurumId, altKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
 
   // Sınıfları lazy yükle (cache'de yoksa Firestore'dan çek)
   async function sinifYukle(kid) {
