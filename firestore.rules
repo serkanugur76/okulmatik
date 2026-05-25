@@ -192,7 +192,9 @@ service cloud.firestore {
 
     match /kurumlar/{kurumId}/kullanicilar/{uid} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin();
-      allow write: if kurumAdmin(kurumId) || platformAdmin();
+      allow write: if kurumAdmin(kurumId) || platformAdmin()
+                   // İlk giriş: kullanıcı kendi kurumunun subcollection'ına kendini yazabilir
+                   || (request.auth.uid == uid && kullaniciBilgisi().kurumId == kurumId);
     }
   }
 }

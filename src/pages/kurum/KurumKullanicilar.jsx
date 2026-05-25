@@ -239,9 +239,10 @@ export default function KurumKullanicilar() {
           })
           await batch.commit()
         } else {
-          await updateDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), {
+          // setDoc+merge: subcollection doc yoksa oluşturur, varsa günceller
+          await setDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), {
             ad: form.ad, rol: form.rol,
-          })
+          }, { merge: true })
         }
 
         setBasari('Kullanıcı güncellendi.')

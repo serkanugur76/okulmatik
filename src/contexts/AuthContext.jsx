@@ -45,9 +45,10 @@ export function AuthProvider({ children }) {
               }
               await setDoc(doc(db, 'kullanicilar', user.uid), yeniProfil)
               if (yetki.kurumId) {
-                await setDoc(doc(db, 'kurumlar', yetki.kurumId, 'kullanicilar', user.uid), {
+                // Hata olsa bile profili set et — kural izin vermezse admin düzeltir
+                setDoc(doc(db, 'kurumlar', yetki.kurumId, 'kullanicilar', user.uid), {
                   ...yeniProfil, durum: 'aktif',
-                })
+                }).catch(err => console.warn('Kurum subcollection yazılamadı:', err.message))
               }
               await deleteDoc(doc(db, 'yetkiliKullanicilar', user.email))
               setProfil(yeniProfil)
