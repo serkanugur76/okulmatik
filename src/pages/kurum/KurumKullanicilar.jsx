@@ -151,17 +151,28 @@ export default function KurumKullanicilar() {
   function modalAc(k = null) {
     setDuzenlenen(k)
     if (k) {
-      // Subcollection'da branslar/sinifAtamalari olmayabilir → global profilden çek
+      // Önce subcollection verisini göster (hızlı), ardından global profili merge et
+      const ilkAtamalar = k.sinifAtamalari || []
+      setForm({
+        ad: k.ad || '', email: k.email || '', rol: k.rol,
+        hedefKurumId: k.kurumId || kurumId || '',
+        rubrikOlustur: k.modulIzinler?.rubrik_olustur || false,
+        branslar: k.branslar || [],
+        sinifAtamalari: ilkAtamalar,
+      })
+      ilkAtamalar.forEach(a => sinifYukle(a.kurumId))
+      // Global profil → branslar / sinifAtamalari gibi eksik alanları tamamla
       getDoc(doc(db, 'kullanicilar', k.id)).then(snap => {
-        const tam = snap.exists() ? { ...k, ...snap.data() } : k
-        const atamalar = tam.sinifAtamalari || []
-        setForm({
-          ad: tam.ad || '', email: tam.email, rol: tam.rol,
-          hedefKurumId: tam.kurumId || kurumId || '',
+        if (!snap.exists()) return
+        const tam = snap.data()
+        const atamalar = tam.sinifAtamalari || ilkAtamalar
+        setForm(f => ({
+          ...f,
+          ad:            tam.ad            ?? f.ad,
           rubrikOlustur: tam.modulIzinler?.rubrik_olustur || false,
-          branslar: tam.branslar || [],
+          branslar:      tam.branslar      || [],
           sinifAtamalari: atamalar,
-        })
+        }))
         atamalar.forEach(a => sinifYukle(a.kurumId))
       })
     } else {
@@ -241,24 +252,23 @@ export default function KurumKullanicilar() {
         if (!yeniKurumId) { setHata('Lütfen bir kurum seçin.'); setKaydediyor(false); return }
 
         // Global kullanicilar kaydını güncelle
-        await updateDoc(doc(db, 'kullanicilar', uid), {
-          ad: form.ad, rol: form.rol, kurumId: yeniKurumId, ...ogretmenEkstra,
-        })
+        // ogretmenEkstra sadece öğretmen rolüne uygulanır (kurum_admin profilini bozmasın)
+        const globalGuncelleme = { ad: form.ad, rol: form.rol, kurumId: yeniKurumId }
+        if (form.rol === 'ogretmen') Object.assign(globalGuncelleme, ogretmenEkstra)
+        await updateDoc(doc(db, 'kullanicilar', uid), globalGuncelleme)
 
         if (yeniKurumId !== eskiKurumId) {
           const batch = writeBatch(db)
           batch.delete(doc(db, 'kurumlar', eskiKurumId, 'kullanicilar', uid))
-          batch.set(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), {
-            ad: form.ad, email: duzenlenen.email,
-            rol: form.rol, kurumId: yeniKurumId, durum: 'aktif',
-            ...ogretmenEkstra,
-          })
+          const subDoc = { ad: form.ad, email: duzenlenen.email, rol: form.rol, kurumId: yeniKurumId, durum: 'aktif' }
+          if (form.rol === 'ogretmen') Object.assign(subDoc, ogretmenEkstra)
+          batch.set(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), subDoc)
           await batch.commit()
         } else {
           // setDoc+merge: subcollection doc yoksa oluşturur, varsa günceller
-          await setDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), {
-            ad: form.ad, rol: form.rol, ...ogretmenEkstra,
-          }, { merge: true })
+          const subGuncelleme = { ad: form.ad, rol: form.rol }
+          if (form.rol === 'ogretmen') Object.assign(subGuncelleme, ogretmenEkstra)
+          await setDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), subGuncelleme, { merge: true })
         }
 
         setBasari('Kullanıcı güncellendi.')
