@@ -354,10 +354,13 @@ export default function KurumRubrikler() {
         <strong>{secilenKurum?.ad}</strong> — değerlendirme rubrikleri
       </p>
 
+      {/* Gizli Excel input — her zaman render edilir */}
+      <input ref={xlsxRef} type="file" accept=".xlsx,.xls" onChange={rubrikXlsxOku} style={{ display: 'none' }} />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{rubrikler.length} rubrik</span>
-        {/* Koordinatör olmayan öğretmen rubrik oluşturamaz */}
-        {!ogretmenModu && (
+        {/* Admin veya koordinatör: tüm butonlar; normal öğretmen: hiçbiri */}
+        {(!ogretmenModu || profil?.modulIzinler?.rubrik_olustur) && (
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {sablonlar.length > 0 && (
               <button onClick={() => setSablonSecici(true)}
@@ -373,19 +376,11 @@ export default function KurumRubrikler() {
               style={{ padding: '0.6rem 1.1rem', background: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
               📥 Excel'den Yükle
             </button>
-            <input ref={xlsxRef} type="file" accept=".xlsx,.xls" onChange={rubrikXlsxOku} style={{ display: 'none' }} />
             <button onClick={() => modalAc()}
               style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-              + Sıfırdan Oluştur
+              + {ogretmenModu ? 'Rubrik Oluştur' : 'Sıfırdan Oluştur'}
             </button>
           </div>
-        )}
-        {/* Koordinatör: sadece oluşturma butonu */}
-        {ogretmenModu && profil?.modulIzinler?.rubrik_olustur && (
-          <button onClick={() => modalAc()}
-            style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
-            + Rubrik Oluştur
-          </button>
         )}
       </div>
 
