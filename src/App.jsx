@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import GirisPage              from './pages/GirisPage'
-import OgretmenPage           from './pages/OgretmenPage'
 import YetkisizPage           from './pages/YetkisizPage'
 import PlatformLayout         from './pages/platform/PlatformLayout'
 import Dashboard              from './pages/platform/Dashboard'
@@ -32,7 +31,7 @@ function AnaYonlendirici() {
   const hedef = {
     platform_admin: '/platform',
     kurum_admin:    '/kurum',
-    ogretmen:       '/ogretmen',
+    ogretmen:       '/kurum',
   }
   return <Navigate to={hedef[profil?.rol] || '/yetkisiz'} replace />
 }
@@ -62,7 +61,7 @@ export default function App() {
             <Route path="kurum/degerlendirmeler" element={<KurumDegerlendirmeler />} />
           </Route>
           <Route path="/kurum" element={
-            <KorunanRoute izinliRoller={['kurum_admin']}>
+            <KorunanRoute izinliRoller={['kurum_admin', 'ogretmen']}>
               <KurumLayout />
             </KorunanRoute>
           }>
@@ -73,11 +72,7 @@ export default function App() {
             <Route path="rubrikler"         element={<KurumRubrikler />} />
             <Route path="degerlendirmeler" element={<KurumDegerlendirmeler />} />
           </Route>
-          <Route path="/ogretmen/*" element={
-            <KorunanRoute izinliRoller={['ogretmen']}>
-              <OgretmenPage />
-            </KorunanRoute>
-          }/>
+          <Route path="/ogretmen/*" element={<Navigate to="/kurum" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
