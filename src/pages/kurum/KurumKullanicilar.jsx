@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   collection, onSnapshot, doc, updateDoc, getDoc, setDoc, deleteDoc,
-  query, orderBy, writeBatch, getDocs,
+  query, orderBy, where, writeBatch, getDocs,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -77,10 +77,10 @@ export default function KurumKullanicilar() {
   useEffect(() => {
     if (!kurumId) return
     const q1 = query(collection(db, 'kurumlar', kurumId, 'kullanicilar'), orderBy('ad', 'asc'))
-    const q2 = query(collection(db, 'yetkiliKullanicilar'), orderBy('olusturmaTarihi', 'desc'))
+    const q2 = query(collection(db, 'yetkiliKullanicilar'), where('kurumId', '==', kurumId))
     const u1 = onSnapshot(q1, snap => setKullanicilar(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
     const u2 = onSnapshot(q2, snap => {
-      setBekleyenler(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(k => k.kurumId === kurumId))
+      setBekleyenler(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     })
     getDoc(doc(db, 'kurumlar', kurumId)).then(snap => {
       if (snap.exists()) setGoogleAltyapisi(!!snap.data().googleAltyapisi)

@@ -62,8 +62,16 @@ service cloud.firestore {
     // ── Koleksiyonlar ────────────────────────────────────────
 
     match /yetkiliKullanicilar/{email} {
-      allow read:  if (request.auth != null && request.auth.token.email == email) || platformAdmin();
-      allow write: if platformAdmin();
+      allow read:   if (request.auth != null && request.auth.token.email == email)
+                    || platformAdmin()
+                    || (kullaniciBilgisi().rol == 'kurum_admin' && kurumUyesi(resource.data.kurumId));
+      allow create, update: if platformAdmin()
+                    || (kullaniciBilgisi().rol == 'kurum_admin'
+                        && kurumUyesi(request.resource.data.kurumId)
+                        && rolYazmaIzni());
+      allow delete: if platformAdmin()
+                    || (request.auth != null && request.auth.token.email == email)
+                    || (kullaniciBilgisi().rol == 'kurum_admin' && kurumUyesi(resource.data.kurumId));
     }
 
     match /kullanicilar/{uid} {
