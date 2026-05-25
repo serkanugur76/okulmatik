@@ -151,16 +151,19 @@ export default function KurumKullanicilar() {
   function modalAc(k = null) {
     setDuzenlenen(k)
     if (k) {
-      const atamalar = k.sinifAtamalari || []
-      setForm({
-        ad: k.ad || '', email: k.email, rol: k.rol,
-        hedefKurumId: k.kurumId || kurumId || '',
-        rubrikOlustur: k.modulIzinler?.rubrik_olustur || false,
-        branslar: k.branslar || [],
-        sinifAtamalari: atamalar,
+      // Subcollection'da branslar/sinifAtamalari olmayabilir → global profilden çek
+      getDoc(doc(db, 'kullanicilar', k.id)).then(snap => {
+        const tam = snap.exists() ? { ...k, ...snap.data() } : k
+        const atamalar = tam.sinifAtamalari || []
+        setForm({
+          ad: tam.ad || '', email: tam.email, rol: tam.rol,
+          hedefKurumId: tam.kurumId || kurumId || '',
+          rubrikOlustur: tam.modulIzinler?.rubrik_olustur || false,
+          branslar: tam.branslar || [],
+          sinifAtamalari: atamalar,
+        })
+        atamalar.forEach(a => sinifYukle(a.kurumId))
       })
-      // Mevcut atamaların sınıflarını önceden yükle
-      atamalar.forEach(a => sinifYukle(a.kurumId))
     } else {
       setForm(BOŞ_FORM)
     }
@@ -248,12 +251,13 @@ export default function KurumKullanicilar() {
           batch.set(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), {
             ad: form.ad, email: duzenlenen.email,
             rol: form.rol, kurumId: yeniKurumId, durum: 'aktif',
+            ...ogretmenEkstra,
           })
           await batch.commit()
         } else {
           // setDoc+merge: subcollection doc yoksa oluşturur, varsa günceller
           await setDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), {
-            ad: form.ad, rol: form.rol,
+            ad: form.ad, rol: form.rol, ...ogretmenEkstra,
           }, { merge: true })
         }
 
