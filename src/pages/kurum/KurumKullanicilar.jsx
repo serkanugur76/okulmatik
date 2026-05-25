@@ -14,6 +14,16 @@ const ROL_ETİKET = {
   ogretmen:       { etiket: 'Öğretmen',       renk: '#065F46', bg: '#D1FAE5' },
 }
 
+// kurum_admin için kurumun tipine göre daha açıklayıcı etiket
+function kurumAdminEtiketi(k, erisimKurumlar) {
+  if (k.rol !== 'kurum_admin') return ROL_ETİKET[k.rol] || { etiket: k.rol, renk: '#374151', bg: '#F1F5F9' }
+  const kurum = erisimKurumlar.find(x => x.id === k.kurumId)
+  if (!kurum) return ROL_ETİKET.kurum_admin
+  if (kurum.tip === 'kampus')   return { etiket: 'Kampüs Admin', renk: '#0369A1', bg: '#E0F2FE' }
+  if (kurum.tip === 'altKurum') return { etiket: 'Okul Admin',   renk: '#0369A1', bg: '#E0F2FE' }
+  return { etiket: 'Kurum Admin', renk: '#0369A1', bg: '#E0F2FE' }
+}
+
 // Seviyeye göre atanabilir roller
 const ROL_SEÇENEKLERİ = {
   platform_admin: [
@@ -307,7 +317,7 @@ export default function KurumKullanicilar() {
                   {aramaMetni ? 'Sonuç bulunamadı' : 'Henüz kullanıcı eklenmemiş'}
                 </td></tr>
               ) : aktifListe.map(k => {
-                const rolBilgi = ROL_ETİKET[k.rol] || { etiket: k.rol, renk: '#374151', bg: '#F1F5F9' }
+                const rolBilgi = kurumAdminEtiketi(k, erisimKurumlar)
                 const koordinator = k.rol === 'ogretmen' && k.modulIzinler?.rubrik_olustur
                 const toplamSinif = (k.sinifAtamalari || []).reduce((t, a) => t + (a.siniflar?.length || 0), 0)
                 return (
