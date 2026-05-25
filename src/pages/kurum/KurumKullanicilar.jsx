@@ -160,16 +160,26 @@ export default function KurumKullanicilar() {
     // Öğretmen için ek alanlar
     // sinifIdler ve erisimKurumIdler: Firestore rules'da array-contains ile kullanılır
     const atamalari = form.sinifAtamalari || []
+    // parentKurumIdler: atanan altKurumların parent (kampüs) ID'leri — kurum adını göstermek için
+    const parentKurumIdler = form.rol === 'ogretmen'
+      ? [...new Set(atamalari.map(a => {
+          const k = erisimKurumlar.find(x => x.id === a.kurumId)
+          return k?.parentId
+        }).filter(Boolean))]
+      : []
+
     const ogretmenEkstra = form.rol === 'ogretmen' ? {
       modulIzinler:     { rubrik_olustur: form.rubrikOlustur || false },
       sinifAtamalari:   atamalari,
       sinifIdler:       [...new Set(atamalari.flatMap(a => a.siniflar || []))],
       erisimKurumIdler: [...new Set(atamalari.map(a => a.kurumId).filter(Boolean))],
+      parentKurumIdler,
     } : {
       modulIzinler:     {},
       sinifAtamalari:   [],
       sinifIdler:       [],
       erisimKurumIdler: [],
+      parentKurumIdler: [],
     }
 
     try {

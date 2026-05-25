@@ -22,11 +22,11 @@ function rastgeleSifre() {
  * - Google kurumu değilse Firebase Auth hesabı açar + şifre belirleme maili gönderir
  * - Google kurumuysa sadece kayıt yeterli, kullanıcı Google ile giriş yapar
  */
-export async function davetEt({ email, rol, kurumId, googleAltyapisi, modulIzinler = {}, sinifAtamalari = [], sinifIdler = [], erisimKurumIdler = [] }) {
+export async function davetEt({ email, rol, kurumId, googleAltyapisi, modulIzinler = {}, sinifAtamalari = [], sinifIdler = [], erisimKurumIdler = [], parentKurumIdler = [] }) {
   // Her durumda yetkili listesine ekle
   await setDoc(doc(db, 'yetkiliKullanicilar', email), {
     email, rol, kurumId, googleAltyapisi: !!googleAltyapisi,
-    modulIzinler, sinifAtamalari, sinifIdler, erisimKurumIdler,
+    modulIzinler, sinifAtamalari, sinifIdler, erisimKurumIdler, parentKurumIdler,
     olusturmaTarihi: serverTimestamp(),
   })
 

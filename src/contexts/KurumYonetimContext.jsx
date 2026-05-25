@@ -25,6 +25,10 @@ export function KurumYonetimProvider({ children }) {
     () => profil?.erisimKurumIdler || [],
     [profil?.erisimKurumIdler?.join(',')]  // eslint-disable-line
   )
+  const parentKurumIds = useMemo(
+    () => profil?.parentKurumIdler || [],
+    [profil?.parentKurumIdler?.join(',')]  // eslint-disable-line
+  )
 
   useEffect(() => {
     setYukleniyor(true)
@@ -60,13 +64,26 @@ export function KurumYonetimProvider({ children }) {
       }
       async function yukleOgretmen() {
         try {
+          // Atanan altKurumları yükle
           const snaplar = await Promise.all(
             atananKurumIds.map(kid => getDoc(doc(db, 'kurumlar', kid)))
           )
           const kurumlar = snaplar
             .filter(s => s.exists())
             .map(s => ({ id: s.id, ...s.data() }))
-          setErisimKurumlar(kurumlar)
+
+          // Parent kampüs dokümanlarını yükle (kampüs adını göstermek için)
+          const yuklenecekParentIds = parentKurumIds.filter(
+            pid => !kurumlar.find(k => k.id === pid)
+          )
+          const parentSnaplar = yuklenecekParentIds.length
+            ? await Promise.all(yuklenecekParentIds.map(pid => getDoc(doc(db, 'kurumlar', pid))))
+            : []
+          const parentKurumlar = parentSnaplar
+            .filter(s => s.exists())
+            .map(s => ({ id: s.id, ...s.data() }))
+
+          setErisimKurumlar([...parentKurumlar, ...kurumlar])
           // Tek kurum → direkt seç; birden fazla → null (kurum seçici gösterilecek)
           setSecilenKurumId(kurumlar.length === 1 ? kurumlar[0].id : null)
         } catch (err) {
@@ -134,7 +151,7 @@ export function KurumYonetimProvider({ children }) {
       }
     }
     yukle()
-  }, [kurumId, platformAdmin, ogretmen, atananKurumIds.join(',')]) // eslint-disable-line
+  }, [kurumId, platformAdmin, ogretmen, atananKurumIds.join(','), parentKurumIds.join(',')]) // eslint-disable-line
 
   const secilenKurum = erisimKurumlar.find(k => k.id === secilenKurumId) || null
 

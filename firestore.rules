@@ -45,6 +45,12 @@ service cloud.firestore {
           && kurumId in kullaniciBilgisi().get('erisimKurumIdler', []);
     }
 
+    // Öğretmen: parent (kampüs) kurum dokümanını okuyabilir (görüntüleme için)
+    function ogretmenParentOkuma(kurumId) {
+      return kullaniciBilgisi().rol == 'ogretmen'
+          && kurumId in kullaniciBilgisi().get('parentKurumIdler', []);
+    }
+
     // Öğretmen: hem kurum erişimi var hem de ilgili sınıf atamalı mı?
     function ogretmenSinifErisimi(kurumId, sinifId) {
       return kullaniciBilgisi().rol == 'ogretmen'
@@ -94,7 +100,8 @@ service cloud.firestore {
         || kullaniciBilgisi().kurumId == resource.data.parentId
         || kullanicininRootKurumId() == kurumId
         || kullanicininParentKurumId() == kurumId
-        || ogretmenKurumErisimi(kurumId);
+        || ogretmenKurumErisimi(kurumId)
+        || ogretmenParentOkuma(kurumId);
       allow write: if platformAdmin()
         || (kullaniciBilgisi().rol == 'kurum_admin'
             && (kullaniciBilgisi().kurumId == kurumId
