@@ -262,6 +262,27 @@ export default function KurumKullanicilar() {
     await davetIptal(email)
   }
 
+  async function kullaniciSil(k) {
+    if (!confirm(`${k.ad || k.email} adlı kullanıcıyı silmek istiyor musunuz?\n\nFirebase Authentication hesabı kalmaya devam eder, ancak sisteme erişimi kesilir.`)) return
+    try {
+      const uid       = k.id
+      const kurumIdsi = k.kurumId || k._kurumId
+      const batch     = writeBatch(db)
+      // Global kullanicilar kaydı
+      batch.delete(doc(db, 'kullanicilar', uid))
+      // Kurum subcollection kaydı
+      if (kurumIdsi) batch.delete(doc(db, 'kurumlar', kurumIdsi, 'kullanicilar', uid))
+      // Tüm sorgulanan kurumlardan da temizle
+      const sorguKurumIds = kullanicilar.filter(x => x.id === uid).map(x => x._kurumId).filter(Boolean)
+      sorguKurumIds.forEach(kid => {
+        if (kid !== kurumIdsi) batch.delete(doc(db, 'kurumlar', kid, 'kullanicilar', uid))
+      })
+      await batch.commit()
+    } catch (err) {
+      alert('Silme hatası: ' + err.message)
+    }
+  }
+
   const aktifListe    = kullanicilar.filter(k => `${k.ad} ${k.email}`.toLowerCase().includes(aramaMetni.toLowerCase()))
   const bekleyenListe = bekleyenler.filter(k => k.email.toLowerCase().includes(aramaMetni.toLowerCase()))
 
@@ -346,7 +367,11 @@ export default function KurumKullanicilar() {
                       )}
                     </td>
                     <td style={s.td}>
-                      <button style={s.eylem} onClick={() => modalAc(k)}>Düzenle</button>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button style={s.eylem} onClick={() => modalAc(k)}>Düzenle</button>
+                        <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }}
+                          onClick={() => kullaniciSil(k)}>Sil</button>
+                      </div>
                     </td>
                   </tr>
                 )
