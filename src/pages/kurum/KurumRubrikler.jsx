@@ -50,7 +50,9 @@ export default function KurumRubrikler() {
   const hedefKurumId = platformAdmin ? (secilenKurumId || null) : (benimKurumId || null)
 
   // Bu rubriki düzenleyip silebilir miyiz?
-  const yazabilir = (r) => platformAdmin || r._kurumId === benimKurumId
+  // Öğretmen: sadece koordinatör (rubrik_olustur) kendi kurumundaki rubrikleri düzenleyebilir
+  const yazabilir = (r) => platformAdmin
+    || (r._kurumId === benimKurumId && (!ogretmenModu || profil?.modulIzinler?.rubrik_olustur))
 
   // Rubrik listesi için: erişilebilir tüm kurumlar (rubrikler alt kurumlarda saklanır)
   const listKurumIds = useMemo(() => {
