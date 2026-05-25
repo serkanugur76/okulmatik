@@ -87,12 +87,11 @@ export default function KurumKullanicilar() {
   useEffect(() => {
     if (!kurumId || !erisimKurumlar.length) return
 
-    // Üst seviye seçiliyse → tüm alt kurumların (her seviyeden) kullanıcılarını topla
+    // altKurum seçiliyse sadece o; üst seviyede tüm kurumlar (root dahil)
     const secilenTip = erisimKurumlar.find(k => k.id === kurumId)?.tip
-    const altTumKurumlar = erisimKurumlar.filter(k => !!k.parentId) // root olmayan her kurum
-    const sorguIds = (secilenTip !== 'altKurum' && altTumKurumlar.length > 0)
-      ? altTumKurumlar.map(k => k.id)
-      : [kurumId]
+    const sorguIds = secilenTip === 'altKurum'
+      ? [kurumId]
+      : erisimKurumlar.map(k => k.id)
 
     // Her altKurum'un kullanicilar subcollection'ını ayrı dinle → merge
     const parcalar = {}
