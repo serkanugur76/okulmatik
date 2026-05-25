@@ -4,10 +4,16 @@ import { db } from '../../services/firebase'
 import { davetEt, davetIptal } from '../../services/davetEt'
 import KurumSecici from '../../components/KurumSecici'
 
-const ROL_ETİKET = {
-  platform_admin: { etiket: 'Platform Admin', renk: '#7C3AED', bg: '#EDE9FE' },
-  kurum_admin:    { etiket: 'Kurum Admin',    renk: '#0369A1', bg: '#E0F2FE' },
-  ogretmen:       { etiket: 'Öğretmen',       renk: '#065F46', bg: '#D1FAE5' },
+function rolEtiketi(k, kurumlar) {
+  if (k.rol === 'platform_admin') return { etiket: 'Platform Admin', renk: '#7C3AED', bg: '#EDE9FE' }
+  if (k.rol === 'ogretmen')       return { etiket: 'Öğretmen',       renk: '#065F46', bg: '#D1FAE5' }
+  if (k.rol === 'kurum_admin') {
+    const kurum = kurumlar.find(x => x.id === k.kurumId)
+    if (kurum?.tip === 'kampus')   return { etiket: 'Kampüs Admin', renk: '#0369A1', bg: '#E0F2FE' }
+    if (kurum?.tip === 'altKurum') return { etiket: 'Okul Admin',   renk: '#0369A1', bg: '#DBEAFE' }
+    return { etiket: 'Kurum Admin', renk: '#0369A1', bg: '#E0F2FE' }
+  }
+  return { etiket: k.rol || '—', renk: '#374151', bg: '#F1F5F9' }
 }
 
 const BOŞ_FORM = { email: '', rol: 'kurum_admin', kurumId: '' }
@@ -134,25 +140,39 @@ export default function PlatformKullanicilar() {
         {sekme === 'aktif' ? (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>{['Ad', 'E-posta', 'Rol', 'Kurum', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+              <tr>{['Ad', 'E-posta', 'Rol', 'Kurum', 'Atamalar', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
             </thead>
             <tbody>
               {aktifListe.length === 0 ? (
-                <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Kullanıcı bulunamadı</td></tr>
+                <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Kullanıcı bulunamadı</td></tr>
               ) : aktifListe.map(k => {
-                const rol = ROL_ETİKET[k.rol] || { etiket: k.rol || '—', renk: '#374151', bg: '#F1F5F9' }
+                const rol = rolEtiketi(k, kurumlar)
                 const kurum = kurumlar.find(x => x.id === k.kurumId)
+                const koordinator = k.rol === 'ogretmen' && k.modulIzinler?.rubrik_olustur
+                const toplamSinif = (k.sinifAtamalari || []).reduce((t, a) => t + (a.siniflar?.length || 0), 0)
                 return (
                   <tr key={k.id}>
-                    <td style={s.td}>{k.ad || '—'}</td>
+                    <td style={s.td}><strong>{k.ad || '—'}</strong></td>
                     <td style={s.td}>{k.email}</td>
                     <td style={s.td}>
-                      <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', background: rol.bg, color: rol.renk }}>
-                        {rol.etiket}
-                      </span>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '600', background: rol.bg, color: rol.renk }}>
+                          {rol.etiket}
+                        </span>
+                        {koordinator && (
+                          <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '600', background: '#FEF3C7', color: '#92400E' }}>
+                            Koordinatör
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8' }}>
+                    <td style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8', fontSize: '0.82rem' }}>
                       {kurum?.ad || (k.kurumId ? k.kurumId : '— Atanmamış')}
+                    </td>
+                    <td style={s.td}>
+                      {k.rol === 'ogretmen' && toplamSinif > 0
+                        ? <span style={{ fontSize: '0.75rem', color: '#1B3A6B', fontWeight: '600' }}>{toplamSinif} sınıf</span>
+                        : <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>—</span>}
                     </td>
                     <td style={s.td}>
                       <button style={s.eylem} onClick={() => duzenleModalAc(k)}>Düzenle</button>
@@ -171,7 +191,7 @@ export default function PlatformKullanicilar() {
               {bekleyenListe.length === 0 ? (
                 <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Bekleyen davet yok</td></tr>
               ) : bekleyenListe.map(k => {
-                const rol = ROL_ETİKET[k.rol] || { etiket: k.rol || '—', renk: '#374151', bg: '#F1F5F9' }
+                const rol = rolEtiketi(k, kurumlar)
                 const kurum = kurumlar.find(x => x.id === k.kurumId)
                 return (
                   <tr key={k.id}>
