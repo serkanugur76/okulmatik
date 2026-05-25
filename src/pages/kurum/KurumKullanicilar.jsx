@@ -50,7 +50,7 @@ const BOŞ_FORM = {
 }
 
 export default function KurumKullanicilar() {
-  const { kurumId: kullanicininKurumId, platformAdmin } = useAuth()
+  const { kullanici, kurumId: kullanicininKurumId, platformAdmin } = useAuth()
   const { secilenKurumId: kurumId, erisimKurumlar } = useKurumYonetim()
 
   // Kurum hiyerarşisi
@@ -267,6 +267,8 @@ export default function KurumKullanicilar() {
   }
 
   async function kullaniciSil(k) {
+    if (k.rol === 'platform_admin') { alert('Platform admin silinemez.'); return }
+    if (k.id === kullanici?.uid)    { alert('Kendinizi silemezsiniz.'); return }
     if (!confirm(`${k.ad || k.email} adlı kullanıcıyı silmek istiyor musunuz?\n\nFirebase Authentication hesabı kalmaya devam eder, ancak sisteme erişimi kesilir.`)) return
     try {
       const uid       = k.id
