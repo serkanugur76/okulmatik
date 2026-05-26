@@ -180,9 +180,15 @@ export default function KurumDegerlendirmeler() {
   const secilenSeviye = secilenSinif?.seviye ? Number(secilenSinif.seviye) : null
 
   // Seçili sınıf seviyesiyle eşleşen rubrikler
-  const ilgiliRubrikler = rubrikler.filter(r =>
-    !r.hedefSeviyeler?.length || (secilenSeviye && r.hedefSeviyeler.includes(secilenSeviye))
-  )
+  // Öğretmen modunda: branşı yoksa tümü göster, branşı varsa sadece kendi branşı
+  const ilgiliRubrikler = rubrikler.filter(r => {
+    const seviyeUygun = !r.hedefSeviyeler?.length || (secilenSeviye && r.hedefSeviyeler.includes(secilenSeviye))
+    const bransUygun  = !ogretmenModu
+      || !profil?.branslar?.length   // branş tanımlı değilse kısıtlama yok
+      || !r.ders                     // rubrikte ders alanı yoksa herkese açık
+      || profil.branslar.includes(r.ders)
+    return seviyeUygun && bransUygun
+  })
 
   const secilenRubrik = ilgiliRubrikler.find(r => r.id === secilenRubrikId) || null
 
