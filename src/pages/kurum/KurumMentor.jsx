@@ -117,6 +117,14 @@ export default function KurumMentor() {
   }, [erisimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
 
   // ── Türetilmiş ────────────────────────────────────────────
+  // Seçili kuruma bağlı öğretmenler: kurumId eşleşen veya erisimKurumIdler içinde olan
+  const kurumOgretmenleri = useMemo(() =>
+    ogretmenler.filter(o =>
+      o.kurumId === hedefKurumId ||
+      (o.erisimKurumIdler || []).includes(hedefKurumId)
+    ),
+  [ogretmenler, hedefKurumId])
+
   const benimAtamam      = ogretmenModu ? atamalar.find(a => a.ogretmenId === profil?.uid) : null
   const benimOgrencilerim = benimAtamam?.ogrenciler || []
 
@@ -588,7 +596,7 @@ export default function KurumMentor() {
                 <select style={s.girdi} value={atamaForm.ogretmenId}
                   onChange={e => setAtamaForm(f => ({ ...f, ogretmenId: e.target.value }))}>
                   <option value="">— Öğretmen seçin —</option>
-                  {ogretmenler.map(o => {
+                  {kurumOgretmenleri.map(o => {
                     const kurum = erisimKurumlar.find(k => k.id === o.kurumId)
                     return (
                       <option key={o.id} value={o.id}>
