@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc,
@@ -32,6 +32,7 @@ export default function KurumSiniflar() {
   const [ogrencilerMap, setOgrencilerMap] = useState({})  // kurumId → ogrenci[]
   const [rubriklerMap, setRubriklerMap]   = useState({})  // kurumId → rubrik[]
   const [acikGruplar, setAcikGruplar]     = useState({})
+  const [acikKampusler, setAcikKampusler] = useState({})
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [modal, setModal]               = useState(false)
@@ -357,166 +358,162 @@ export default function KurumSiniflar() {
         )}
       </div>
 
-      {/* ── Gruplu sınıf listesi ── */}
-      {sayimKurumlar.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {sayimKurumlar
-            .slice()
-            .sort((a, b) => {
-              const ka = erisimKurumlar.find(x => x.id === a.parentId)
-              const kb = erisimKurumlar.find(x => x.id === b.parentId)
-              const kk = (ka?.ad || '').localeCompare(kb?.ad || '', 'tr')
-              if (kk !== 0) return kk
-              return (OKUL_SIRA[a.okulTuru] || 9) - (OKUL_SIRA[b.okulTuru] || 9)
-            })
-            .map(k => {
-              const kampus = erisimKurumlar.find(x => x.id === k.parentId)
-              const grupSiniflar = (siniflarMap[k.id] || []).slice().sort((a, b) => {
-                const sv = (Number(a.seviye) || 0) - (Number(b.seviye) || 0)
-                return sv !== 0 ? sv : (a.sube || '').localeCompare(b.sube || '', 'tr')
-              })
-              const acik = acikGruplar[k.id] === true
-              const grupOgrenciler = ogrencilerMap[k.id] || []
-              const grupToplamOgrenci = grupOgrenciler.length
+      {/* ── Kampüse göre gruplandırılmış sınıf listesi ── */}
+      {sayimKurumlar.length > 0 && (() => {
+        // Kampüse göre grupla
+        const kampusIdler = [...new Set(sayimKurumlar.map(k => k.parentId).filter(Boolean))]
+        const kampusGruplari = kampusIdler
+          .map(kpId => ({
+            kampus: erisimKurumlar.find(x => x.id === kpId),
+            altlar: sayimKurumlar
+              .filter(k => k.parentId === kpId)
+              .sort((a, b) => (OKUL_SIRA[a.okulTuru] || 9) - (OKUL_SIRA[b.okulTuru] || 9) || (a.ad || '').localeCompare(b.ad || '', 'tr')),
+          }))
+          .filter(g => g.kampus)
+          .sort((a, b) => (a.kampus.ad || '').localeCompare(b.kampus.ad || '', 'tr'))
 
-              return (
-                <div key={k.id} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-                  <div onClick={() => setAcikGruplar(prev => ({ ...prev, [k.id]: !acik }))}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1rem', background: '#F8FAFC', borderBottom: acik ? '1px solid #E2E8F0' : 'none', cursor: 'pointer', userSelect: 'none' }}>
-                    <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{acik ? '▼' : '▶'}</span>
-                    {kampus && <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: '500' }}>{kampus.ad}</span>}
-                    {kampus && <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>›</span>}
-                    <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B' }}>{k.ad}</span>
-                    <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>
-                      {grupSiniflar.length} sınıf
-                      <span style={{ margin: '0 0.375rem', color: '#CBD5E1' }}>·</span>
-                      {grupToplamOgrenci === null ? '…' : grupToplamOgrenci} öğrenci
-                    </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); importKurumAc(k.id) }}
-                      style={{ marginLeft: '0.75rem', padding: '2px 10px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#065F46', cursor: 'pointer' }}>
-                      📥 Toplu Ekle
-                    </button>
-                  </div>
+        const cokluKampus = kampusGruplari.length > 1
 
-                  {acik && (() => {
-                    // Seviyeye göre grupla
-                    const seviyeleri = [...new Set(grupSiniflar.map(s => s.seviye || ''))].sort((a, b) => (Number(a)||99) - (Number(b)||99))
-                    const seviyeGruplari = seviyeleri.map(sev => ({
-                      seviye: sev,
-                      siniflar: grupSiniflar.filter(s => (s.seviye || '') === sev),
-                    }))
-                    return (
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr>{['Sınıf Adı', 'Şube', 'Öğrenci', 'Rubrikler', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
-                      </thead>
-                      <tbody>
-                        {grupSiniflar.length === 0 ? (
-                          <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
-                        ) : seviyeGruplari.map(({ seviye: sev, siniflar: sevSiniflar }) => {
-                          const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length, 0)
-                          const seviyeNo = Number(sev) || 0
-                          const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
-                          return (
-                          <>
-                            {/* Seviye grup başlığı */}
-                            <tr key={`sev-${sev}`}>
-                              <td colSpan={6} style={{
-                                padding: '0.5rem 1rem',
-                                background: '#F1F5F9',
-                                borderTop: '2px solid #E2E8F0',
-                                borderBottom: '1px solid #E2E8F0',
-                              }}>
+        // AltKurum kartı (ortak render)
+        function renderAltKurum(k) {
+          const grupSiniflar = (siniflarMap[k.id] || []).slice().sort((a, b) => {
+            const sv = (Number(a.seviye) || 0) - (Number(b.seviye) || 0)
+            return sv !== 0 ? sv : (a.sube || '').localeCompare(b.sube || '', 'tr')
+          })
+          const acik = acikGruplar[k.id] === true
+          const grupToplamOgrenci = (ogrencilerMap[k.id] || []).length
+
+          return (
+            <div key={k.id} style={{ background: '#fff', borderRadius: cokluKampus ? '8px' : '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+              <div onClick={() => setAcikGruplar(prev => ({ ...prev, [k.id]: !acik }))}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1rem', background: '#F8FAFC', borderBottom: acik ? '1px solid #E2E8F0' : 'none', cursor: 'pointer', userSelect: 'none' }}>
+                <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{acik ? '▼' : '▶'}</span>
+                <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B' }}>{k.ad}</span>
+                <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>
+                  {grupSiniflar.length} sınıf
+                  <span style={{ margin: '0 0.375rem', color: '#CBD5E1' }}>·</span>
+                  {grupToplamOgrenci} öğrenci
+                </span>
+                <button onClick={e => { e.stopPropagation(); importKurumAc(k.id) }}
+                  style={{ marginLeft: '0.75rem', padding: '2px 10px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#065F46', cursor: 'pointer' }}>
+                  📥 Toplu Ekle
+                </button>
+              </div>
+
+              {acik && (() => {
+                const seviyeleri = [...new Set(grupSiniflar.map(sf => sf.seviye || ''))].sort((a, b) => (Number(a)||99) - (Number(b)||99))
+                const seviyeGruplari = seviyeleri.map(sev => ({ seviye: sev, siniflar: grupSiniflar.filter(sf => (sf.seviye || '') === sev) }))
+                return (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>{['Sınıf Adı', 'Şube', 'Öğrenci', 'Rubrikler', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {grupSiniflar.length === 0 ? (
+                        <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
+                      ) : seviyeGruplari.map(({ seviye: sev, siniflar: sevSiniflar }) => {
+                        const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length, 0)
+                        const seviyeNo = Number(sev) || 0
+                        const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
+                        return (
+                          <React.Fragment key={`sev-${sev}`}>
+                            <tr>
+                              <td colSpan={6} style={{ padding: '0.5rem 1rem', background: '#F1F5F9', borderTop: '2px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>
-                                    {sev ? `${sev}. Sınıf` : 'Seviyesiz'}
-                                  </span>
-                                  <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
-                                    {sevSiniflar.length} şube · {sevSayiOgrenci} öğrenci
-                                  </span>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>{sev ? `${sev}. Sınıf` : 'Seviyesiz'}</span>
+                                  <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{sevSiniflar.length} şube · {sevSayiOgrenci} öğrenci</span>
                                   {sevRubrikler.length > 0 && (
                                     <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                                       {sevRubrikler.map(r => (
-                                        <span key={r.id} style={{
-                                          padding: '1px 7px', background: '#EEF2FF',
-                                          border: '1px solid #C7D2FE', borderRadius: '20px',
-                                          fontSize: '0.7rem', fontWeight: '600', color: '#4338CA',
-                                        }}>📋 {r.ad}</span>
+                                        <span key={r.id} style={{ padding: '1px 7px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '20px', fontSize: '0.7rem', fontWeight: '600', color: '#4338CA' }}>📋 {r.ad}</span>
                                       ))}
                                     </div>
                                   )}
                                 </div>
                               </td>
                             </tr>
-                            {/* Seviyeye ait sınıf satırları */}
                             {sevSiniflar.map(sinif => {
-                          const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
-                          const sinifSeviye = Number(sinif.seviye) || 0
-                          const sinifRubrikler = kurumRubrikleri(k.id).filter(r =>
-                            sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye)
-                          )
-                          return (
-                          <tr key={sinif.id}>
-                            <td style={s.td}><strong>{sinif.ad}</strong></td>
-                            <td style={s.td}>{sinif.sube || '—'}</td>
-                            <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center' }}>
-                              {sinifOgrenciSayisi}
-                            </td>
-                            <td style={s.td}>
-                              {sinifSeviye === 0 ? (
-                                <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
-                              ) : sinifRubrikler.length === 0 ? (
-                                <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
-                              ) : (
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                                  {sinifRubrikler.map(r => (
-                                    <span key={r.id} style={{
-                                      display: 'inline-block', padding: '2px 8px',
-                                      background: '#EEF2FF', border: '1px solid #C7D2FE',
-                                      borderRadius: '20px', fontSize: '0.72rem',
-                                      fontWeight: '600', color: '#4338CA', whiteSpace: 'nowrap',
-                                    }}>
-                                      📋 {r.ad}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </td>
-                            <td style={s.td}>
-                              {sinif.ogretmenAd ? (
-                                <div style={{ fontSize: '0.8rem', lineHeight: '1.5' }}>
-                                  <div style={{ fontWeight: '600', color: '#1E293B' }}>👤 {sinif.ogretmenAd}</div>
-                                  {sinif.ogretmenMail && <div style={{ color: '#64748B' }}>✉ {sinif.ogretmenMail}</div>}
-                                  {sinif.ogretmenTel  && <div style={{ color: '#64748B' }}>📞 {sinif.ogretmenTel}</div>}
-                                </div>
-                              ) : (
-                                <span style={{ fontSize: '0.8rem', color: '#CBD5E1' }}>—</span>
-                              )}
-                            </td>
-                            <td style={s.td}>
-                              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
-                                <button style={{ ...s.eylem, color: '#7C3AED', borderColor: '#DDD6FE' }} onClick={() => ogretmenAc(sinif)}>👤 Öğretmen</button>
-                                <button style={{ ...s.eylem, color: '#065F46', borderColor: '#A7F3D0' }} onClick={() => importAc(sinif)}>📥 Toplu Ekle</button>
-                                <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sinif)}>Sil</button>
-                              </div>
-                            </td>
-                          </tr>
+                              const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
+                              const sinifSeviye = Number(sinif.seviye) || 0
+                              const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye))
+                              return (
+                                <tr key={sinif.id}>
+                                  <td style={s.td}><strong>{sinif.ad}</strong></td>
+                                  <td style={s.td}>{sinif.sube || '—'}</td>
+                                  <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center' }}>{sinifOgrenciSayisi}</td>
+                                  <td style={s.td}>
+                                    {sinifSeviye === 0 || sinifRubrikler.length === 0
+                                      ? <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
+                                      : <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                                          {sinifRubrikler.map(r => (
+                                            <span key={r.id} style={{ display: 'inline-block', padding: '2px 8px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '20px', fontSize: '0.72rem', fontWeight: '600', color: '#4338CA', whiteSpace: 'nowrap' }}>📋 {r.ad}</span>
+                                          ))}
+                                        </div>}
+                                  </td>
+                                  <td style={s.td}>
+                                    {sinif.ogretmenAd ? (
+                                      <div style={{ fontSize: '0.8rem', lineHeight: '1.5' }}>
+                                        <div style={{ fontWeight: '600', color: '#1E293B' }}>👤 {sinif.ogretmenAd}</div>
+                                        {sinif.ogretmenMail && <div style={{ color: '#64748B' }}>✉ {sinif.ogretmenMail}</div>}
+                                        {sinif.ogretmenTel  && <div style={{ color: '#64748B' }}>📞 {sinif.ogretmenTel}</div>}
+                                      </div>
+                                    ) : <span style={{ fontSize: '0.8rem', color: '#CBD5E1' }}>—</span>}
+                                  </td>
+                                  <td style={s.td}>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                      <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
+                                      <button style={{ ...s.eylem, color: '#7C3AED', borderColor: '#DDD6FE' }} onClick={() => ogretmenAc(sinif)}>👤 Öğretmen</button>
+                                      <button style={{ ...s.eylem, color: '#065F46', borderColor: '#A7F3D0' }} onClick={() => importAc(sinif)}>📥 Toplu Ekle</button>
+                                      <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sinif)}>Sil</button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </React.Fragment>
                         )
-                        })}
-                          </>
-                        )
-                        })}
-                      </tbody>
-                    </table>
-                    )
-                  })()}
+                      })}
+                    </tbody>
+                  </table>
+                )
+              })()}
+            </div>
+          )
+        }
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {kampusGruplari.map(({ kampus, altlar }) => {
+              if (!cokluKampus) {
+                // Tek kampüs: kampüs başlığı olmadan doğrudan altKurum kartları
+                return altlar.map(k => renderAltKurum(k))
+              }
+              const kampusAcik = !!acikKampusler[kampus.id]
+              const kToplamSinif   = altlar.reduce((a, k) => a + (siniflarMap[k.id]?.length || 0), 0)
+              const kToplamOgrenci = altlar.reduce((a, k) => a + (ogrencilerMap[k.id]?.length || 0), 0)
+              return (
+                <div key={kampus.id} style={{ borderRadius: '12px', overflow: 'hidden', border: '1.5px solid #BFDBFE', background: '#fff' }}>
+                  {/* Kampüs başlık */}
+                  <div onClick={() => setAcikKampusler(prev => ({ ...prev, [kampus.id]: !kampusAcik }))}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: '#EFF6FF', cursor: 'pointer', userSelect: 'none' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#3B82F6' }}>{kampusAcik ? '▼' : '▶'}</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1E40AF' }}>🏛 {kampus.ad}</span>
+                    <span style={{ fontSize: '0.75rem', color: '#64748B', marginLeft: 'auto' }}>
+                      {altlar.length} okul · {kToplamSinif} sınıf · {kToplamOgrenci} öğrenci
+                    </span>
+                  </div>
+                  {/* AltKurum kartları */}
+                  {kampusAcik && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem', borderTop: '1px solid #BFDBFE', background: '#F8FAFC' }}>
+                      {altlar.map(k => renderAltKurum(k))}
+                    </div>
+                  )}
                 </div>
               )
             })}
-        </div>
-      )}
+          </div>
+        )
+      })()}
 
       {/* ── Sınıf ekle/düzenle modal ── */}
       {modal && (
