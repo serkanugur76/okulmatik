@@ -174,7 +174,7 @@ function KurumLayoutInner() {
 
   // Okul seviyesi sıralama: ilkokul → ortaokul → lise
   function okulSira(ad = '') {
-    const s = ad.toLowerCase()
+    const s = ad.toLocaleLowerCase('tr')   // 'İ' → 'i' (Türkçe)
     if (s.includes('ilkokul'))  return 1
     if (s.includes('ortaokul')) return 2
     if (s.includes('lise'))     return 3
