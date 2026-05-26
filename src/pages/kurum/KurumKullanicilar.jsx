@@ -60,7 +60,7 @@ const BOŞ_FORM = {
 }
 
 export default function KurumKullanicilar() {
-  const { kullanici, kurumId: kullanicininKurumId, platformAdmin } = useAuth()
+  const { kullanici, kurumId: kullanicininKurumId, platformAdmin, profil } = useAuth()
   const { secilenKurumId: kurumId, erisimKurumlar } = useKurumYonetim()
 
   // Okul seviyesi sıralama: ilkokul → ortaokul → lise
