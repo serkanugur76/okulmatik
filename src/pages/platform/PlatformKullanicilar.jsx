@@ -30,10 +30,10 @@ export default function PlatformKullanicilar() {
   const [hata, setHata]                 = useState('')
   const [basari, setBasari]             = useState('')
   const [sekme, setSekme]               = useState('aktif') // 'aktif' | 'bekleyen'
-  const [kapaliGruplar, setKapaliGruplar] = useState(new Set())
+  const [acikGruplar, setAcikGruplar] = useState(new Set()) // boş = hepsi kapalı
 
   function toggleGrup(id) {
-    setKapaliGruplar(prev => {
+    setAcikGruplar(prev => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
       return next
@@ -184,7 +184,7 @@ export default function PlatformKullanicilar() {
               {aktifGruplar.length === 0 ? (
                 <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Kullanıcı bulunamadı</td></tr>
               ) : aktifGruplar.map(grup => {
-                const acik = !kapaliGruplar.has(grup.id)
+                const acik = acikGruplar.has(grup.id)
                 return [
                   /* Grup başlığı */
                   <tr key={`grup-${grup.id}`}

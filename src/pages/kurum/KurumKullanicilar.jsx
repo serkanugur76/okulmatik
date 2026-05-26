@@ -98,11 +98,11 @@ export default function KurumKullanicilar() {
   const [basari,       setBasari]       = useState('')
   const [aramaMetni,   setAramaMetni]   = useState('')
   const [sekme,        setSekme]        = useState('aktif')
-  const [kapaliGruplar, setKapaliGruplar] = useState(new Set())
+  const [acikGruplar, setAcikGruplar] = useState(new Set()) // boş = hepsi kapalı
   function toggleGrup(id) {
-    setKapaliGruplar(prev => {
+    setAcikGruplar(prev => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
+      next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
   }
@@ -431,7 +431,7 @@ export default function KurumKullanicilar() {
             return (
               <div>
                 {rootKurumlar.map(root => {
-                  const rootAcik   = !kapaliGruplar.has(root.id)
+                  const rootAcik   = acikGruplar.has(root.id)
                   const rootUsers  = aktifListe.filter(k => k.kurumId === root.id)
                   const rootKampus = kampusKurumlar.filter(k => k.parentId === root.id)
                   // Toplam kullanıcı sayısı (tüm alt seviyeler dahil)
@@ -460,7 +460,7 @@ export default function KurumKullanicilar() {
 
                           {/* Kampüsler */}
                           {rootKampus.map(kampus => {
-                            const kampusAcik  = !kapaliGruplar.has(kampus.id)
+                            const kampusAcik  = acikGruplar.has(kampus.id)
                             const kampusUsers = aktifListe.filter(k => k.kurumId === kampus.id)
                             const kampusAltlar = altKurumlar.filter(k => k.parentId === kampus.id)
                             const kampusToplam = aktifListe.filter(k => k.kurumId === kampus.id || kampusAltlar.some(a => a.id === k.kurumId)).length
@@ -487,7 +487,7 @@ export default function KurumKullanicilar() {
 
                                     {/* AltKurumlar */}
                                     {kampusAltlar.map(alt => {
-                                      const altAcik  = !kapaliGruplar.has(alt.id)
+                                      const altAcik  = acikGruplar.has(alt.id)
                                       const altUsers = aktifListe.filter(k => k.kurumId === alt.id)
                                       if (!altUsers.length && aramaMetni) return null
 
