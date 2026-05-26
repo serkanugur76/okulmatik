@@ -178,16 +178,22 @@ export default function KurumDegerlendirmeler() {
 
   const secilenRubrik = ilgiliRubrikler.find(r => r.id === secilenRubrikId) || null
 
-  // Rubrik listesi değişince seçili rubriki güncelle
-  // ilk yüklemede (rubrikler henüz boş) restore'u silme; sınıf değişince sıfırla
-  const rubrikInitRef = useRef(false)
+  // Rubrikler yüklenince: seçili rubrik hâlâ geçerliyse koru, yoksa ilkini seç
+  // (ilgiliRubrikler değil tüm rubrikler'e bak — siniflar henüz gelmemiş olabilir)
   useEffect(() => {
-    if (!rubrikler.length) return                      // rubrikler henüz yüklenmedi
-    if (!rubrikInitRef.current) { rubrikInitRef.current = true; return }  // ilk yükleme → koru
+    if (!rubrikler.length) return
+    if (secilenRubrikId && rubrikler.find(r => r.id === secilenRubrikId)) return // var, koru
+    setSecilenRubrikId(ilgiliRubrikler[0]?.id || null)
+  }, [rubrikler.length]) // eslint-disable-line
+
+  // Sınıf değişince (kullanıcı manuel seçim): uyumsuz rubrik varsa ilk uyumluya sıfırla
+  const sinifDegisimRef = useRef(false)
+  useEffect(() => {
+    if (!sinifDegisimRef.current) { sinifDegisimRef.current = true; return } // ilk yükleme → koru
     if (!secilenRubrikId || !ilgiliRubrikler.find(r => r.id === secilenRubrikId)) {
       setSecilenRubrikId(ilgiliRubrikler[0]?.id || null)
     }
-  }, [secilenSinifId, rubrikler.length]) // eslint-disable-line
+  }, [secilenSinifId]) // eslint-disable-line
 
   const filtreliOgrenciler = useMemo(() => {
     const liste = secilenSinifId ? ogrenciler.filter(o => o.sinifId === secilenSinifId) : []
