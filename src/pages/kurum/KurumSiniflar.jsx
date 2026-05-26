@@ -10,6 +10,21 @@ import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 const BOŞ_FORM = { ad: '', seviye: '', sube: '' }
 const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
 
+const BRANS_IKON = {
+  'Türkçe': '📖', 'Türk Dili ve Edebiyatı': '📖',
+  'Matematik': '📐',
+  'Fen Bilimleri': '🔬', 'Fizik': '🔬', 'Kimya': '🧪', 'Biyoloji': '🧬',
+  'Sosyal Bilgiler': '🌍', 'Tarih': '🏛', 'Coğrafya': '🗺️',
+  'İngilizce': '🌐',
+  'Din Kültürü ve Ahlak Bilgisi': '🕌',
+  'Görsel Sanatlar': '🎨',
+  'Müzik': '🎵',
+  'Beden Eğitimi ve Spor': '⚽',
+  'Bilişim Teknolojileri': '💻',
+  'Teknoloji ve Tasarım': '⚙️',
+  'Trafik Güvenliği': '🚦',
+}
+
 const ŞABLON_BAŞLIKLAR = ['ÖĞRENCİ AD / SOYAD', 'TC NO', 'Sınıf/Şb', 'ANNE AD / SOYAD', 'ANNE TLF', 'BABA AD / SOYAD', 'BABA TLF', 'ÖĞRENCİ MAİL ADRES']
 const ŞABLON_ÖRNEK    = ['Ali Yılmaz', '12345678901', '5-A', 'Ayşe Yılmaz', '0555 111 22 33', 'Ahmet Yılmaz', '0555 000 00 00', 'ali.yilmaz@okul.com']
 
@@ -34,6 +49,15 @@ export default function KurumSiniflar() {
   const [acikGruplar, setAcikGruplar]     = useState({})
   const [acikKampusler, setAcikKampusler] = useState({})
   const [acikSeviyeler, setAcikSeviyeler] = useState({})   // `${kurumId}_${seviye}` → bool
+  const [acikRubrikTab, setAcikRubrikTab] = useState(null) // `${sinifId}_${ders}` veya null
+
+  // Popover dışına tıklanınca kapat
+  useEffect(() => {
+    if (!acikRubrikTab) return
+    function kapat() { setAcikRubrikTab(null) }
+    window.addEventListener('click', kapat)
+    return () => window.removeEventListener('click', kapat)
+  }, [acikRubrikTab])
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [modal, setModal]               = useState(false)
@@ -427,13 +451,23 @@ export default function KurumSiniflar() {
                                   <span style={{ fontSize: '0.65rem', color: '#94A3B8' }}>{sevAcik ? '▼' : '▶'}</span>
                                   <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>{sev ? `${sev}. Sınıf` : 'Seviyesiz'}</span>
                                   <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{sevSiniflar.length} şube · {sevSayiOgrenci} öğrenci</span>
-                                  {sevRubrikler.length > 0 && (
-                                    <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                                      {sevRubrikler.map(r => (
-                                        <span key={r.id} style={{ padding: '1px 7px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '20px', fontSize: '0.7rem', fontWeight: '600', color: '#4338CA' }}>📋 {r.ad}</span>
-                                      ))}
-                                    </div>
-                                  )}
+                                  {sevRubrikler.length > 0 && (() => {
+                                    // Derse göre grupla — sadece ikon göster (başlık satırı)
+                                    const branslar = {}
+                                    sevRubrikler.forEach(r => { const d = r.ders || 'Diğer'; if (!branslar[d]) branslar[d] = []; branslar[d].push(r) })
+                                    return (
+                                      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                                        {Object.entries(branslar).map(([ders, rler]) => (
+                                          <span key={ders} title={`${ders}: ${rler.map(r => r.ad).join(', ')}`}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 8px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', color: '#4338CA', cursor: 'default' }}>
+                                            <span>{BRANS_IKON[ders] || '📋'}</span>
+                                            <span style={{ fontSize: '0.7rem' }}>{ders.split(' ')[0]}</span>
+                                            {rler.length > 1 && <span style={{ fontSize: '0.6rem', background: '#6366F1', color: '#fff', borderRadius: '999px', padding: '0 4px', minWidth: '14px', textAlign: 'center', lineHeight: '14px' }}>{rler.length}</span>}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )
+                                  })()}
                                 </div>
                               </td>
                             </tr>
@@ -449,11 +483,64 @@ export default function KurumSiniflar() {
                                   <td style={s.td}>
                                     {sinifSeviye === 0 || sinifRubrikler.length === 0
                                       ? <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
-                                      : <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                                          {sinifRubrikler.map(r => (
-                                            <span key={r.id} style={{ display: 'inline-block', padding: '2px 8px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '20px', fontSize: '0.72rem', fontWeight: '600', color: '#4338CA', whiteSpace: 'nowrap' }}>📋 {r.ad}</span>
-                                          ))}
-                                        </div>}
+                                      : (() => {
+                                          // Derse göre grupla
+                                          const branslar = {}
+                                          sinifRubrikler.forEach(r => { const d = r.ders || 'Diğer'; if (!branslar[d]) branslar[d] = []; branslar[d].push(r) })
+                                          return (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                                              {Object.entries(branslar).map(([ders, rler]) => {
+                                                const tabKey = `${sinif.id}_${ders}`
+                                                const acik   = acikRubrikTab === tabKey
+                                                const ikon   = BRANS_IKON[ders] || '📋'
+                                                return (
+                                                  <div key={ders} style={{ position: 'relative' }}>
+                                                    <button
+                                                      title={ders}
+                                                      onClick={e => { e.stopPropagation(); setAcikRubrikTab(acik ? null : tabKey) }}
+                                                      style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                                        padding: '4px 9px', border: '1.5px solid',
+                                                        borderRadius: '20px', fontSize: '0.8rem', fontWeight: '700',
+                                                        cursor: 'pointer', transition: 'all 0.12s',
+                                                        borderColor: acik ? '#6366F1' : '#C7D2FE',
+                                                        background:  acik ? '#EEF2FF' : '#F5F3FF',
+                                                        color:       acik ? '#4338CA' : '#6366F1',
+                                                      }}>
+                                                      <span>{ikon}</span>
+                                                      {rler.length > 1 && (
+                                                        <span style={{ fontSize: '0.6rem', background: '#6366F1', color: '#fff', borderRadius: '999px', padding: '0 4px', minWidth: '14px', textAlign: 'center', lineHeight: '15px' }}>
+                                                          {rler.length}
+                                                        </span>
+                                                      )}
+                                                    </button>
+
+                                                    {/* Popover */}
+                                                    {acik && (
+                                                      <div onClick={e => e.stopPropagation()}
+                                                        style={{
+                                                          position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+                                                          background: '#fff', border: '1.5px solid #E2E8F0',
+                                                          borderRadius: '10px', boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
+                                                          padding: '0.5rem', minWidth: '200px', zIndex: 60,
+                                                        }}>
+                                                        <div style={{ fontSize: '0.68rem', fontWeight: '700', color: '#94A3B8', marginBottom: '0.375rem', paddingLeft: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                                          {ikon} {ders}
+                                                        </div>
+                                                        {rler.map(r => (
+                                                          <div key={r.id} style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem', color: '#1E293B', fontWeight: '500', borderBottom: '1px solid #F1F5F9' }}>
+                                                            {r.ad}
+                                                          </div>
+                                                        ))}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          )
+                                        })()
+                                    }
                                   </td>
                                   <td style={s.td}>
                                     {sinif.ogretmenAd ? (
