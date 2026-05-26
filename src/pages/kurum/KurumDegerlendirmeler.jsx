@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, doc, setDoc,
@@ -55,9 +55,23 @@ export default function KurumDegerlendirmeler() {
     return secilenKurum ? [secilenKurum] : []
   }, [seviye, secilenKurumId, erisimKurumlar]) // eslint-disable-line
 
+  // ── sessionStorage yardımcıları ─────────────────────────
+  const SS = {
+    get: (k, def = null) => { try { const v = sessionStorage.getItem('deg_' + k); return v !== null ? v : def } catch { return def } },
+    set: (k, v) => { try { v != null ? sessionStorage.setItem('deg_' + k, v) : sessionStorage.removeItem('deg_' + k) } catch {} },
+  }
+
   // Root/kampüs seviyesinde hangi altKurum seçili?
-  const [secilenAltKurumId, setSecilenAltKurumId] = useState('')
-  useEffect(() => { setSecilenAltKurumId('') }, [secilenKurumId])
+  const [secilenAltKurumId, setSecilenAltKurumIdRaw] = useState(() => SS.get('altKurumId', ''))
+  function setSecilenAltKurumId(id) { SS.set('altKurumId', id); setSecilenAltKurumIdRaw(id) }
+
+  // secilenKurumId değişince altKurumId'yi sıfırla — ama ilk yüklemede (restore) sıfırlama
+  const altKurumInitRef = useRef(false)
+  useEffect(() => {
+    if (!secilenKurumId) return          // henüz yüklenmedi
+    if (!altKurumInitRef.current) { altKurumInitRef.current = true; return }  // ilk set → restore koru
+    setSecilenAltKurumId('')             // gerçek kurum değişikliği → sıfırla
+  }, [secilenKurumId]) // eslint-disable-line
 
   // Asıl veri kurumu: öğretmen → her zaman secilenKurumId; altKurum seviyesinde doğrudan; üst seviyede seçileni
   const hedefKurumId = ogretmenModu
@@ -71,9 +85,12 @@ export default function KurumDegerlendirmeler() {
   const [mevcut,     setMevcut]     = useState({})   // ogrenciId → { altKriterId: puan }
 
   // ── UI ───────────────────────────────────────────────────
-  const [secilenRubrikId, setSecilenRubrikId] = useState(null)
-  const [secilenDonem,    setSecilenDonem]    = useState(1)
-  const [secilenSinifId,  setSecilenSinifId]  = useState('')
+  const [secilenRubrikId, setSecilenRubrikIdRaw] = useState(() => SS.get('rubrikId', null))
+  const [secilenDonem,    setSecilenDonemRaw]    = useState(() => Number(SS.get('donem', 1)))
+  const [secilenSinifId,  setSecilenSinifIdRaw]  = useState(() => SS.get('sinifId', ''))
+  function setSecilenRubrikId(id) { SS.set('rubrikId', id); setSecilenRubrikIdRaw(id) }
+  function setSecilenDonem(d)     { SS.set('donem', d);     setSecilenDonemRaw(d) }
+  function setSecilenSinifId(id)  { SS.set('sinifId', id);  setSecilenSinifIdRaw(id) }
   const [degisiklikler,   setDegisiklikler]   = useState({})
   const [kaydediyor,      setKaydediyor]      = useState(false)
   const [secilenAnaKriterId, setSecilenAnaKriterId] = useState(null)
