@@ -289,7 +289,10 @@ export default function KurumKullanicilar() {
           await setDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), subGuncelleme, { merge: true })
         }
 
-        logKaydet({ profil, islem: 'guncelle', modul: 'kullanicilar', hedefAd: form.ad || form.email, kurumId: yeniKurumId, detay: form.rol })
+        const guncellemeDetay = form.rol === 'ogretmen'
+          ? `Öğretmen${form.rubrikOlustur ? ' · Koordinatör ✓' : ' · Koordinatör ✗'}${form.branslar?.length ? ' · ' + form.branslar.join(', ') : ''}`
+          : form.rol === 'kurum_admin' ? 'Kurum Admin' : form.rol
+        logKaydet({ profil, islem: 'guncelle', modul: 'kullanicilar', hedefAd: form.ad || form.email, kurumId: yeniKurumId, detay: guncellemeDetay })
         setBasari('Kullanıcı güncellendi.')
         setTimeout(modalKapat, 1200)
       } else {
