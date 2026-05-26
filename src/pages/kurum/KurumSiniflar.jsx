@@ -49,15 +49,7 @@ export default function KurumSiniflar() {
   const [acikGruplar, setAcikGruplar]     = useState({})
   const [acikKampusler, setAcikKampusler] = useState({})
   const [acikSeviyeler, setAcikSeviyeler] = useState({})   // `${kurumId}_${seviye}` → bool
-  const [acikRubrikTab, setAcikRubrikTab] = useState(null) // `${sinifId}_${ders}` veya null
-
-  // Popover dışına tıklanınca kapat
-  useEffect(() => {
-    if (!acikRubrikTab) return
-    function kapat() { setAcikRubrikTab(null) }
-    window.addEventListener('click', kapat)
-    return () => window.removeEventListener('click', kapat)
-  }, [acikRubrikTab])
+  const [rubrikModal, setRubrikModal]     = useState(null) // { sinif, rubrikler, aktifBrans }
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [modal, setModal]               = useState(false)
@@ -431,7 +423,7 @@ export default function KurumSiniflar() {
                 return (
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr>{['Sınıf Adı', 'Şube', 'Öğrenci', 'Rubrikler', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                      <tr>{['Sınıf Adı', 'Şube', 'Öğrenci', 'Modüller', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
                     </thead>
                     <tbody>
                       {grupSiniflar.length === 0 ? (
@@ -451,23 +443,12 @@ export default function KurumSiniflar() {
                                   <span style={{ fontSize: '0.65rem', color: '#94A3B8' }}>{sevAcik ? '▼' : '▶'}</span>
                                   <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>{sev ? `${sev}. Sınıf` : 'Seviyesiz'}</span>
                                   <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{sevSiniflar.length} şube · {sevSayiOgrenci} öğrenci</span>
-                                  {sevRubrikler.length > 0 && (() => {
-                                    // Derse göre grupla — sadece ikon göster (başlık satırı)
-                                    const branslar = {}
-                                    sevRubrikler.forEach(r => { const d = r.ders || 'Diğer'; if (!branslar[d]) branslar[d] = []; branslar[d].push(r) })
-                                    return (
-                                      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                                        {Object.entries(branslar).map(([ders, rler]) => (
-                                          <span key={ders} title={`${ders}: ${rler.map(r => r.ad).join(', ')}`}
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 8px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', color: '#4338CA', cursor: 'default' }}>
-                                            <span>{BRANS_IKON[ders] || '📋'}</span>
-                                            <span style={{ fontSize: '0.7rem' }}>{ders.split(' ')[0]}</span>
-                                            {rler.length > 1 && <span style={{ fontSize: '0.6rem', background: '#6366F1', color: '#fff', borderRadius: '999px', padding: '0 4px', minWidth: '14px', textAlign: 'center', lineHeight: '14px' }}>{rler.length}</span>}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )
-                                  })()}
+                                  {sevRubrikler.length > 0 && (
+                                    <span title={`${sevRubrikler.length} rubrik atandı`}
+                                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg,#6366F1,#4338CA)', color: '#fff', fontSize: '0.72rem', fontWeight: '800', fontFamily: 'Georgia,serif', flexShrink: 0 }}>
+                                      R
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -481,66 +462,32 @@ export default function KurumSiniflar() {
                                   <td style={s.td}>{sinif.sube || '—'}</td>
                                   <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center' }}>{sinifOgrenciSayisi}</td>
                                   <td style={s.td}>
-                                    {sinifSeviye === 0 || sinifRubrikler.length === 0
-                                      ? <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
-                                      : (() => {
-                                          // Derse göre grupla
-                                          const branslar = {}
-                                          sinifRubrikler.forEach(r => { const d = r.ders || 'Diğer'; if (!branslar[d]) branslar[d] = []; branslar[d].push(r) })
-                                          return (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                                              {Object.entries(branslar).map(([ders, rler]) => {
-                                                const tabKey = `${sinif.id}_${ders}`
-                                                const acik   = acikRubrikTab === tabKey
-                                                const ikon   = BRANS_IKON[ders] || '📋'
-                                                return (
-                                                  <div key={ders} style={{ position: 'relative' }}>
-                                                    <button
-                                                      title={ders}
-                                                      onClick={e => { e.stopPropagation(); setAcikRubrikTab(acik ? null : tabKey) }}
-                                                      style={{
-                                                        display: 'inline-flex', alignItems: 'center', gap: '3px',
-                                                        padding: '4px 9px', border: '1.5px solid',
-                                                        borderRadius: '20px', fontSize: '0.8rem', fontWeight: '700',
-                                                        cursor: 'pointer', transition: 'all 0.12s',
-                                                        borderColor: acik ? '#6366F1' : '#C7D2FE',
-                                                        background:  acik ? '#EEF2FF' : '#F5F3FF',
-                                                        color:       acik ? '#4338CA' : '#6366F1',
-                                                      }}>
-                                                      <span>{ikon}</span>
-                                                      {rler.length > 1 && (
-                                                        <span style={{ fontSize: '0.6rem', background: '#6366F1', color: '#fff', borderRadius: '999px', padding: '0 4px', minWidth: '14px', textAlign: 'center', lineHeight: '15px' }}>
-                                                          {rler.length}
-                                                        </span>
-                                                      )}
-                                                    </button>
-
-                                                    {/* Popover */}
-                                                    {acik && (
-                                                      <div onClick={e => e.stopPropagation()}
-                                                        style={{
-                                                          position: 'absolute', top: 'calc(100% + 6px)', left: 0,
-                                                          background: '#fff', border: '1.5px solid #E2E8F0',
-                                                          borderRadius: '10px', boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
-                                                          padding: '0.5rem', minWidth: '200px', zIndex: 60,
-                                                        }}>
-                                                        <div style={{ fontSize: '0.68rem', fontWeight: '700', color: '#94A3B8', marginBottom: '0.375rem', paddingLeft: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                                          {ikon} {ders}
-                                                        </div>
-                                                        {rler.map(r => (
-                                                          <div key={r.id} style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem', color: '#1E293B', fontWeight: '500', borderBottom: '1px solid #F1F5F9' }}>
-                                                            {r.ad}
-                                                          </div>
-                                                        ))}
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                )
-                                              })}
-                                            </div>
-                                          )
-                                        })()
-                                    }
+                                    <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+                                      {/* ── R — Rubrikler butonu ── */}
+                                      {sinifSeviye > 0 && sinifRubrikler.length > 0 ? (
+                                        <button
+                                          title="Rubrikleri görüntüle"
+                                          onClick={() => {
+                                            const branslar = [...new Set(sinifRubrikler.map(r => r.ders || 'Diğer'))]
+                                            setRubrikModal({ sinif, rubrikler: sinifRubrikler, aktifBrans: branslar[0] })
+                                          }}
+                                          style={{
+                                            width: '32px', height: '32px', borderRadius: '50%', border: 'none',
+                                            background: 'linear-gradient(135deg,#6366F1,#4338CA)', color: '#fff',
+                                            fontSize: '0.9rem', fontWeight: '800', fontFamily: 'Georgia,serif',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            boxShadow: '0 2px 8px rgba(99,102,241,0.35)', flexShrink: 0,
+                                            transition: 'transform 0.1s, box-shadow 0.1s',
+                                          }}
+                                          onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(99,102,241,0.5)' }}
+                                          onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)';   e.currentTarget.style.boxShadow = '0 2px 8px rgba(99,102,241,0.35)' }}>
+                                          R
+                                        </button>
+                                      ) : (
+                                        <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
+                                      )}
+                                      {/* İleride diğer modül butonları buraya eklenir (Ş, G, M…) */}
+                                    </div>
                                   </td>
                                   <td style={s.td}>
                                     {sinif.ogretmenAd ? (
@@ -603,6 +550,78 @@ export default function KurumSiniflar() {
                 </div>
               )
             })}
+          </div>
+        )
+      })()}
+
+      {/* ── Rubrik Modül Modalı ── */}
+      {rubrikModal && (() => {
+        const branslar = [...new Set(rubrikModal.rubrikler.map(r => r.ders || 'Diğer'))]
+        const aktifRubrikler = rubrikModal.rubrikler.filter(r => (r.ders || 'Diğer') === rubrikModal.aktifBrans)
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem' }}
+            onClick={e => e.target === e.currentTarget && setRubrikModal(null)}>
+            <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '540px', maxHeight: '82vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+
+              {/* Başlık */}
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg,#6366F1,#4338CA)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '800', fontFamily: 'Georgia,serif', flexShrink: 0, boxShadow: '0 2px 8px rgba(99,102,241,0.35)' }}>
+                  R
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '1rem', fontWeight: '700', color: '#1E293B' }}>{rubrikModal.sinif.ad} — Rubrikler</div>
+                  <div style={{ fontSize: '0.78rem', color: '#94A3B8' }}>{rubrikModal.rubrikler.length} rubrik · {branslar.length} branş</div>
+                </div>
+                <button onClick={() => setRubrikModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: '#94A3B8', padding: '0.25rem', lineHeight: 1 }}>✕</button>
+              </div>
+
+              {/* Branş Tabları */}
+              <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', paddingLeft: '0.5rem', overflowX: 'auto', flexShrink: 0 }}>
+                {branslar.map(ders => {
+                  const aktif = rubrikModal.aktifBrans === ders
+                  const count = rubrikModal.rubrikler.filter(r => (r.ders || 'Diğer') === ders).length
+                  return (
+                    <button key={ders}
+                      onClick={() => setRubrikModal(m => ({ ...m, aktifBrans: ders }))}
+                      style={{
+                        padding: '0.75rem 1rem', border: 'none', background: 'none', cursor: 'pointer',
+                        fontSize: '0.875rem', fontWeight: aktif ? '700' : '500', whiteSpace: 'nowrap',
+                        color: aktif ? '#4338CA' : '#64748B',
+                        borderBottom: aktif ? '2.5px solid #6366F1' : '2.5px solid transparent',
+                        display: 'flex', alignItems: 'center', gap: '0.35rem',
+                        transition: 'color 0.12s',
+                      }}>
+                      <span>{BRANS_IKON[ders] || '📋'}</span>
+                      <span>{ders}</span>
+                      {count > 1 && <span style={{ fontSize: '0.65rem', background: aktif ? '#6366F1' : '#E2E8F0', color: aktif ? '#fff' : '#64748B', borderRadius: '999px', padding: '0 5px', minWidth: '16px', textAlign: 'center', lineHeight: '16px', fontWeight: '700' }}>{count}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Rubrik Listesi */}
+              <div style={{ overflowY: 'auto', padding: '1rem 1.5rem', flex: 1 }}>
+                {aktifRubrikler.map(r => (
+                  <div key={r.id} style={{ padding: '0.875rem 1rem', border: '1px solid #E2E8F0', borderRadius: '10px', marginBottom: '0.625rem', transition: 'border-color 0.12s' }}>
+                    <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem', fontSize: '0.925rem' }}>{r.ad}</div>
+                    {r.aciklama && <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginBottom: '0.375rem' }}>{r.aciklama}</div>}
+                    <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.7rem', background: '#EEF2FF', color: '#4338CA', padding: '1px 8px', borderRadius: '999px', fontWeight: '600' }}>
+                        {r.kriterler?.length || 0} başlık
+                      </span>
+                      <span style={{ fontSize: '0.7rem', background: '#F0FDF4', color: '#065F46', padding: '1px 8px', borderRadius: '999px', fontWeight: '600' }}>
+                        {(r.kriterler || []).reduce((t, k) => t + (k.altKriterler?.length || 0), 0)} kriter
+                      </span>
+                      {r.hedefSeviyeler?.map(sev => (
+                        <span key={sev} style={{ fontSize: '0.7rem', background: '#F1F5F9', color: '#64748B', padding: '1px 8px', borderRadius: '999px', fontWeight: '600' }}>
+                          {sev}. Sınıf
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )
       })()}
