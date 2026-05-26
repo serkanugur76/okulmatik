@@ -8,7 +8,8 @@ const PLATFORM_MENULER = [
   { yol: '/platform/kurumlar',     etiket: 'Kurumlar',     ikon: '🏛' },
   { yol: '/platform/kullanicilar', etiket: 'Kullanıcılar', ikon: '👥' },
   { yol: '/platform/rubrikler',    etiket: 'Rubrik Şablonlar', ikon: '📋' },
-  { yol: '/platform/hakkinda',     etiket: 'Hakkında',     ikon: 'ℹ️' },
+  { yol: '/platform/loglar',        etiket: 'İşlem Logları', ikon: '🗒️' },
+  { yol: '/platform/hakkinda',     etiket: 'Hakkında',      ikon: 'ℹ️' },
 ]
 
 // ── Kurum operasyon menüsü (seçili kuruma bağlı) ─────────────────────────────

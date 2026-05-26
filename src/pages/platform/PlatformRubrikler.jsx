@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useAuth } from '../../contexts/AuthContext'
+import { logKaydet } from '../../services/logService'
 
 const VARSAYILAN_SEVİYELER = [
   { ad: 'Başlangıç', puan: 1, aciklama: '' },
@@ -175,6 +176,7 @@ export default function PlatformRubrikler() {
       const veri = { ad: form.ad.trim(), ders: form.ders.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler }
       if (duzenlenen) {
         await updateDoc(doc(db, 'rubrikSablonlar', duzenlenen.id), veri)
+        logKaydet({ profil, islem: 'guncelle', modul: 'sablonlar', hedefAd: veri.ad, detay: veri.ders })
       } else {
         await addDoc(collection(db, 'rubrikSablonlar'), {
           ...veri,
@@ -182,6 +184,7 @@ export default function PlatformRubrikler() {
           olusturanAd: profil?.ad || profil?.email || '',
           olusturmaTarihi: serverTimestamp(),
         })
+        logKaydet({ profil, islem: 'olustur', modul: 'sablonlar', hedefAd: veri.ad, detay: veri.ders })
       }
       modalKapat()
     } catch (err) { setHata('Kayıt hatası: ' + err.message) }
@@ -267,6 +270,7 @@ export default function PlatformRubrikler() {
   async function sil(sablon) {
     if (!window.confirm(`"${sablon.ad}" şablonunu silmek istediğinize emin misiniz?`)) return
     await deleteDoc(doc(db, 'rubrikSablonlar', sablon.id))
+    logKaydet({ profil, islem: 'sil', modul: 'sablonlar', hedefAd: sablon.ad, detay: sablon.ders })
   }
 
   // ── Stiller ──────────────────────────────────────────────

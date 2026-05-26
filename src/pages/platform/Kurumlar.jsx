@@ -4,6 +4,8 @@ import {
   serverTimestamp, query, orderBy, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
+import { useAuth } from '../../contexts/AuthContext'
+import { logKaydet } from '../../services/logService'
 
 // Canvas ile yeniden boyutlandır → PNG (transparan arkaplan korunur)
 function gorselSikistir(dosya, maxW = 320, maxH = 160) {
@@ -55,6 +57,7 @@ function agacDüzlestir(dugumler, sonuc = []) {
 }
 
 export default function Kurumlar() {
+  const { profil } = useAuth()
   const [kurumlar, setKurumlar]     = useState([])
   const [acik, setAcik]             = useState({})
   const [form, setForm]             = useState(BOŞ_FORM)
@@ -146,8 +149,10 @@ export default function Kurumlar() {
         } else {
           await updateDoc(doc(db, 'kurumlar', duzenlenen.id), guncelleme)
         }
+        logKaydet({ profil, islem: 'guncelle', modul: 'kurumlar', hedefAd: form.ad, detay: form.tip })
       } else {
         await addDoc(collection(db, 'kurumlar'), { ...form, googleAltyapisi: !!form.googleAltyapisi, olusturmaTarihi: serverTimestamp() })
+        logKaydet({ profil, islem: 'olustur', modul: 'kurumlar', hedefAd: form.ad, detay: form.tip })
       }
       modalKapat()
     } catch (err) {
@@ -203,6 +208,7 @@ export default function Kurumlar() {
         return
       }
       await updateDoc(doc(db, 'kurumlar', hedef.id), { logoUrl: base64 })
+      logKaydet({ profil, islem: 'guncelle', modul: 'kurumlar', hedefAd: hedef.ad, detay: 'Logo yüklendi' })
     } catch (err) {
       alert('Logo yükleme hatası: ' + (err.message || String(err)))
     } finally {
@@ -215,6 +221,7 @@ export default function Kurumlar() {
     if (!window.confirm(`"${kurum.ad}" logosunu silmek istiyor musunuz?`)) return
     try {
       await updateDoc(doc(db, 'kurumlar', kurum.id), { logoUrl: null })
+      logKaydet({ profil, islem: 'sil', modul: 'kurumlar', hedefAd: kurum.ad, detay: 'Logo silindi' })
     } catch (err) {
       alert('Logo silme hatası: ' + err.message)
     }

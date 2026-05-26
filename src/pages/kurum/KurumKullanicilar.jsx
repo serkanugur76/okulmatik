@@ -7,6 +7,7 @@ import { db } from '../../services/firebase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { davetEt, davetIptal } from '../../services/davetEt'
+import { logKaydet } from '../../services/logService'
 
 const ROL_ETİKET = {
   platform_admin: { etiket: 'Platform Admin', renk: '#7C3AED', bg: '#EDE9FE' },
@@ -288,6 +289,7 @@ export default function KurumKullanicilar() {
           await setDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), subGuncelleme, { merge: true })
         }
 
+        logKaydet({ profil, islem: 'guncelle', modul: 'kullanicilar', hedefAd: form.ad || form.email, kurumId: yeniKurumId, detay: form.rol })
         setBasari('Kullanıcı güncellendi.')
         setTimeout(modalKapat, 1200)
       } else {
@@ -295,6 +297,7 @@ export default function KurumKullanicilar() {
           email: form.email.trim(), rol: form.rol, kurumId, googleAltyapisi,
           ...ogretmenEkstra,
         })
+        logKaydet({ profil, islem: 'davet', modul: 'kullanicilar', hedefAd: form.email.trim(), kurumId, detay: form.rol })
         setBasari(`Davet gönderildi: ${form.email}`)
         setTimeout(modalKapat, 1500)
       }
@@ -308,6 +311,7 @@ export default function KurumKullanicilar() {
   async function davetSil(email) {
     if (!confirm(`${email} davetini iptal etmek istediğinize emin misiniz?`)) return
     await davetIptal(email)
+    logKaydet({ profil, islem: 'davetIptal', modul: 'kullanicilar', hedefAd: email, kurumId })
   }
 
   async function kullaniciSil(k) {
@@ -328,6 +332,7 @@ export default function KurumKullanicilar() {
         if (kid !== kurumIdsi) batch.delete(doc(db, 'kurumlar', kid, 'kullanicilar', uid))
       })
       await batch.commit()
+      logKaydet({ profil, islem: 'sil', modul: 'kullanicilar', hedefAd: k.ad || k.email, kurumId: k.kurumId || k._kurumId || '', detay: k.rol })
     } catch (err) {
       alert('Silme hatası: ' + err.message)
     }

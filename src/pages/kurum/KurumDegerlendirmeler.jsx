@@ -7,6 +7,8 @@ import {
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
+import { useAuth } from '../../contexts/AuthContext'
+import { logKaydet } from '../../services/logService'
 
 // Puan renk stili
 const PUAN_BG = {
@@ -45,6 +47,7 @@ function OrtBadge({ ort }) {
 
 export default function KurumDegerlendirmeler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
+  const { profil } = useAuth()
 
   const ust    = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
@@ -256,6 +259,7 @@ export default function KurumDegerlendirmeler() {
           })
         })
       )
+      logKaydet({ profil, islem: 'guncelle', modul: 'degerlendirmeler', hedefAd: secilenRubrik?.ad || '', kurumId: hedefKurumId, detay: `${Object.keys(degisiklikler).length} öğrenci, Dönem ${secilenDonem}` })
       setDegisiklikler({})
     } catch (err) { alert('Kayıt hatası: ' + err.message) }
     finally { setKaydediyor(false) }

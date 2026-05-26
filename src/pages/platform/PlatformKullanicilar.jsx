@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { davetEt, davetIptal } from '../../services/davetEt'
+import { useAuth } from '../../contexts/AuthContext'
+import { logKaydet } from '../../services/logService'
 import KurumSecici from '../../components/KurumSecici'
 
 function rolEtiketi(k, kurumlar) {
@@ -19,6 +21,7 @@ function rolEtiketi(k, kurumlar) {
 const BOŞ_FORM = { email: '', rol: 'kurum_admin', kurumId: '' }
 
 export default function PlatformKullanicilar() {
+  const { profil } = useAuth()
   const [kullanicilar, setKullanicilar] = useState([])
   const [bekleyenler, setBekleyenler]   = useState([])
   const [kurumlar, setKurumlar]         = useState([])
@@ -119,12 +122,14 @@ export default function PlatformKullanicilar() {
         await updateDoc(doc(db, 'kullanicilar', duzenlenen.id), {
           ad: form.ad, rol: form.rol, kurumId: form.kurumId || null,
         })
+        logKaydet({ profil, islem: 'guncelle', modul: 'kullanicilar', hedefAd: form.ad || form.email, detay: form.rol })
         setBasari('Kullanıcı güncellendi.')
         setTimeout(modalKapat, 1200)
       } else {
         const secilenKurum = kurumlar.find(k => k.id === form.kurumId)
         const googleAltyapisi = !!secilenKurum?.googleAltyapisi
         await davetEt({ email: form.email.trim(), rol: form.rol, kurumId: form.kurumId || null, googleAltyapisi })
+        logKaydet({ profil, islem: 'davet', modul: 'kullanicilar', hedefAd: form.email.trim(), detay: form.rol })
         setBasari(`Davet gönderildi: ${form.email}`)
         setTimeout(modalKapat, 1500)
       }
@@ -138,6 +143,7 @@ export default function PlatformKullanicilar() {
   async function davetSil(email) {
     if (!confirm(`${email} davetini iptal etmek istediğinize emin misiniz?`)) return
     await davetIptal(email)
+    logKaydet({ profil, islem: 'davetIptal', modul: 'kullanicilar', hedefAd: email })
   }
 
   const s = {

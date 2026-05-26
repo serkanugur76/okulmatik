@@ -5,6 +5,8 @@ import {
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
+import { useAuth } from '../../contexts/AuthContext'
+import { logKaydet } from '../../services/logService'
 
 const BOŞ_FORM = { ad: '', soyad: '', ogrenciNo: '', sinifId: '', sinifAd: '', cinsiyet: '', dogumTarihi: '', anneAdSoyad: '', anneTelefon: '', babaAdSoyad: '', babaTelefon: '', email: '' }
 const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
@@ -16,6 +18,7 @@ function parseSinif(ad) {
 
 export default function KurumOgrenciler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
+  const { profil } = useAuth()
 
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
@@ -98,8 +101,13 @@ export default function KurumOgrenciler() {
     setKaydediyor(true)
     try {
       const veri = { ad: form.ad, soyad: form.soyad, ogrenciNo: form.ogrenciNo, sinifId: form.sinifId, sinifAd: form.sinifAd, cinsiyet: form.cinsiyet, dogumTarihi: form.dogumTarihi, anneAdSoyad: form.anneAdSoyad, anneTelefon: form.anneTelefon, babaAdSoyad: form.babaAdSoyad, babaTelefon: form.babaTelefon, email: form.email }
-      if (duzenlenen) await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'ogrenciler', duzenlenen.id), veri)
-      else await addDoc(collection(db, 'kurumlar', hedefKurumId, 'ogrenciler'), { ...veri, olusturmaTarihi: serverTimestamp() })
+      if (duzenlenen) {
+        await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'ogrenciler', duzenlenen.id), veri)
+        logKaydet({ profil, islem: 'guncelle', modul: 'ogrenciler', hedefAd: `${form.ad} ${form.soyad}`.trim(), kurumId: hedefKurumId })
+      } else {
+        await addDoc(collection(db, 'kurumlar', hedefKurumId, 'ogrenciler'), { ...veri, olusturmaTarihi: serverTimestamp() })
+        logKaydet({ profil, islem: 'olustur', modul: 'ogrenciler', hedefAd: `${form.ad} ${form.soyad}`.trim(), kurumId: hedefKurumId })
+      }
       modalKapat()
     } catch (err) { setHata('Kayıt hatası: ' + err.message) }
     finally { setKaydediyor(false) }
@@ -108,6 +116,7 @@ export default function KurumOgrenciler() {
   async function sil(ogr) {
     if (!window.confirm('Bu öğrenciyi silmek istediğinize emin misiniz?')) return
     await deleteDoc(doc(db, 'kurumlar', ogr._kurumId, 'ogrenciler', ogr.id))
+    logKaydet({ profil, islem: 'sil', modul: 'ogrenciler', hedefAd: `${ogr.ad} ${ogr.soyad}`.trim(), kurumId: ogr._kurumId })
   }
 
   function kurumAdi(k) { const u = erisimKurumlar.find(x => x.id === k.parentId); return u?.parentId ? `${u.ad} - ${k.ad}` : k.ad }
