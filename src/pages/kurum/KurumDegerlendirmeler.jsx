@@ -255,6 +255,8 @@ export default function KurumDegerlendirmeler() {
             donem:    secilenDonem,
             puanlar:  birlesik,
             ort:      ort != null ? parseFloat(ort.toFixed(2)) : null,
+            degerlendiriciId:  profil?.uid   || '',
+            degerlendiriciAd:  profil?.ad    || profil?.email || '',
             guncellenmeTarihi: serverTimestamp(),
           })
         })
