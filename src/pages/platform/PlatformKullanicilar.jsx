@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react'
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore'
+import {
+  collection, onSnapshot, query, orderBy, doc, updateDoc,
+  getDoc, getDocs, setDoc, writeBatch,
+} from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { davetEt, davetIptal } from '../../services/davetEt'
 import { useAuth } from '../../contexts/AuthContext'
 import { logKaydet } from '../../services/logService'
 import KurumSecici from '../../components/KurumSecici'
+
+const DERS_LİSTESİ = [
+  'Türkçe', 'Matematik', 'Fen Bilimleri', 'Sosyal Bilgiler', 'İngilizce',
+  'Din Kültürü ve Ahlak Bilgisi', 'Görsel Sanatlar', 'Müzik',
+  'Beden Eğitimi ve Spor', 'Bilişim Teknolojileri', 'Teknoloji ve Tasarım',
+  'Trafik Güvenliği', 'Türk Dili ve Edebiyatı', 'Tarih', 'Coğrafya',
+  'Fizik', 'Kimya', 'Biyoloji',
+]
 
 function rolEtiketi(k, kurumlar) {
   if (k.rol === 'platform_admin') return { etiket: 'Platform Admin', renk: '#7C3AED', bg: '#EDE9FE' }
@@ -18,7 +29,10 @@ function rolEtiketi(k, kurumlar) {
   return { etiket: k.rol || '—', renk: '#374151', bg: '#F1F5F9' }
 }
 
-const BOŞ_FORM = { email: '', rol: 'kurum_admin', kurumId: '' }
+const BOŞ_FORM = {
+  email: '', ad: '', rol: 'kurum_admin', kurumId: '',
+  rubrikOlustur: false, branslar: [], sinifAtamalari: [],
+}
 
 export default function PlatformKullanicilar() {
   const { profil } = useAuth()
@@ -33,7 +47,8 @@ export default function PlatformKullanicilar() {
   const [hata, setHata]                 = useState('')
   const [basari, setBasari]             = useState('')
   const [sekme, setSekme]               = useState('aktif') // 'aktif' | 'bekleyen'
-  const [acikGruplar, setAcikGruplar] = useState(new Set()) // boş = hepsi kapalı
+  const [acikGruplar, setAcikGruplar]   = useState(new Set())
+  const [kurumSiniflar, setKurumSiniflar] = useState({}) // { [kurumId]: [siniflar] }
 
   function toggleGrup(id) {
     setAcikGruplar(prev => {
@@ -41,6 +56,55 @@ export default function PlatformKullanicilar() {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  // Kurum hiyerarşisi (platform geneli)
+  const altKurumlar = kurumlar
+    .filter(k => k.parentId && kurumlar.find(x => x.id === k.parentId)?.parentId)
+    .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+  const kampusKurumlar = kurumlar
+    .filter(k => k.parentId && !kurumlar.find(x => x.id === k.parentId)?.parentId)
+    .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+
+  // Sınıfları lazy yükle
+  async function sinifYukle(kid) {
+    if (!kid || kurumSiniflar[kid] !== undefined) return
+    try {
+      const snap = await getDocs(collection(db, 'kurumlar', kid, 'siniflar'))
+      const liste = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (Number(a.seviye) || 0) - (Number(b.seviye) || 0) || (a.sube || '').localeCompare(b.sube || '', 'tr'))
+      setKurumSiniflar(prev => ({ ...prev, [kid]: liste }))
+    } catch {
+      setKurumSiniflar(prev => ({ ...prev, [kid]: [] }))
+    }
+  }
+
+  // Sınıf atama yardımcıları
+  function atamaKurumDegistir(idx, yeniKurumId) {
+    setForm(f => ({
+      ...f,
+      sinifAtamalari: f.sinifAtamalari.map((a, i) =>
+        i === idx ? { kurumId: yeniKurumId, siniflar: [] } : a
+      ),
+    }))
+    if (yeniKurumId) sinifYukle(yeniKurumId)
+  }
+  function atamaSinifToggle(idx, sinifId) {
+    setForm(f => ({
+      ...f,
+      sinifAtamalari: f.sinifAtamalari.map((a, i) => {
+        if (i !== idx) return a
+        const var_ = a.siniflar.includes(sinifId)
+        return { ...a, siniflar: var_ ? a.siniflar.filter(s => s !== sinifId) : [...a.siniflar, sinifId] }
+      }),
+    }))
+  }
+  function atamaKaldir(idx) {
+    setForm(f => ({ ...f, sinifAtamalari: f.sinifAtamalari.filter((_, i) => i !== idx) }))
+  }
+  function atamaEkle() {
+    setForm(f => ({ ...f, sinifAtamalari: [...f.sinifAtamalari, { kurumId: '', siniflar: [] }] }))
   }
 
   useEffect(() => {
@@ -101,7 +165,28 @@ export default function PlatformKullanicilar() {
 
   function duzenleModalAc(k) {
     setDuzenlenen(k)
-    setForm({ ad: k.ad || '', email: k.email, rol: k.rol || 'ogretmen', kurumId: k.kurumId || '' })
+    const ilkAtamalar = k.sinifAtamalari || []
+    setForm({
+      ad: k.ad || '', email: k.email, rol: k.rol || 'ogretmen',
+      kurumId: k.kurumId || '',
+      rubrikOlustur: k.modulIzinler?.rubrik_olustur || false,
+      branslar: k.branslar || [],
+      sinifAtamalari: ilkAtamalar,
+    })
+    ilkAtamalar.forEach(a => sinifYukle(a.kurumId))
+    // Global profil → eksik alanları tamamla
+    getDoc(doc(db, 'kullanicilar', k.id)).then(snap => {
+      if (!snap.exists()) return
+      const tam = snap.data()
+      const atamalar = tam.sinifAtamalari || ilkAtamalar
+      setForm(f => ({
+        ...f,
+        rubrikOlustur: tam.modulIzinler?.rubrik_olustur || false,
+        branslar: tam.branslar || [],
+        sinifAtamalari: atamalar,
+      }))
+      atamalar.forEach(a => sinifYukle(a.kurumId))
+    })
     setHata('')
     setBasari('')
     setModal(true)
@@ -117,19 +202,64 @@ export default function PlatformKullanicilar() {
     }
     setKaydediyor(true)
     setHata('')
+
+    // Öğretmen ek alanları
+    const atamalari = form.sinifAtamalari || []
+    const parentKurumIdler = form.rol === 'ogretmen'
+      ? [...new Set(atamalari.map(a => {
+          const k = kurumlar.find(x => x.id === a.kurumId)
+          return k?.parentId
+        }).filter(Boolean))]
+      : []
+    const ogretmenEkstra = form.rol === 'ogretmen' ? {
+      modulIzinler:     { rubrik_olustur: form.rubrikOlustur || false },
+      sinifAtamalari:   atamalari,
+      sinifIdler:       [...new Set(atamalari.flatMap(a => a.siniflar || []))],
+      erisimKurumIdler: [...new Set(atamalari.map(a => a.kurumId).filter(Boolean))],
+      parentKurumIdler,
+      branslar:         form.branslar || [],
+    } : {
+      modulIzinler: {}, sinifAtamalari: [], sinifIdler: [],
+      erisimKurumIdler: [], parentKurumIdler: [], branslar: [],
+    }
+
     try {
       if (duzenlenen) {
-        await updateDoc(doc(db, 'kullanicilar', duzenlenen.id), {
-          ad: form.ad, rol: form.rol, kurumId: form.kurumId || null,
-        })
-        logKaydet({ profil, islem: 'guncelle', modul: 'kullanicilar', hedefAd: form.ad || form.email, detay: form.rol })
+        const uid = duzenlenen.id
+        const eskiKurumId = duzenlenen.kurumId
+        const yeniKurumId = form.kurumId || eskiKurumId
+
+        const globalGuncelleme = { ad: form.ad, rol: form.rol, kurumId: yeniKurumId }
+        if (form.rol === 'ogretmen') Object.assign(globalGuncelleme, ogretmenEkstra)
+        await updateDoc(doc(db, 'kullanicilar', uid), globalGuncelleme)
+
+        // Subcollection güncelle (kurum değiştiyse taşı)
+        if (yeniKurumId) {
+          if (eskiKurumId && yeniKurumId !== eskiKurumId) {
+            const batch = writeBatch(db)
+            batch.delete(doc(db, 'kurumlar', eskiKurumId, 'kullanicilar', uid))
+            const subDoc = { ad: form.ad, email: duzenlenen.email, rol: form.rol, kurumId: yeniKurumId, durum: 'aktif' }
+            if (form.rol === 'ogretmen') Object.assign(subDoc, ogretmenEkstra)
+            batch.set(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), subDoc)
+            await batch.commit()
+          } else {
+            const subGuncelleme = { ad: form.ad, rol: form.rol }
+            if (form.rol === 'ogretmen') Object.assign(subGuncelleme, ogretmenEkstra)
+            await setDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), subGuncelleme, { merge: true })
+          }
+        }
+
+        const detay = form.rol === 'ogretmen'
+          ? `Öğretmen${form.rubrikOlustur ? ' · Koordinatör ✓' : ' · Koordinatör ✗'}${form.branslar?.length ? ' · ' + form.branslar.join(', ') : ''}`
+          : form.rol === 'kurum_admin' ? 'Kurum Admin' : form.rol
+        logKaydet({ profil, islem: 'guncelle', modul: 'kullanicilar', hedefAd: form.ad || form.email, detay, kurumId: yeniKurumId })
         setBasari('Kullanıcı güncellendi.')
         setTimeout(modalKapat, 1200)
       } else {
         const secilenKurum = kurumlar.find(k => k.id === form.kurumId)
         const googleAltyapisi = !!secilenKurum?.googleAltyapisi
-        await davetEt({ email: form.email.trim(), rol: form.rol, kurumId: form.kurumId || null, googleAltyapisi })
-        logKaydet({ profil, islem: 'davet', modul: 'kullanicilar', hedefAd: form.email.trim(), detay: form.rol })
+        await davetEt({ email: form.email.trim(), rol: form.rol, kurumId: form.kurumId || null, googleAltyapisi, ...ogretmenEkstra })
+        logKaydet({ profil, islem: 'davet', modul: 'kullanicilar', hedefAd: form.email.trim(), detay: form.rol, kurumId: form.kurumId })
         setBasari(`Davet gönderildi: ${form.email}`)
         setTimeout(modalKapat, 1500)
       }
@@ -290,9 +420,9 @@ export default function PlatformKullanicilar() {
       </div>
 
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, overflowY: 'auto', padding: '2rem 1rem' }}
           onClick={e => e.target === e.currentTarget && modalKapat()}>
-          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: form.rol === 'ogretmen' ? '580px' : '420px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.5rem' }}>
               {duzenlenen ? 'Kullanıcıyı Düzenle' : 'Kullanıcı Davet Et'}
             </h2>
@@ -316,7 +446,7 @@ export default function PlatformKullanicilar() {
               </div>
               <div style={s.alan}>
                 <label style={s.etiket}>Rol</label>
-                <select style={s.girdi} value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value, kurumId: '' }))}>
+                <select style={s.girdi} value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value, kurumId: '', sinifAtamalari: [], branslar: [], rubrikOlustur: false }))}>
                   <option value="platform_admin">Platform Admin</option>
                   <option value="kurum_admin">Kurum Admin</option>
                   <option value="ogretmen">Öğretmen</option>
@@ -328,6 +458,130 @@ export default function PlatformKullanicilar() {
                   <KurumSecici value={form.kurumId} onChange={v => setForm(f => ({ ...f, kurumId: v }))} kurumlar={kurumlar} style={s.girdi} />
                 </div>
               )}
+
+              {/* ── Öğretmen Alanları ── */}
+              {form.rol === 'ogretmen' && (
+                <>
+                  {/* Koordinatör */}
+                  <div style={{ ...s.alan, background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={form.rubrikOlustur}
+                        onChange={e => setForm(f => ({ ...f, rubrikOlustur: e.target.checked }))}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                      <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#92400E' }}>Koordinatör / Zümre Başkanı</span>
+                    </label>
+                    <span style={{ fontSize: '0.75rem', color: '#B45309', marginLeft: '1.5rem' }}>✓ Rubrik oluşturabilir ve düzenleyebilir</span>
+                  </div>
+
+                  {/* Branşlar */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
+                      Branşlar
+                      <span style={{ fontSize: '0.75rem', fontWeight: '400', color: '#94A3B8', marginLeft: '0.5rem' }}>
+                        Öğretmenin göreceği rubrikler branşa göre filtrelenir
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {DERS_LİSTESİ.map(ders => {
+                        const secili = (form.branslar || []).includes(ders)
+                        return (
+                          <button type="button" key={ders}
+                            onClick={() => setForm(f => ({
+                              ...f,
+                              branslar: secili
+                                ? (f.branslar || []).filter(b => b !== ders)
+                                : [...(f.branslar || []), ders],
+                            }))}
+                            style={{
+                              padding: '4px 12px', borderRadius: '999px', border: '1.5px solid',
+                              borderColor: secili ? '#1B3A6B' : '#E2E8F0',
+                              background:  secili ? '#1B3A6B' : '#fff',
+                              color:       secili ? '#fff' : '#64748B',
+                              fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
+                            }}>
+                            {ders}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Sınıf Atamaları */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.625rem' }}>
+                      Sınıf Atamaları
+                      <span style={{ fontSize: '0.75rem', fontWeight: '400', color: '#94A3B8', marginLeft: '0.5rem' }}>
+                        Farklı kampüs ve okullarda birden fazla atama yapılabilir
+                      </span>
+                    </div>
+                    {form.sinifAtamalari.length === 0 && (
+                      <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginBottom: '0.5rem', padding: '0.5rem', background: '#F8FAFC', borderRadius: '6px', textAlign: 'center' }}>
+                        Henüz sınıf ataması yok
+                      </div>
+                    )}
+                    {form.sinifAtamalari.map((atama, idx) => {
+                      const sinifler = kurumSiniflar[atama.kurumId] || []
+                      const yukleniyor = atama.kurumId && kurumSiniflar[atama.kurumId] === undefined
+                      return (
+                        <div key={idx} style={{ border: '1.5px solid #E2E8F0', borderRadius: '10px', padding: '0.875rem', marginBottom: '0.5rem' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.625rem', alignItems: 'center' }}>
+                            <select value={atama.kurumId}
+                              onChange={e => atamaKurumDegistir(idx, e.target.value)}
+                              style={{ ...s.girdi, flex: 1, fontSize: '0.85rem' }}>
+                              <option value="">— Okul / Kurum seçin —</option>
+                              {altKurumlar.map(k => {
+                                const kampus = kurumlar.find(x => x.id === k.parentId)
+                                return (
+                                  <option key={k.id} value={k.id}>
+                                    {kampus ? `${kampus.ad} · ` : ''}{k.ad}
+                                  </option>
+                                )
+                              })}
+                            </select>
+                            <button type="button" onClick={() => atamaKaldir(idx)}
+                              style={{ padding: '5px 10px', background: 'none', border: '1px solid #FECACA', borderRadius: '6px', color: '#991B1B', cursor: 'pointer', fontSize: '0.75rem' }}>
+                              Kaldır
+                            </button>
+                          </div>
+                          {atama.kurumId && (
+                            <div>
+                              {yukleniyor ? (
+                                <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Sınıflar yükleniyor…</span>
+                              ) : sinifler.length === 0 ? (
+                                <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Bu kurumda sınıf tanımlı değil</span>
+                              ) : (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                  {sinifler.map(sinif => {
+                                    const secili = atama.siniflar.includes(sinif.id)
+                                    return (
+                                      <button type="button" key={sinif.id}
+                                        onClick={() => atamaSinifToggle(idx, sinif.id)}
+                                        style={{
+                                          padding: '3px 10px', borderRadius: '20px', border: '1.5px solid',
+                                          borderColor: secili ? '#1B3A6B' : '#E2E8F0',
+                                          background:  secili ? '#1B3A6B' : '#fff',
+                                          color:       secili ? '#fff' : '#64748B',
+                                          fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer',
+                                        }}>
+                                        {sinif.ad}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    <button type="button" onClick={atamaEkle}
+                      style={{ width: '100%', padding: '7px', border: '1.5px dashed #CBD5E1', borderRadius: '8px', background: '#F8FAFC', color: '#64748B', fontSize: '0.8rem', cursor: 'pointer', marginTop: '2px' }}>
+                      + Okul / Kampüs Ekle
+                    </button>
+                  </div>
+                </>
+              )}
+
               {basari && <p style={{ fontSize: '0.875rem', color: '#065F46', background: '#D1FAE5', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{basari}</p>}
               {hata && <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '6px', padding: '0.5rem 0.75rem', marginBottom: '1rem' }}>{hata}</p>}
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
