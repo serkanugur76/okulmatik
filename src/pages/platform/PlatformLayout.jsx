@@ -19,6 +19,7 @@ const KURUM_MENULER = [
   { yol: '/platform/kurum/kullanicilar',     etiket: 'Kurum Kullanıcılar', ikon: '👤' },
   { yol: '/platform/kurum/rubrikler',        etiket: 'Kurum Rubrikler',  ikon: '📝' },
   { yol: '/platform/kurum/degerlendirmeler', etiket: 'Değerlendirmeler', ikon: '✅' },
+  { yol: '/platform/kurum/mentor',          etiket: 'Mentor',           ikon: '🎓' },
 ]
 
 const SIDEBAR_BG   = '#1E1B4B'   // indigo koyu — platform admin rengi

@@ -52,7 +52,7 @@ function OrtBadge({ ort }) {
 // ── Ana Bileşen ───────────────────────────────────────────────────────────────
 export default function KurumMentor() {
   const { profil } = useAuth()
-  const { secilenKurumId, ogretmenModu } = useKurumYonetim()
+  const { secilenKurumId, ogretmenModu, erisimKurumlar } = useKurumYonetim()
 
   // ── Veri ──────────────────────────────────────────────────
   const [atamalar,    setAtamalar]    = useState([])
@@ -88,8 +88,6 @@ export default function KurumMentor() {
         snap => setAtamalar(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(collection(db, 'kurumlar', hedefKurumId, 'mentorRaporlari'),
         snap => setRaporlar(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, 'kurumlar', hedefKurumId, 'kullanicilar'), orderBy('ad')),
-        snap => setOgretmenler(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(k => k.rol === 'ogretmen'))),
       onSnapshot(query(collection(db, 'kurumlar', hedefKurumId, 'ogrenciler'), orderBy('soyad')),
         snap => setOgrenciler(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(collection(db, 'kurumlar', hedefKurumId, 'siniflar'),
@@ -98,6 +96,25 @@ export default function KurumMentor() {
     ]
     return () => unsubs.forEach(u => u())
   }, [hedefKurumId])
+
+  // Öğretmenler: hiyerarşideki tüm kurumlardan yükle (root/kampüs/altKurum)
+  // Çünkü öğretmenin kurumId'si farklı bir seviyede olabilir
+  useEffect(() => {
+    if (!erisimKurumlar.length) return
+    const allIds = erisimKurumlar.map(k => k.id)
+    const parcalar = {}
+    const unsubs = allIds.map(kid => {
+      const q = query(collection(db, 'kurumlar', kid, 'kullanicilar'), orderBy('ad'))
+      return onSnapshot(q, snap => {
+        parcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(k => k.rol === 'ogretmen')
+        const hepsi = [...new Map(
+          Object.values(parcalar).flat().map(k => [k.id, k])
+        ).values()].sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+        setOgretmenler(hepsi)
+      })
+    })
+    return () => unsubs.forEach(u => u())
+  }, [erisimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
 
   // ── Türetilmiş ────────────────────────────────────────────
   const benimAtamam      = ogretmenModu ? atamalar.find(a => a.ogretmenId === profil?.uid) : null
