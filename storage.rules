@@ -1,0 +1,19 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Logo dosyaları
+    // Storage'da Firestore'daki gibi get() çağrısı yapılamaz,
+    // bu yüzden kimlik doğrulaması yeterli koşul olarak kullanıyoruz.
+    // Uygulama seviyesinde zaten sadece platform_admin bu sayfaya erişebilir.
+    match /logos/{kurumId} {
+      allow read:          if true;                    // Herkese görünür (logoları göstermek için)
+      allow write, delete: if request.auth != null;   // Giriş yapmış kullanıcı (uygulama kısıtlıyor)
+    }
+
+    // Diğer her yol varsayılan olarak kapalı
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

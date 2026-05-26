@@ -181,6 +181,20 @@ function KurumLayoutInner() {
     return 4
   }
 
+  // Seçili kurum için breadcrumb: root → kampüs → altKurum
+  function buildBreadcrumb(kurum) {
+    if (!kurum) return rootKurum ? [rootKurum.ad] : []
+    const parts = [kurum.ad]
+    let current = kurum
+    while (current.parentId) {
+      const parent = erisimKurumlar.find(k => k.id === current.parentId)
+      if (!parent) break
+      parts.unshift(parent.ad)
+      current = parent
+    }
+    return parts
+  }
+
   // optgroup yapısı: root → [ { kampus, altlar[] } ]
   const rootlar   = erisimKurumlar.filter(k => !k.parentId)
   const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
@@ -228,12 +242,7 @@ function KurumLayoutInner() {
             </div>
           ) : (
             <>
-              {/* Admin modu: root kurum başlığı + dropdown */}
-              {!platformAdmin && (
-                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'rgba(255,255,255,0.85)', marginTop: '0.5rem' }}>
-                  {rootKurum?.ad || '—'}
-                </div>
-              )}
+              {/* Admin modu: dropdown + breadcrumb */}
               {secilebilir.length > 0 && (
                 <select
                   value={secilenKurumId || ''}
@@ -315,6 +324,36 @@ function KurumLayoutInner() {
       </aside>
 
       <main style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
+        {/* Breadcrumb + Logo satırı */}
+        {(() => {
+          const logo = secilenKurum?.logoUrl
+            || (secilenKurum?.rootKurumId ? erisimKurumlar.find(k => k.id === secilenKurum.rootKurumId)?.logoUrl : null)
+            || rootKurum?.logoUrl
+          const breadcrumb = buildBreadcrumb(secilenKurum)
+          if (!logo && (ogretmenModu || breadcrumb.length === 0)) return null
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', gap: '1rem' }}>
+              {/* Breadcrumb: öğretmen modunda gizli */}
+              {!ogretmenModu ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#64748B' }}>
+                  {breadcrumb.map((ad, i, arr) => (
+                    <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span style={{ color: i === arr.length - 1 ? '#1E293B' : '#94A3B8', fontWeight: i === arr.length - 1 ? '600' : '400' }}>
+                        {ad}
+                      </span>
+                      {i < arr.length - 1 && <span style={{ color: '#CBD5E1' }}>›</span>}
+                    </span>
+                  ))}
+                </div>
+              ) : <div />}
+              {/* Kurum logosu */}
+              {logo && (
+                <img src={logo} alt="Kurum Logosu"
+                  style={{ height: '48px', maxWidth: '140px', objectFit: 'contain' }} />
+              )}
+            </div>
+          )
+        })()}
         <Outlet />
       </main>
     </div>

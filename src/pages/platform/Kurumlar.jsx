@@ -1,9 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   collection, onSnapshot, addDoc, updateDoc, doc,
   serverTimestamp, query, orderBy, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
+
+// Canvas ile yeniden boyutlandır → PNG (transparan arkaplan korunur)
+function gorselSikistir(dosya, maxW = 320, maxH = 160) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const nesneUrl = URL.createObjectURL(dosya)
+    img.onload = () => {
+      URL.revokeObjectURL(nesneUrl)
+      let w = img.width, h = img.height
+      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW }
+      if (h > maxH) { w = Math.round(w * maxH / h); h = maxH }
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, w, h)   // transparan başlangıç
+      ctx.drawImage(img, 0, 0, w, h)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.onerror = reject
+    img.src = nesneUrl
+  })
+}
 
 const TIP_ETİKET = {
   kurum:    { etiket: 'Kurum',     renk: '#1B3A6B', bg: '#DBEAFE', girinti: 0 },
@@ -38,8 +60,11 @@ export default function Kurumlar() {
   const [form, setForm]             = useState(BOŞ_FORM)
   const [modal, setModal]           = useState(false)
   const [duzenlenen, setDuzenlenen] = useState(null)
-  const [kaydediyor, setKaydediyor] = useState(false)
-  const [hata, setHata]             = useState('')
+  const [kaydediyor, setKaydediyor]   = useState(false)
+  const [hata, setHata]               = useState('')
+  const [logoYukleniyor, setLogoYukleniyor] = useState(null) // kurumId
+  const [logoHedef, setLogoHedef]     = useState(null)       // logo yüklenecek kurum
+  const dosyaInputRef                 = useRef(null)
 
   useEffect(() => {
     const q = query(collection(db, 'kurumlar'), orderBy('olusturmaTarihi', 'asc'))
@@ -155,6 +180,46 @@ export default function Kurumlar() {
   // setDuzenlened hatası düzeltmesi
   function setDuzenlened(v) { setDuzenlenen(v) }
 
+  // ── Logo yükleme ──────────────────────────────────────────────────────────
+  function logoYukleBaslat(kurum) {
+    setLogoHedef(kurum)
+    dosyaInputRef.current.value = ''
+    dosyaInputRef.current.click()
+  }
+
+  async function dosyaSecildi(e) {
+    const dosya = e.target.files?.[0]
+    if (!dosya || !logoHedef) return
+    if (dosya.size > 5 * 1024 * 1024) { alert('Lütfen 5 MB altında bir resim seçin.'); return }
+    if (!dosya.type.startsWith('image/')) { alert('Lütfen bir resim dosyası seçin.'); return }
+    const hedef = logoHedef
+    setLogoYukleniyor(hedef.id)
+    try {
+      // Canvas ile sıkıştır (max 320×160, JPEG %82)
+      const base64 = await gorselSikistir(dosya)
+      // ~200KB sınır kontrolü (Firestore doküman limiti 1MB, PNG daha büyük olabilir)
+      if (base64.length > 260_000) {
+        alert('Logo dönüştürüldükten sonra hâlâ çok büyük. Daha küçük bir resim seçin.')
+        return
+      }
+      await updateDoc(doc(db, 'kurumlar', hedef.id), { logoUrl: base64 })
+    } catch (err) {
+      alert('Logo yükleme hatası: ' + (err.message || String(err)))
+    } finally {
+      setLogoYukleniyor(null)
+      setLogoHedef(null)
+    }
+  }
+
+  async function logoSil(kurum) {
+    if (!window.confirm(`"${kurum.ad}" logosunu silmek istiyor musunuz?`)) return
+    try {
+      await updateDoc(doc(db, 'kurumlar', kurum.id), { logoUrl: null })
+    } catch (err) {
+      alert('Logo silme hatası: ' + err.message)
+    }
+  }
+
   const agac = agacOlustur(kurumlar)
   const duzListe = agacDüzlestir(agac)
 
@@ -183,6 +248,15 @@ export default function Kurumlar() {
 
   return (
     <div>
+      {/* Gizli dosya input — logo yüklemek için */}
+      <input
+        ref={dosyaInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={dosyaSecildi}
+      />
+
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Kurumlar</h1>
       <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Kurum, kampüs ve alt kurum yönetimi</p>
 
@@ -200,6 +274,7 @@ export default function Kurumlar() {
               <th style={s.th}>Ad</th>
               <th style={s.thCenter} title="Tip">🏷️</th>
               <th style={s.th}>E-posta</th>
+              <th style={s.thCenter} title="Logo">🖼️</th>
               <th style={s.thCenter} title="Google Workspace">G</th>
               <th style={s.thCenter} title="Durum">●</th>
               <th style={s.thCenter} title="İşlemler">⚙️</th>
@@ -238,6 +313,30 @@ export default function Kurumlar() {
                     </span>
                   </td>
                   <td style={s.td}>{k.email || '—'}</td>
+                  {/* Logo */}
+                  <td style={s.tdCenter}>
+                    {logoYukleniyor === k.id ? (
+                      <span style={{ fontSize: '0.7rem', color: '#94A3B8' }}>⏳</span>
+                    ) : k.logoUrl ? (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <img
+                          src={k.logoUrl} alt="logo"
+                          style={{ height: '32px', maxWidth: '64px', objectFit: 'contain', borderRadius: '4px', border: '1px solid #E2E8F0', cursor: 'pointer' }}
+                          title="Logoyu değiştir"
+                          onClick={() => logoYukleBaslat(k)}
+                        />
+                        <button
+                          title="Logoyu sil"
+                          style={{ ...s.iBtn, fontSize: '0.7rem', color: '#991B1B', borderColor: '#FECACA', padding: '2px 5px' }}
+                          onClick={() => logoSil(k)}>✕</button>
+                      </div>
+                    ) : (
+                      <button
+                        title="Logo yükle"
+                        style={{ ...s.iBtn, fontSize: '0.75rem', color: '#0369A1', borderColor: '#BAE6FD' }}
+                        onClick={() => logoYukleBaslat(k)}>+ Logo</button>
+                    )}
+                  </td>
                   {/* Google */}
                   <td style={s.tdCenter}>
                     {k.googleAltyapisi ? (

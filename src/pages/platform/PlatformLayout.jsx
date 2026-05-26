@@ -68,6 +68,20 @@ function PlatformSidebar() {
     return !!ust?.parentId
   })
 
+  // Seçili kurum için breadcrumb: root → kampüs → altKurum
+  function buildBreadcrumb(kurum) {
+    if (!kurum) return []
+    const parts = [kurum.ad]
+    let current = kurum
+    while (current.parentId) {
+      const parent = erisimKurumlar.find(k => k.id === current.parentId)
+      if (!parent) break
+      parts.unshift(parent.ad)
+      current = parent
+    }
+    return parts
+  }
+
   // optgroup yapısı: root → [ { kampus, altlar[] } ]
   const kurumGruplari = rootKurumlar.map(root => ({
     root,
@@ -149,13 +163,6 @@ function PlatformSidebar() {
               )),
             ])}
           </select>
-          {secilenKurum && (
-            <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginTop: '3px', paddingLeft: '2px' }}>
-              {secilenKurum.tip === 'kurum' ? 'Ana Kurum'
-                : secilenKurum.tip === 'kampus' ? 'Kampüs'
-                : 'Alt Kurum'}
-            </div>
-          )}
         </div>
 
         {KURUM_MENULER.map(m => (
@@ -180,14 +187,60 @@ function PlatformSidebar() {
   )
 }
 
+function PlatformMain() {
+  const { erisimKurumlar, secilenKurum } = useKurumYonetim()
+
+  function buildBreadcrumb(kurum) {
+    if (!kurum) return []
+    const parts = [kurum.ad]
+    let current = kurum
+    while (current.parentId) {
+      const parent = erisimKurumlar.find(k => k.id === current.parentId)
+      if (!parent) break
+      parts.unshift(parent.ad)
+      current = parent
+    }
+    return parts
+  }
+
+  const breadcrumb = buildBreadcrumb(secilenKurum)
+
+  const logoUrl = secilenKurum?.logoUrl
+    || (secilenKurum?.rootKurumId ? erisimKurumlar.find(k => k.id === secilenKurum.rootKurumId)?.logoUrl : null)
+    || erisimKurumlar.find(k => !k.parentId)?.logoUrl
+
+  return (
+    <main style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
+      {/* Breadcrumb + Logo satırı */}
+      {breadcrumb.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#64748B' }}>
+            {breadcrumb.map((ad, i, arr) => (
+              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ color: i === arr.length - 1 ? '#1E293B' : '#94A3B8', fontWeight: i === arr.length - 1 ? '600' : '400' }}>
+                  {ad}
+                </span>
+                {i < arr.length - 1 && <span style={{ color: '#CBD5E1' }}>›</span>}
+              </span>
+            ))}
+          </div>
+          {logoUrl && (
+            <img src={logoUrl} alt="Kurum Logosu"
+              style={{ height: '48px', maxWidth: '140px', objectFit: 'contain' }} />
+          )}
+        </div>
+      )}
+      <Outlet />
+    </main>
+  )
+}
+
 export default function PlatformLayout() {
   return (
     <KurumYonetimProvider>
       <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
         <PlatformSidebar />
-        <main style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
-          <Outlet />
-        </main>
+        <PlatformMain />
       </div>
     </KurumYonetimProvider>
   )

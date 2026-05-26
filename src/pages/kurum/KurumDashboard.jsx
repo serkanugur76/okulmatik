@@ -105,10 +105,7 @@ export default function KurumDashboard() {
 
   return (
     <div>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>
-        {baslik}
-      </h1>
-      <p style={{ color: '#64748B', marginBottom: '2rem', fontSize: '0.9rem' }}>{altyazi}</p>
+      <div style={{ marginBottom: '2rem' }} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
         {seviye === 'root' && (
