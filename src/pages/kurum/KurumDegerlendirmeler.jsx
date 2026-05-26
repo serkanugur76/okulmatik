@@ -104,7 +104,8 @@ export default function KurumDegerlendirmeler() {
   // Rubrikler — tüm erişilebilir kurumlardan yükle (root/kampüs/altKurum)
   useEffect(() => {
     const allIds = [...new Set(erisimKurumlar.map(k => k.id))]
-    if (!allIds.length) { setRubrikler([]); setSecilenRubrikIdRaw(null); SS.set('rubrikId', null); return }
+    // erisimKurumlar henüz yüklenmedi — SS'yi temizleme, bekle
+    if (!allIds.length) { setRubrikler([]); return }
     const parcalar = {}
     const unsubs = allIds.map(kid => {
       const q = query(collection(db, 'kurumlar', kid, 'rubrikler'), orderBy('olusturmaTarihi', 'asc'))
@@ -112,11 +113,12 @@ export default function KurumDegerlendirmeler() {
         parcalar[kid] = snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() }))
         const hepsi = [...new Map(allIds.flatMap(id => parcalar[id] || []).map(r => [r.id, r])).values()]
         setRubrikler(hepsi)
-        // functional update: prev = mevcut state; custom setter functional update desteklemiyor, Raw kullan
+        // prev state geçici olarak null olmuş olabilir; SS'den hedef id'yi oku
         setSecilenRubrikIdRaw(prev => {
-          const korunsun = hepsi.find(r => r.id === prev)
-          const yeniId = korunsun ? prev : (hepsi[0]?.id || null)
-          if (!korunsun) SS.set('rubrikId', yeniId)
+          const hedef = prev || SS.get('rubrikId', null)
+          const korunsun = hepsi.find(r => r.id === hedef)
+          const yeniId = korunsun ? hedef : (hepsi[0]?.id || null)
+          SS.set('rubrikId', yeniId)
           return yeniId
         })
       })
