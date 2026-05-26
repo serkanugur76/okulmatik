@@ -527,7 +527,7 @@ export default function KurumKullanicilar() {
             </table>
           )
         })()
-        ) : (
+        : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>{['E-posta', 'Rol', 'Giriş Yöntemi', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
