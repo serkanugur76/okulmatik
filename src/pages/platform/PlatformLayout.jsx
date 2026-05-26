@@ -49,13 +49,37 @@ function PlatformSidebar() {
   const { erisimKurumlar, secilenKurumId, secilenKurum, setSecilenKurumId } = useKurumYonetim()
   const navigate = useNavigate()
 
+  // Okul seviyesi sıralama: ilkokul → ortaokul → lise
+  function okulSira(ad = '') {
+    const s = ad.toLocaleLowerCase('tr')
+    if (s.includes('ilkokul'))  return 1
+    if (s.includes('ortaokul')) return 2
+    if (s.includes('lise'))     return 3
+    return 4
+  }
+
   const rootKurumlar   = erisimKurumlar.filter(k => !k.parentId)
-  const kampusKurumlar = erisimKurumlar.filter(k => k.parentId && erisimKurumlar.find(x => x.id === k.parentId && !x.parentId))
+  const kampusKurumlar = erisimKurumlar
+    .filter(k => k.parentId && erisimKurumlar.find(x => x.id === k.parentId && !x.parentId))
+    .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
   const altKurumlar    = erisimKurumlar.filter(k => {
     if (!k.parentId) return false
     const ust = erisimKurumlar.find(x => x.id === k.parentId)
     return !!ust?.parentId
   })
+
+  // optgroup yapısı: root → [ { kampus, altlar[] } ]
+  const kurumGruplari = rootKurumlar.map(root => ({
+    root,
+    kampusGruplari: kampusKurumlar
+      .filter(k => k.parentId === root.id)
+      .map(kp => ({
+        kampus: kp,
+        altKurumlar: altKurumlar
+          .filter(k => k.parentId === kp.id)
+          .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr')),
+      })),
+  }))
 
   async function handleCikis() {
     await cikisYap()
@@ -109,20 +133,21 @@ function PlatformSidebar() {
             }}
           >
             <option value="" style={{ background: SIDEBAR_BG }}>— Kurum seçin —</option>
-            {rootKurumlar.map(k => (
-              <option key={k.id} value={k.id} style={{ background: SIDEBAR_BG }}>🏛 {k.ad}</option>
-            ))}
-            {kampusKurumlar.map(k => (
-              <option key={k.id} value={k.id} style={{ background: SIDEBAR_BG }}>🏫 {k.ad}</option>
-            ))}
-            {altKurumlar.map(k => {
-              const ust = erisimKurumlar.find(x => x.id === k.parentId)
-              return (
-                <option key={k.id} value={k.id} style={{ background: SIDEBAR_BG }}>
-                  🏢 {ust ? `${ust.ad} · ` : ''}{k.ad}
-                </option>
-              )
-            })}
+            {kurumGruplari.flatMap(({ root, kampusGruplari }) => [
+              <optgroup key={`root-${root.id}`} label={`🏛 ${root.ad.toUpperCase()}`}>
+                <option value={root.id} style={{ background: SIDEBAR_BG }}>🏛 {root.ad}</option>
+              </optgroup>,
+              ...kampusGruplari.map(({ kampus, altKurumlar: altlar }) => (
+                <optgroup key={kampus.id} label={`  🏫 ${kampus.ad}`}>
+                  <option value={kampus.id} style={{ background: SIDEBAR_BG }}>🏫 {kampus.ad}</option>
+                  {altlar.map(ak => (
+                    <option key={ak.id} value={ak.id} style={{ background: SIDEBAR_BG }}>
+                      {'  '}└ {ak.ad}
+                    </option>
+                  ))}
+                </optgroup>
+              )),
+            ])}
           </select>
           {secilenKurum && (
             <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginTop: '3px', paddingLeft: '2px' }}>
