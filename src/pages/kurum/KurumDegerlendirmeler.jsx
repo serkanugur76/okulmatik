@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, doc, setDoc,
@@ -55,22 +56,29 @@ export default function KurumDegerlendirmeler() {
     return secilenKurum ? [secilenKurum] : []
   }, [seviye, secilenKurumId, erisimKurumlar]) // eslint-disable-line
 
-  // ── sessionStorage yardımcıları ─────────────────────────
-  const SS = {
-    get: (k, def = null) => { try { const v = sessionStorage.getItem('deg_' + k); return v !== null ? v : def } catch { return def } },
-    set: (k, v) => { try { v != null ? sessionStorage.setItem('deg_' + k, v) : sessionStorage.removeItem('deg_' + k) } catch {} },
+  // ── URL param ile seçim kalıcılığı (sayfa yenilemede korunur) ─────────────
+  const [searchParams, setSearchParams] = useSearchParams()
+  function updateParam(updates) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      Object.entries(updates).forEach(([k, v]) => {
+        if (v != null && v !== '') next.set(k, String(v))
+        else next.delete(k)
+      })
+      return next
+    }, { replace: true })
   }
 
   // Root/kampüs seviyesinde hangi altKurum seçili?
-  const [secilenAltKurumId, setSecilenAltKurumIdRaw] = useState(() => SS.get('altKurumId', ''))
-  function setSecilenAltKurumId(id) { SS.set('altKurumId', id); setSecilenAltKurumIdRaw(id) }
+  const secilenAltKurumId = searchParams.get('ak') || ''
+  function setSecilenAltKurumId(id) { updateParam({ ak: id }) }
 
-  // secilenKurumId değişince altKurumId'yi sıfırla — ama ilk yüklemede (restore) sıfırlama
+  // secilenKurumId değişince altKurum + sinif sıfırla — ama ilk yüklemede (restore) sıfırlama
   const altKurumInitRef = useRef(false)
   useEffect(() => {
-    if (!secilenKurumId) return          // henüz yüklenmedi
-    if (!altKurumInitRef.current) { altKurumInitRef.current = true; return }  // ilk set → restore koru
-    setSecilenAltKurumId('')             // gerçek kurum değişikliği → sıfırla
+    if (!secilenKurumId) return
+    if (!altKurumInitRef.current) { altKurumInitRef.current = true; return }
+    updateParam({ ak: null, s: null })
   }, [secilenKurumId]) // eslint-disable-line
 
   // Asıl veri kurumu: öğretmen → her zaman secilenKurumId; altKurum seviyesinde doğrudan; üst seviyede seçileni
@@ -85,12 +93,12 @@ export default function KurumDegerlendirmeler() {
   const [mevcut,     setMevcut]     = useState({})   // ogrenciId → { altKriterId: puan }
 
   // ── UI ───────────────────────────────────────────────────
-  const [secilenRubrikId, setSecilenRubrikIdRaw] = useState(() => SS.get('rubrikId', null))
-  const [secilenDonem,    setSecilenDonemRaw]    = useState(() => Number(SS.get('donem', 1)))
-  const [secilenSinifId,  setSecilenSinifIdRaw]  = useState(() => SS.get('sinifId', ''))
-  function setSecilenRubrikId(id) { SS.set('rubrikId', id); setSecilenRubrikIdRaw(id) }
-  function setSecilenDonem(d)     { SS.set('donem', d);     setSecilenDonemRaw(d) }
-  function setSecilenSinifId(id)  { SS.set('sinifId', id);  setSecilenSinifIdRaw(id) }
+  const secilenRubrikId = searchParams.get('r')  || null
+  const secilenDonem    = Number(searchParams.get('d') || 1)
+  const secilenSinifId  = searchParams.get('s')  || ''
+  function setSecilenRubrikId(id) { updateParam({ r: id }) }
+  function setSecilenDonem(d)     { updateParam({ d }) }
+  function setSecilenSinifId(id)  { updateParam({ s: id }) }
   const [degisiklikler,   setDegisiklikler]   = useState({})
   const [kaydediyor,      setKaydediyor]      = useState(false)
   const [secilenAnaKriterId, setSecilenAnaKriterId] = useState(null)
@@ -113,14 +121,11 @@ export default function KurumDegerlendirmeler() {
         parcalar[kid] = snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() }))
         const hepsi = [...new Map(allIds.flatMap(id => parcalar[id] || []).map(r => [r.id, r])).values()]
         setRubrikler(hepsi)
-        // prev state geçici olarak null olmuş olabilir; SS'den hedef id'yi oku
-        setSecilenRubrikIdRaw(prev => {
-          const hedef = prev || SS.get('rubrikId', null)
-          const korunsun = hepsi.find(r => r.id === hedef)
-          const yeniId = korunsun ? hedef : (hepsi[0]?.id || null)
-          SS.set('rubrikId', yeniId)
-          return yeniId
-        })
+        // URL'deki rubrikId hâlâ geçerliyse koru; değilse ilkini seç
+        const currentRubrikId = searchParams.get('r')
+        if (!currentRubrikId || !hepsi.find(r => r.id === currentRubrikId)) {
+          updateParam({ r: hepsi[0]?.id || null })
+        }
       })
     })
     return () => unsubs.forEach(u => u())
@@ -412,7 +417,7 @@ export default function KurumDegerlendirmeler() {
       {seviye !== 'altKurum' && !ogretmenModu && (
         <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#3730A3', whiteSpace: 'nowrap' }}>🏫 Kurum:</span>
-          <select value={secilenAltKurumId} onChange={e => { setSecilenAltKurumId(e.target.value); setSecilenSinifId('') }}
+          <select value={secilenAltKurumId} onChange={e => updateParam({ ak: e.target.value, s: null })}
             style={{ padding: '6px 10px', border: '1.5px solid ' + (secilenAltKurumId ? '#4F46E5' : '#FCD34D'), borderRadius: '7px', fontSize: '0.875rem', background: '#fff', color: '#374151', cursor: 'pointer', fontWeight: secilenAltKurumId ? '600' : '400' }}>
             <option value="">— Değerlendirme yapılacak okulu seçin —</option>
             {sayimKurumlar.map(k => {
