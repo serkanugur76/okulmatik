@@ -104,7 +104,7 @@ export default function KurumDegerlendirmeler() {
   // Rubrikler — tüm erişilebilir kurumlardan yükle (root/kampüs/altKurum)
   useEffect(() => {
     const allIds = [...new Set(erisimKurumlar.map(k => k.id))]
-    if (!allIds.length) { setRubrikler([]); setSecilenRubrikId(null); return }
+    if (!allIds.length) { setRubrikler([]); setSecilenRubrikIdRaw(null); SS.set('rubrikId', null); return }
     const parcalar = {}
     const unsubs = allIds.map(kid => {
       const q = query(collection(db, 'kurumlar', kid, 'rubrikler'), orderBy('olusturmaTarihi', 'asc'))
@@ -112,7 +112,13 @@ export default function KurumDegerlendirmeler() {
         parcalar[kid] = snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() }))
         const hepsi = [...new Map(allIds.flatMap(id => parcalar[id] || []).map(r => [r.id, r])).values()]
         setRubrikler(hepsi)
-        setSecilenRubrikId(prev => hepsi.find(r => r.id === prev) ? prev : hepsi[0]?.id || null)
+        // functional update: prev = mevcut state; custom setter functional update desteklemiyor, Raw kullan
+        setSecilenRubrikIdRaw(prev => {
+          const korunsun = hepsi.find(r => r.id === prev)
+          const yeniId = korunsun ? prev : (hepsi[0]?.id || null)
+          if (!korunsun) SS.set('rubrikId', yeniId)
+          return yeniId
+        })
       })
     })
     return () => unsubs.forEach(u => u())
@@ -171,11 +177,15 @@ export default function KurumDegerlendirmeler() {
   const secilenRubrik = ilgiliRubrikler.find(r => r.id === secilenRubrikId) || null
 
   // Rubrik listesi değişince seçili rubriki güncelle
+  // ilk yüklemede (rubrikler henüz boş) restore'u silme; sınıf değişince sıfırla
+  const rubrikInitRef = useRef(false)
   useEffect(() => {
+    if (!rubrikler.length) return                      // rubrikler henüz yüklenmedi
+    if (!rubrikInitRef.current) { rubrikInitRef.current = true; return }  // ilk yükleme → koru
     if (!secilenRubrikId || !ilgiliRubrikler.find(r => r.id === secilenRubrikId)) {
       setSecilenRubrikId(ilgiliRubrikler[0]?.id || null)
     }
-  }, [secilenSinifId, rubrikler.length])
+  }, [secilenSinifId, rubrikler.length]) // eslint-disable-line
 
   const filtreliOgrenciler = useMemo(() => {
     const liste = secilenSinifId ? ogrenciler.filter(o => o.sinifId === secilenSinifId) : []
