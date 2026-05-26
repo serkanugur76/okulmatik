@@ -14,12 +14,22 @@ const KurumYonetimContext = createContext(null)
  *   ogretmen                     → erisimKurumIdler'deki kurumlar (sinifAtamalari'ndan)
  */
 export function KurumYonetimProvider({ children }) {
-  const { kurumId, platformAdmin, profil } = useAuth()
+  const { kurumId, platformAdmin, profil, kullanici } = useAuth()
   const ogretmen = profil?.rol === 'ogretmen'
 
+  // localStorage anahtarı kullanıcıya özgü (farklı hesaplar arasında karışmasın)
+  const LS_KEY = `okulmatik_secilenKurumId_${kullanici?.uid || 'guest'}`
+
   const [erisimKurumlar, setErisimKurumlar] = useState([])
-  const [secilenKurumId, setSecilenKurumId] = useState(null)
+  const [secilenKurumId, setSecilenKurumIdRaw] = useState(null)
   const [yukleniyor, setYukleniyor]         = useState(true)
+
+  // Seçimi hem state'e hem localStorage'a yaz
+  function setSecilenKurumId(id) {
+    if (id) localStorage.setItem(LS_KEY, id)
+    else    localStorage.removeItem(LS_KEY)
+    setSecilenKurumIdRaw(id)
+  }
 
   const atananKurumIds = useMemo(
     () => profil?.erisimKurumIdler || [],
@@ -42,8 +52,10 @@ export function KurumYonetimProvider({ children }) {
           const tipSira = { kurum: 0, kampus: 1, altKurum: 2 }
           hepsi.sort((a, b) => (tipSira[a.tip] ?? 3) - (tipSira[b.tip] ?? 3))
           setErisimKurumlar(hepsi)
-          const ilkKok = hepsi.find(k => !k.parentId)
-          if (ilkKok) setSecilenKurumId(ilkKok.id)
+          const kayitliId = localStorage.getItem(LS_KEY)
+          const kayitli   = kayitliId && hepsi.find(k => k.id === kayitliId)
+          const ilkKok    = hepsi.find(k => !k.parentId)
+          setSecilenKurumIdRaw(kayitli ? kayitliId : (ilkKok?.id || null))
         } catch (err) {
           console.error('Platform admin kurum yükleme hatası:', err)
         } finally {
@@ -94,8 +106,12 @@ export function KurumYonetimProvider({ children }) {
             .map(s => ({ id: s.id, ...s.data() }))
 
           setErisimKurumlar([...rootKurumlar, ...parentKurumlar, ...kurumlar])
-          // Tek kurum → direkt seç; birden fazla → null (kurum seçici gösterilecek)
-          setSecilenKurumId(kurumlar.length === 1 ? kurumlar[0].id : null)
+          // Tek kurum → direkt seç; birden fazla → localStorage restore veya null
+          const kayitliId = localStorage.getItem(LS_KEY)
+          const kayitliGecerli = kayitliId && atananKurumIds.includes(kayitliId)
+          if (kurumlar.length === 1)      setSecilenKurumIdRaw(kurumlar[0].id)
+          else if (kayitliGecerli)        setSecilenKurumIdRaw(kayitliId)
+          else                            setSecilenKurumIdRaw(null)
         } catch (err) {
           console.error('Öğretmen kurum yükleme hatası:', err)
         } finally {
@@ -108,7 +124,6 @@ export function KurumYonetimProvider({ children }) {
 
     // ── Kurum Admin ──────────────────────────────────────────────────────────
     if (!kurumId) { setErisimKurumlar([]); setYukleniyor(false); return }
-    setSecilenKurumId(kurumId)
 
     async function yukle() {
       try {
@@ -140,7 +155,8 @@ export function KurumYonetimProvider({ children }) {
         }
 
         const ustKurumlar = [rootKurum, kampusKurum].filter(Boolean)
-        setErisimKurumlar([...ustKurumlar, anaKurum])
+        const tumKurumlar = [...ustKurumlar, anaKurum]
+        setErisimKurumlar(tumKurumlar)
 
         // 3. Alt kurumları yükle
         try {
@@ -150,9 +166,16 @@ export function KurumYonetimProvider({ children }) {
           ])
           const map = new Map()
           ;[...rootQ.docs, ...parentQ.docs].forEach(d => map.set(d.id, { id: d.id, ...d.data() }))
-          setErisimKurumlar([...ustKurumlar, anaKurum, ...map.values()])
+          const hepsi = [...ustKurumlar, anaKurum, ...map.values()]
+          setErisimKurumlar(hepsi)
+
+          // localStorage'dan seçimi restore et; yoksa kendi kurumu
+          const kayitliId = localStorage.getItem(LS_KEY)
+          const gecerli   = kayitliId && hepsi.find(k => k.id === kayitliId)
+          setSecilenKurumIdRaw(gecerli ? kayitliId : kurumId)
         } catch (err) {
           console.error('Alt kurum yükleme hatası:', err.code, err.message)
+          setSecilenKurumIdRaw(kurumId)
         }
       } catch (err) {
         console.error('Kurum yükleme hatası:', err)
