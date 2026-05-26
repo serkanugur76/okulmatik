@@ -14,6 +14,7 @@ import KurumOgrenciler        from './pages/kurum/KurumOgrenciler'
 import KurumKullanicilar      from './pages/kurum/KurumKullanicilar'
 import KurumRubrikler         from './pages/kurum/KurumRubrikler'
 import KurumDegerlendirmeler  from './pages/kurum/KurumDegerlendirmeler'
+import Hakkinda               from './pages/Hakkinda'
 
 function KorunanRoute({ izinliRoller, children }) {
   const { kullanici, profil, yukleniyor } = useAuth()
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="kurum/kullanicilar"     element={<KurumKullanicilar />} />
             <Route path="kurum/rubrikler"        element={<KurumRubrikler />} />
             <Route path="kurum/degerlendirmeler" element={<KurumDegerlendirmeler />} />
+            <Route path="hakkinda"               element={<Hakkinda />} />
           </Route>
           <Route path="/kurum" element={
             <KorunanRoute izinliRoller={['kurum_admin', 'ogretmen']}>
@@ -71,6 +73,7 @@ export default function App() {
             <Route path="kullanicilar" element={<KurumKullanicilar />} />
             <Route path="rubrikler"         element={<KurumRubrikler />} />
             <Route path="degerlendirmeler" element={<KurumDegerlendirmeler />} />
+            <Route path="hakkinda"         element={<Hakkinda />} />
           </Route>
           <Route path="/ogretmen/*" element={<Navigate to="/kurum" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
