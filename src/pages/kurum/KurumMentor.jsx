@@ -463,7 +463,10 @@ export default function KurumMentor() {
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:'700', fontSize:'0.9rem', color:'#1E293B' }}>{atama.ogretmenAd || atama.ogretmenId}</div>
-                    <div style={{ fontSize:'0.75rem', color:'#64748B' }}>{ogrList.length} öğrenci atanmış</div>
+                    <div style={{ fontSize:'0.75rem', color:'#64748B' }}>
+                      {(() => { const ogr = ogretmenler.find(o => o.id === atama.ogretmenId); const k = erisimKurumlar.find(k => k.id === ogr?.kurumId); return k ? `${k.ad} · ` : '' })()}
+                      {ogrList.length} öğrenci atanmış
+                    </div>
                   </div>
                   {/* Dönem ilerleme */}
                   <div style={{ textAlign:'right', marginRight:'0.5rem' }}>
@@ -585,9 +588,14 @@ export default function KurumMentor() {
                 <select style={s.girdi} value={atamaForm.ogretmenId}
                   onChange={e => setAtamaForm(f => ({ ...f, ogretmenId: e.target.value }))}>
                   <option value="">— Öğretmen seçin —</option>
-                  {ogretmenler.map(o => (
-                    <option key={o.id} value={o.id}>{o.ad || o.email}</option>
-                  ))}
+                  {ogretmenler.map(o => {
+                    const kurum = erisimKurumlar.find(k => k.id === o.kurumId)
+                    return (
+                      <option key={o.id} value={o.id}>
+                        {o.ad || o.email}{kurum ? ` — ${kurum.ad}` : ''}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
 
