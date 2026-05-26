@@ -89,6 +89,14 @@ export default function KurumKullanicilar() {
   const [basari,       setBasari]       = useState('')
   const [aramaMetni,   setAramaMetni]   = useState('')
   const [sekme,        setSekme]        = useState('aktif')
+  const [kapaliGruplar, setKapaliGruplar] = useState(new Set())
+  function toggleGrup(id) {
+    setKapaliGruplar(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   // Sınıf cache: { [kurumId]: [siniflar] }
   const [kurumSiniflar, setKurumSiniflar] = useState({})
@@ -360,57 +368,165 @@ export default function KurumKullanicilar() {
       </div>
 
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-        {sekme === 'aktif' ? (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>{['Ad', 'E-posta', 'Rol', 'Atamalar', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
-            </thead>
-            <tbody>
-              {aktifListe.length === 0 ? (
-                <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>
-                  {aramaMetni ? 'Sonuç bulunamadı' : 'Henüz kullanıcı eklenmemiş'}
-                </td></tr>
-              ) : aktifListe.map(k => {
-                const rolBilgi = kurumAdminEtiketi(k, erisimKurumlar)
-                const koordinator = k.rol === 'ogretmen' && k.modulIzinler?.rubrik_olustur
-                const toplamSinif = (k.sinifAtamalari || []).reduce((t, a) => t + (a.siniflar?.length || 0), 0)
-                return (
-                  <tr key={k.id}>
-                    <td style={s.td}><strong>{k.ad || '—'}</strong></td>
-                    <td style={s.td}>{k.email}</td>
-                    <td style={s.td}>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: rolBilgi.bg, color: rolBilgi.renk }}>
-                          {rolBilgi.etiket}
-                        </span>
-                        {koordinator && (
-                          <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: '#FEF3C7', color: '#92400E' }}>
-                            Koordinatör
-                          </span>
-                        )}
+        {sekme === 'aktif' ? (() => {
+          // Paylaşılan satır render fonksiyonu
+          const userSatiri = (k) => {
+            const rolBilgi = kurumAdminEtiketi(k, erisimKurumlar)
+            const koordinator = k.rol === 'ogretmen' && k.modulIzinler?.rubrik_olustur
+            const toplamSinif = (k.sinifAtamalari || []).reduce((t, a) => t + (a.siniflar?.length || 0), 0)
+            return (
+              <tr key={k.id}>
+                <td style={s.td}><strong>{k.ad || '—'}</strong></td>
+                <td style={s.td}>{k.email}</td>
+                <td style={s.td}>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: rolBilgi.bg, color: rolBilgi.renk }}>
+                      {rolBilgi.etiket}
+                    </span>
+                    {koordinator && (
+                      <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: '#FEF3C7', color: '#92400E' }}>
+                        Koordinatör
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td style={s.td}>
+                  {k.rol === 'ogretmen'
+                    ? toplamSinif > 0
+                      ? <span style={{ fontSize: '0.75rem', color: '#1B3A6B', fontWeight: '600' }}>{toplamSinif} sınıf</span>
+                      : <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>—</span>
+                    : <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>—</span>
+                  }
+                </td>
+                <td style={s.td}>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button style={s.eylem} onClick={() => modalAc(k)}>Düzenle</button>
+                    <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => kullaniciSil(k)}>Sil</button>
+                  </div>
+                </td>
+              </tr>
+            )
+          }
+
+          const thRow = (
+            <tr>{['Ad', 'E-posta', 'Rol', 'Atamalar', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+          )
+
+          // ── Platform Admin: hiyerarşik gruplu görünüm ──────────────────────
+          if (platformAdmin) {
+            if (aktifListe.length === 0) return (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#94A3B8', fontSize: '0.875rem' }}>
+                {aramaMetni ? 'Sonuç bulunamadı' : 'Henüz kullanıcı eklenmemiş'}
+              </div>
+            )
+            return (
+              <div>
+                {rootKurumlar.map(root => {
+                  const rootAcik   = !kapaliGruplar.has(root.id)
+                  const rootUsers  = aktifListe.filter(k => k.kurumId === root.id)
+                  const rootKampus = kampusKurumlar.filter(k => k.parentId === root.id)
+                  // Toplam kullanıcı sayısı (tüm alt seviyeler dahil)
+                  const tumIds = [root.id, ...rootKampus.map(k => k.id), ...altKurumlar.filter(k => rootKampus.some(kp => kp.id === k.parentId)).map(k => k.id)]
+                  const toplamSayisi = aktifListe.filter(k => tumIds.includes(k.kurumId)).length
+                  if (!toplamSayisi && aramaMetni) return null
+
+                  return (
+                    <div key={root.id} style={{ borderBottom: '1px solid #E2E8F0' }}>
+                      {/* Root başlık */}
+                      <div onClick={() => toggleGrup(root.id)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: '#1B3A6B', cursor: 'pointer', userSelect: 'none' }}>
+                        <span style={{ color: '#fff', fontWeight: '700', fontSize: '0.9rem' }}>🏛 {root.ad}</span>
+                        <span style={{ color: '#93C5FD', fontSize: '0.75rem' }}>{toplamSayisi} kullanıcı &nbsp;{rootAcik ? '▲' : '▼'}</span>
                       </div>
-                    </td>
-                    <td style={s.td}>
-                      {k.rol === 'ogretmen' ? (
-                        toplamSinif > 0
-                          ? <span style={{ fontSize: '0.75rem', color: '#1B3A6B', fontWeight: '600' }}>{toplamSinif} sınıf</span>
-                          : <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>—</span>
-                      ) : (
-                        <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>—</span>
+
+                      {rootAcik && (
+                        <div>
+                          {/* Root seviyesi kullanıcılar */}
+                          {rootUsers.length > 0 && (
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <thead>{thRow}</thead>
+                              <tbody>{rootUsers.map(userSatiri)}</tbody>
+                            </table>
+                          )}
+
+                          {/* Kampüsler */}
+                          {rootKampus.map(kampus => {
+                            const kampusAcik  = !kapaliGruplar.has(kampus.id)
+                            const kampusUsers = aktifListe.filter(k => k.kurumId === kampus.id)
+                            const kampusAltlar = altKurumlar.filter(k => k.parentId === kampus.id)
+                            const kampusToplam = aktifListe.filter(k => k.kurumId === kampus.id || kampusAltlar.some(a => a.id === k.kurumId)).length
+                            if (!kampusToplam && aramaMetni) return null
+
+                            return (
+                              <div key={kampus.id}>
+                                {/* Kampüs başlık */}
+                                <div onClick={() => toggleGrup(kampus.id)}
+                                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 1.25rem', background: '#EFF6FF', cursor: 'pointer', borderTop: '1px solid #E2E8F0', userSelect: 'none' }}>
+                                  <span style={{ color: '#1E40AF', fontWeight: '700', fontSize: '0.85rem' }}>🏫 {kampus.ad}</span>
+                                  <span style={{ color: '#60A5FA', fontSize: '0.72rem' }}>{kampusToplam} kullanıcı &nbsp;{kampusAcik ? '▲' : '▼'}</span>
+                                </div>
+
+                                {kampusAcik && (
+                                  <div>
+                                    {/* Kampüs seviyesi kullanıcılar */}
+                                    {kampusUsers.length > 0 && (
+                                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                        <thead>{thRow}</thead>
+                                        <tbody>{kampusUsers.map(userSatiri)}</tbody>
+                                      </table>
+                                    )}
+
+                                    {/* AltKurumlar */}
+                                    {kampusAltlar.map(alt => {
+                                      const altAcik  = !kapaliGruplar.has(alt.id)
+                                      const altUsers = aktifListe.filter(k => k.kurumId === alt.id)
+                                      if (!altUsers.length && aramaMetni) return null
+
+                                      return (
+                                        <div key={alt.id}>
+                                          {/* AltKurum başlık */}
+                                          <div onClick={() => toggleGrup(alt.id)}
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 2rem', background: '#F8FAFC', cursor: 'pointer', borderTop: '1px solid #F1F5F9', userSelect: 'none' }}>
+                                            <span style={{ color: '#374151', fontWeight: '600', fontSize: '0.82rem' }}>🏢 {alt.ad}</span>
+                                            <span style={{ color: '#94A3B8', fontSize: '0.7rem' }}>{altUsers.length} kullanıcı &nbsp;{altAcik ? '▲' : '▼'}</span>
+                                          </div>
+                                          {altAcik && altUsers.length > 0 && (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                              <thead>{thRow}</thead>
+                                              <tbody>{altUsers.map(userSatiri)}</tbody>
+                                            </table>
+                                          )}
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
                       )}
-                    </td>
-                    <td style={s.td}>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button style={s.eylem} onClick={() => modalAc(k)}>Düzenle</button>
-                        <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }}
-                          onClick={() => kullaniciSil(k)}>Sil</button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          }
+
+          // ── Kurum Admin: düz liste ─────────────────────────────────────────
+          return (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>{thRow}</thead>
+              <tbody>
+                {aktifListe.length === 0 ? (
+                  <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>
+                    {aramaMetni ? 'Sonuç bulunamadı' : 'Henüz kullanıcı eklenmemiş'}
+                  </td></tr>
+                ) : aktifListe.map(userSatiri)}
+              </tbody>
+            </table>
+          )
+        })()
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
