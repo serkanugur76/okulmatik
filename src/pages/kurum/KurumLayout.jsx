@@ -167,19 +167,21 @@ function KurumLayoutInner() {
   // Root kurum (parentId yok)
   const rootKurum = erisimKurumlar.find(k => !k.parentId)
 
-  // Admin için kurum seçici dropdown
+  // Admin için kurum seçici — hiyerarşi yapısı
   const secilebilir = platformAdmin
     ? erisimKurumlar
     : erisimKurumlar.filter(k => k.parentId)
 
-  function kurumEtiketi(k) {
-    if (!k.parentId) return `🏛 ${k.ad}`
-    if (k.tip === 'kampus') return platformAdmin ? `🏫 ${k.ad}` : k.ad
-    const ust = erisimKurumlar.find(x => x.id === k.parentId)
-    return platformAdmin
-      ? `🏢 ${ust?.ad ? ust.ad + ' - ' : ''}${k.ad}`
-      : `${ust?.ad ? ust.ad + ' - ' : ''}${k.ad}`
-  }
+  // optgroup yapısı: root → [ { kampus, altlar[] } ]
+  const rootlar   = erisimKurumlar.filter(k => !k.parentId)
+  const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
+  const altlar    = erisimKurumlar.filter(k => k.tip === 'altKurum')
+  const kurumGruplari = rootlar.map(root => ({
+    root,
+    kampusGruplari: kampusler
+      .filter(k => k.parentId === root.id)
+      .map(kp => ({ kampus: kp, altKurumlar: altlar.filter(k => k.parentId === kp.id) })),
+  }))
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
@@ -230,21 +232,26 @@ function KurumLayoutInner() {
                   {!platformAdmin && (
                     <option value="" style={{ background: '#1B3A6B' }}>— Kurum seçin —</option>
                   )}
-                  {secilebilir.map(k => (
-                    <option key={k.id} value={k.id} style={{ background: '#1B3A6B' }}>
-                      {kurumEtiketi(k)}
-                    </option>
-                  ))}
+                  {kurumGruplari.flatMap(({ root, kampusGruplari }) => [
+                    /* Root seviyesi */
+                    platformAdmin && (
+                      <optgroup key={`root-${root.id}`} label={`🏛 ${root.ad.toUpperCase()}`}>
+                        <option value={root.id} style={{ background: '#1B3A6B' }}>🏛 {root.ad}</option>
+                      </optgroup>
+                    ),
+                    /* Kampüs ve altKurumlar */
+                    ...kampusGruplari.map(({ kampus, altKurumlar }) => (
+                      <optgroup key={kampus.id} label={`  🏫 ${kampus.ad}`}>
+                        <option value={kampus.id} style={{ background: '#1B3A6B' }}>🏫 {kampus.ad}</option>
+                        {altKurumlar.map(ak => (
+                          <option key={ak.id} value={ak.id} style={{ background: '#1B3A6B' }}>
+                            {'  '}└ {ak.ad}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )),
+                  ].filter(Boolean))}
                 </select>
-              )}
-              {secilenKurum && (
-                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginTop: '0.375rem', lineHeight: '1.3' }}>
-                  {secilenKurum.tip === 'kampus'
-                    ? `- ${secilenKurum.ad}`
-                    : secilenKurum.parentId
-                      ? `- ${erisimKurumlar.find(x => x.id === secilenKurum.parentId)?.ad || ''} - ${secilenKurum.ad}`
-                      : secilenKurum.ad}
-                </div>
               )}
             </>
           )}
