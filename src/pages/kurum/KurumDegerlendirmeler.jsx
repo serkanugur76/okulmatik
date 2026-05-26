@@ -420,11 +420,27 @@ export default function KurumDegerlendirmeler() {
           <select value={secilenAltKurumId} onChange={e => updateParam({ ak: e.target.value, s: null })}
             style={{ padding: '6px 10px', border: '1.5px solid ' + (secilenAltKurumId ? '#4F46E5' : '#FCD34D'), borderRadius: '7px', fontSize: '0.875rem', background: '#fff', color: '#374151', cursor: 'pointer', fontWeight: secilenAltKurumId ? '600' : '400' }}>
             <option value="">— Değerlendirme yapılacak okulu seçin —</option>
-            {sayimKurumlar.map(k => {
-              const kampus = erisimKurumlar.find(x => x.id === k.parentId)
-              const label = kampus?.parentId ? `${kampus.ad} · ${k.ad}` : k.ad
-              return <option key={k.id} value={k.id}>{label}</option>
-            })}
+            {(() => {
+              const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
+              const kampusIdler = [...new Set(sayimKurumlar.map(k => k.parentId).filter(Boolean))]
+              const kampusGruplari = kampusIdler
+                .map(kpId => ({
+                  kampus: erisimKurumlar.find(x => x.id === kpId),
+                  altlar: sayimKurumlar
+                    .filter(k => k.parentId === kpId)
+                    .sort((a, b) => (OKUL_SIRA[a.okulTuru] || 9) - (OKUL_SIRA[b.okulTuru] || 9) || (a.ad || '').localeCompare(b.ad || '', 'tr')),
+                }))
+                .filter(g => g.kampus)
+                .sort((a, b) => (a.kampus.ad || '').localeCompare(b.kampus.ad || '', 'tr'))
+
+              return kampusGruplari.map(({ kampus, altlar }) => (
+                <optgroup key={kampus.id} label={`🏛 ${kampus.ad}`}>
+                  {altlar.map(k => (
+                    <option key={k.id} value={k.id}>{k.ad}</option>
+                  ))}
+                </optgroup>
+              ))
+            })()}
           </select>
         </div>
       )}
