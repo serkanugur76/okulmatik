@@ -33,6 +33,7 @@ export default function KurumSiniflar() {
   const [rubriklerMap, setRubriklerMap]   = useState({})  // kurumId → rubrik[]
   const [acikGruplar, setAcikGruplar]     = useState({})
   const [acikKampusler, setAcikKampusler] = useState({})
+  const [acikSeviyeler, setAcikSeviyeler] = useState({})   // `${kurumId}_${seviye}` → bool
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [modal, setModal]               = useState(false)
@@ -415,11 +416,15 @@ export default function KurumSiniflar() {
                         const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length, 0)
                         const seviyeNo = Number(sev) || 0
                         const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
+                        const sevKey = `${k.id}_${sev}`
+                        const sevAcik = !!acikSeviyeler[sevKey]
                         return (
                           <React.Fragment key={`sev-${sev}`}>
-                            <tr>
+                            <tr onClick={() => setAcikSeviyeler(prev => ({ ...prev, [sevKey]: !prev[sevKey] }))}
+                              style={{ cursor: 'pointer', userSelect: 'none' }}>
                               <td colSpan={6} style={{ padding: '0.5rem 1rem', background: '#F1F5F9', borderTop: '2px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: '0.65rem', color: '#94A3B8' }}>{sevAcik ? '▼' : '▶'}</span>
                                   <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>{sev ? `${sev}. Sınıf` : 'Seviyesiz'}</span>
                                   <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{sevSiniflar.length} şube · {sevSayiOgrenci} öğrenci</span>
                                   {sevRubrikler.length > 0 && (
@@ -432,13 +437,13 @@ export default function KurumSiniflar() {
                                 </div>
                               </td>
                             </tr>
-                            {sevSiniflar.map(sinif => {
+                            {sevAcik && sevSiniflar.map(sinif => {
                               const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
                               const sinifSeviye = Number(sinif.seviye) || 0
                               const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye))
                               return (
                                 <tr key={sinif.id}>
-                                  <td style={s.td}><strong>{sinif.ad}</strong></td>
+                                  <td style={{ ...s.td, paddingLeft: '2rem' }}><strong>{sinif.ad}</strong></td>
                                   <td style={s.td}>{sinif.sube || '—'}</td>
                                   <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center' }}>{sinifOgrenciSayisi}</td>
                                   <td style={s.td}>
