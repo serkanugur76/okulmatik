@@ -10,6 +10,7 @@ const ADMIN_MENULER = [
   { yol: '/kurum/kullanicilar',      etiket: 'Kullanıcılar',     ikon: '👥' },
   { yol: '/kurum/rubrikler',         etiket: 'Rubrikler',        ikon: '📋' },
   { yol: '/kurum/degerlendirmeler',  etiket: 'Değerlendirmeler', ikon: '📝' },
+  { yol: '/kurum/mentor',            etiket: 'Mentor',           ikon: '🎓' },
   { yol: '/kurum/hakkinda',          etiket: 'Hakkında',         ikon: 'ℹ️' },
 ]
 
@@ -18,6 +19,7 @@ const OGRETMEN_MENULER = [
   { yol: '/kurum',                   etiket: 'Dashboard',        ikon: '📊' },
   { yol: '/kurum/rubrikler',         etiket: 'Rubrikler',        ikon: '📋' },
   { yol: '/kurum/degerlendirmeler',  etiket: 'Değerlendirmeler', ikon: '📝' },
+  { yol: '/kurum/mentor',            etiket: 'Mentor',           ikon: '🎓' },
   { yol: '/kurum/hakkinda',          etiket: 'Hakkında',         ikon: 'ℹ️' },
 ]
 

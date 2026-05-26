@@ -14,6 +14,7 @@ import KurumOgrenciler        from './pages/kurum/KurumOgrenciler'
 import KurumKullanicilar      from './pages/kurum/KurumKullanicilar'
 import KurumRubrikler         from './pages/kurum/KurumRubrikler'
 import KurumDegerlendirmeler  from './pages/kurum/KurumDegerlendirmeler'
+import KurumMentor            from './pages/kurum/KurumMentor'
 import Hakkinda               from './pages/Hakkinda'
 import PlatformLoglar         from './pages/platform/PlatformLoglar'
 
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="kurum/kullanicilar"     element={<KurumKullanicilar />} />
             <Route path="kurum/rubrikler"        element={<KurumRubrikler />} />
             <Route path="kurum/degerlendirmeler" element={<KurumDegerlendirmeler />} />
+            <Route path="kurum/mentor"           element={<KurumMentor />} />
             <Route path="hakkinda"               element={<Hakkinda />} />
             <Route path="loglar"                 element={<PlatformLoglar />} />
           </Route>
@@ -75,6 +77,7 @@ export default function App() {
             <Route path="kullanicilar" element={<KurumKullanicilar />} />
             <Route path="rubrikler"         element={<KurumRubrikler />} />
             <Route path="degerlendirmeler" element={<KurumDegerlendirmeler />} />
+            <Route path="mentor"           element={<KurumMentor />} />
             <Route path="hakkinda"         element={<Hakkinda />} />
           </Route>
           <Route path="/ogretmen/*" element={<Navigate to="/kurum" replace />} />
