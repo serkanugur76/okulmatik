@@ -172,15 +172,30 @@ function KurumLayoutInner() {
     ? erisimKurumlar
     : erisimKurumlar.filter(k => k.parentId)
 
+  // Okul seviyesi sıralama: ilkokul → ortaokul → lise
+  function okulSira(ad = '') {
+    const s = ad.toLowerCase()
+    if (s.includes('ilkokul'))  return 1
+    if (s.includes('ortaokul')) return 2
+    if (s.includes('lise'))     return 3
+    return 4
+  }
+
   // optgroup yapısı: root → [ { kampus, altlar[] } ]
   const rootlar   = erisimKurumlar.filter(k => !k.parentId)
   const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
+    .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
   const altlar    = erisimKurumlar.filter(k => k.tip === 'altKurum')
   const kurumGruplari = rootlar.map(root => ({
     root,
     kampusGruplari: kampusler
       .filter(k => k.parentId === root.id)
-      .map(kp => ({ kampus: kp, altKurumlar: altlar.filter(k => k.parentId === kp.id) })),
+      .map(kp => ({
+        kampus: kp,
+        altKurumlar: altlar
+          .filter(k => k.parentId === kp.id)
+          .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr')),
+      })),
   }))
 
   return (

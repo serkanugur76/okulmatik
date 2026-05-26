@@ -62,14 +62,23 @@ export default function KurumKullanicilar() {
   const { kullanici, kurumId: kullanicininKurumId, platformAdmin } = useAuth()
   const { secilenKurumId: kurumId, erisimKurumlar } = useKurumYonetim()
 
-  // Kurum hiyerarşisi
+  // Okul seviyesi sıralama: ilkokul → ortaokul → lise
+  function okulSira(ad = '') {
+    const s = ad.toLowerCase()
+    if (s.includes('ilkokul'))  return 1
+    if (s.includes('ortaokul')) return 2
+    if (s.includes('lise'))     return 3
+    return 4
+  }
+
+  // Kurum hiyerarşisi — kampüsler alfabetik, altKurumlar okul seviyesine göre
   const rootKurumlar   = erisimKurumlar.filter(k => !k.parentId)
-  const kampusKurumlar = erisimKurumlar.filter(k => k.parentId && !erisimKurumlar.find(x => x.id === k.parentId)?.parentId)
-  const altKurumlar    = erisimKurumlar.filter(k => {
-    if (!k.parentId) return false
-    const u = erisimKurumlar.find(x => x.id === k.parentId)
-    return !!u?.parentId
-  })
+  const kampusKurumlar = erisimKurumlar
+    .filter(k => k.parentId && !erisimKurumlar.find(x => x.id === k.parentId)?.parentId)
+    .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+  const altKurumlar    = erisimKurumlar
+    .filter(k => { if (!k.parentId) return false; const u = erisimKurumlar.find(x => x.id === k.parentId); return !!u?.parentId })
+    .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
 
   // Kullanıcının kendi seviyesi → hangi rolleri atayabilir
   const kullanicininKurumu  = erisimKurumlar.find(k => k.id === kullanicininKurumId)
