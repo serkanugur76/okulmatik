@@ -134,6 +134,7 @@ function OgretmenKurumSecici({ erisimKurumlar, atananKurumIds, onSec, profil, on
 // ── Ana Layout ────────────────────────────────────────────────────────────────
 function KurumLayoutInner() {
   const { profil, cikisYap, platformAdmin } = useAuth()
+
   const {
     erisimKurumlar, secilenKurumId, secilenKurum,
     setSecilenKurumId, yukleniyor,
@@ -216,6 +217,19 @@ function KurumLayoutInner() {
       })),
   }))
 
+  // ── Rol rozeti ────────────────────────────────────────────
+  const kullanicininKurumu = erisimKurumlar.find(k => k.id === profil?.kurumId)
+  const rozet = (() => {
+    if (ogretmenModu) return { etiket: 'Öğretmen', renk: '#34D399', bg: 'rgba(52,211,153,0.18)' }
+    if (profil?.rol === 'kurum_admin') {
+      const tip = kullanicininKurumu?.tip
+      if (tip === 'kampus')   return { etiket: 'Kampüs Admin',  renk: '#60A5FA', bg: 'rgba(96,165,250,0.18)' }
+      if (tip === 'altKurum') return { etiket: 'Okul Admin',    renk: '#C084FC', bg: 'rgba(192,132,252,0.18)' }
+      return                          { etiket: 'Kurum Admin',  renk: '#FCD34D', bg: 'rgba(252,211,77,0.18)' }
+    }
+    return null
+  })()
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
       <aside style={{
@@ -223,7 +237,20 @@ function KurumLayoutInner() {
         display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0,
       }}>
         <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>📚 Okulmatik</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: rozet ? '0.5rem' : '0' }}>
+            <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>📚 Okulmatik</div>
+            {rozet && (
+              <span style={{
+                fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.04em',
+                color: rozet.renk, background: rozet.bg,
+                border: `1px solid ${rozet.renk}40`,
+                borderRadius: '999px', padding: '2px 8px',
+                whiteSpace: 'nowrap',
+              }}>
+                {rozet.etiket}
+              </span>
+            )}
+          </div>
 
           {/* ── Öğretmen modu: okul bilgisi + değiştir butonu ── */}
           {ogretmenModu ? (
