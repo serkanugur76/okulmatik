@@ -249,12 +249,12 @@ export default function KurumRubrikler() {
       const veri = { ad: form.ad.trim(), ders: form.ders.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler, hedefSeviyeler: form.hedefSeviyeler }
       if (duzenlenen) {
         await updateDoc(doc(db, 'kurumlar', saveKurumId, 'rubrikler', duzenlenen.id), veri)
-        logKaydet({ profil, islem: 'guncelle', modul: 'rubrikler', hedefAd: veri.ad, kurumId: saveKurumId, detay: veri.ders })
+        logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'rubrikler', hedefAd: veri.ad, kurumId: saveKurumId, detay: veri.ders })
       } else {
         await addDoc(collection(db, 'kurumlar', saveKurumId, 'rubrikler'), {
           ...veri, olusturmaTarihi: serverTimestamp(),
         })
-        logKaydet({ profil, islem: 'olustur', modul: 'rubrikler', hedefAd: veri.ad, kurumId: saveKurumId, detay: veri.ders })
+        logKaydet({ profil, kullanici, islem: 'olustur', modul: 'rubrikler', hedefAd: veri.ad, kurumId: saveKurumId, detay: veri.ders })
       }
       modalKapat()
     } catch (err) { setHata('Kayıt hatası: ' + err.message) }
@@ -338,7 +338,7 @@ export default function KurumRubrikler() {
   async function sil(rubrik) {
     if (!window.confirm(`"${rubrik.ad}" rubriğini silmek istediğinize emin misiniz?`)) return
     await deleteDoc(doc(db, 'kurumlar', rubrik._kurumId || hedefKurumId, 'rubrikler', rubrik.id))
-    logKaydet({ profil, islem: 'sil', modul: 'rubrikler', hedefAd: rubrik.ad, kurumId: rubrik._kurumId || hedefKurumId, detay: rubrik.ders })
+    logKaydet({ profil, kullanici, islem: 'sil', modul: 'rubrikler', hedefAd: rubrik.ad, kurumId: rubrik._kurumId || hedefKurumId, detay: rubrik.ders })
   }
 
   // ── Stiller ──────────────────────────────────────────────

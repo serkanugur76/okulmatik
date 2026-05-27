@@ -292,7 +292,7 @@ export default function KurumKullanicilar() {
         const guncellemeDetay = form.rol === 'ogretmen'
           ? `Öğretmen${form.rubrikOlustur ? ' · Koordinatör ✓' : ' · Koordinatör ✗'}${form.branslar?.length ? ' · ' + form.branslar.join(', ') : ''}`
           : form.rol === 'kurum_admin' ? 'Kurum Admin' : form.rol
-        logKaydet({ profil, islem: 'guncelle', modul: 'kullanicilar', hedefAd: form.ad || form.email, kurumId: yeniKurumId, detay: guncellemeDetay })
+        logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'kullanicilar', hedefAd: form.ad || form.email, kurumId: yeniKurumId, detay: guncellemeDetay })
         setBasari('Kullanıcı güncellendi.')
         setTimeout(modalKapat, 1200)
       } else {
@@ -300,7 +300,7 @@ export default function KurumKullanicilar() {
           email: form.email.trim(), rol: form.rol, kurumId, googleAltyapisi,
           ...ogretmenEkstra,
         })
-        logKaydet({ profil, islem: 'davet', modul: 'kullanicilar', hedefAd: form.email.trim(), kurumId, detay: form.rol })
+        logKaydet({ profil, kullanici, islem: 'davet', modul: 'kullanicilar', hedefAd: form.email.trim(), kurumId, detay: form.rol })
         setBasari(`Davet gönderildi: ${form.email}`)
         setTimeout(modalKapat, 1500)
       }
@@ -314,7 +314,7 @@ export default function KurumKullanicilar() {
   async function davetSil(email) {
     if (!confirm(`${email} davetini iptal etmek istediğinize emin misiniz?`)) return
     await davetIptal(email)
-    logKaydet({ profil, islem: 'davetIptal', modul: 'kullanicilar', hedefAd: email, kurumId })
+    logKaydet({ profil, kullanici, islem: 'davetIptal', modul: 'kullanicilar', hedefAd: email, kurumId })
   }
 
   async function kullaniciSil(k) {
@@ -335,7 +335,7 @@ export default function KurumKullanicilar() {
         if (kid !== kurumIdsi) batch.delete(doc(db, 'kurumlar', kid, 'kullanicilar', uid))
       })
       await batch.commit()
-      logKaydet({ profil, islem: 'sil', modul: 'kullanicilar', hedefAd: k.ad || k.email, kurumId: k.kurumId || k._kurumId || '', detay: k.rol })
+      logKaydet({ profil, kullanici, islem: 'sil', modul: 'kullanicilar', hedefAd: k.ad || k.email, kurumId: k.kurumId || k._kurumId || '', detay: k.rol })
     } catch (err) {
       alert('Silme hatası: ' + err.message)
     }

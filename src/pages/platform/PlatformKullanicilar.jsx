@@ -35,7 +35,7 @@ const BOŞ_FORM = {
 }
 
 export default function PlatformKullanicilar() {
-  const { profil } = useAuth()
+  const { profil, kullanici } = useAuth()
   const [kullanicilar, setKullanicilar] = useState([])
   const [bekleyenler, setBekleyenler]   = useState([])
   const [kurumlar, setKurumlar]         = useState([])
@@ -252,14 +252,14 @@ export default function PlatformKullanicilar() {
         const detay = form.rol === 'ogretmen'
           ? `Öğretmen${form.rubrikOlustur ? ' · Koordinatör ✓' : ' · Koordinatör ✗'}${form.branslar?.length ? ' · ' + form.branslar.join(', ') : ''}`
           : form.rol === 'kurum_admin' ? 'Kurum Admin' : form.rol
-        logKaydet({ profil, islem: 'guncelle', modul: 'kullanicilar', hedefAd: form.ad || form.email, detay, kurumId: yeniKurumId })
+        logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'kullanicilar', hedefAd: form.ad || form.email, detay, kurumId: yeniKurumId })
         setBasari('Kullanıcı güncellendi.')
         setTimeout(modalKapat, 1200)
       } else {
         const secilenKurum = kurumlar.find(k => k.id === form.kurumId)
         const googleAltyapisi = !!secilenKurum?.googleAltyapisi
         await davetEt({ email: form.email.trim(), rol: form.rol, kurumId: form.kurumId || null, googleAltyapisi, ...ogretmenEkstra })
-        logKaydet({ profil, islem: 'davet', modul: 'kullanicilar', hedefAd: form.email.trim(), detay: form.rol, kurumId: form.kurumId })
+        logKaydet({ profil, kullanici, islem: 'davet', modul: 'kullanicilar', hedefAd: form.email.trim(), detay: form.rol, kurumId: form.kurumId })
         setBasari(`Davet gönderildi: ${form.email}`)
         setTimeout(modalKapat, 1500)
       }
@@ -273,7 +273,7 @@ export default function PlatformKullanicilar() {
   async function davetSil(email) {
     if (!confirm(`${email} davetini iptal etmek istediğinize emin misiniz?`)) return
     await davetIptal(email)
-    logKaydet({ profil, islem: 'davetIptal', modul: 'kullanicilar', hedefAd: email })
+    logKaydet({ profil, kullanici, islem: 'davetIptal', modul: 'kullanicilar', hedefAd: email })
   }
 
   const s = {

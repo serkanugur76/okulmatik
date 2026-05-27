@@ -51,7 +51,7 @@ function OrtBadge({ ort }) {
 
 // ── Ana Bileşen ───────────────────────────────────────────────────────────────
 export default function KurumMentor() {
-  const { profil } = useAuth()
+  const { profil, kullanici } = useAuth()
   const { secilenKurumId, ogretmenModu, erisimKurumlar } = useKurumYonetim()
 
   // ── Veri ──────────────────────────────────────────────────
@@ -125,7 +125,7 @@ export default function KurumMentor() {
     ),
   [ogretmenler, hedefKurumId])
 
-  const benimAtamam      = ogretmenModu ? atamalar.find(a => a.ogretmenId === profil?.uid) : null
+  const benimAtamam      = ogretmenModu ? atamalar.find(a => a.ogretmenId === kullanici?.uid) : null
   const benimOgrencilerim = benimAtamam?.ogrenciler || []
 
   const raporIndex = useMemo(() => {
@@ -177,7 +177,7 @@ export default function KurumMentor() {
         kurumId: hedefKurumId,
         guncellenmeTarihi: serverTimestamp(),
       })
-      logKaydet({ profil, islem: 'guncelle', modul: 'mentor', hedefAd: ogretmen?.ad || '', kurumId: hedefKurumId, detay: `${secilenOgr.length} öğrenci atandı` })
+      logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'mentor', hedefAd: ogretmen?.ad || '', kurumId: hedefKurumId, detay: `${secilenOgr.length} öğrenci atandı` })
       setAtamaModal(false)
     } catch (err) { setAtamaHata(err.message) }
     finally { setAtamaKayded(false) }
@@ -186,7 +186,7 @@ export default function KurumMentor() {
   async function atamaKaldir(ogretmenId, ogretmenAd) {
     if (!confirm(`${ogretmenAd} öğretmeninin tüm mentor atamalarını kaldırmak istediğinize emin misiniz?`)) return
     await deleteDoc(doc(db, 'kurumlar', hedefKurumId, 'mentorAtamalari', ogretmenId))
-    logKaydet({ profil, islem: 'sil', modul: 'mentor', hedefAd: ogretmenAd, kurumId: hedefKurumId, detay: 'atama silindi' })
+    logKaydet({ profil, kullanici, islem: 'sil', modul: 'mentor', hedefAd: ogretmenAd, kurumId: hedefKurumId, detay: 'atama silindi' })
   }
 
   // ── Değerlendirme İşlemleri ───────────────────────────────
@@ -211,14 +211,14 @@ export default function KurumMentor() {
         ogrenciId: o.id, ogrenciAd: o.ad || '', ogrenciSoyad: o.soyad || '',
         sinifId: o.sinifId || '', sinifAd: sinif?.ad || o.sinifAd || '',
         donem,
-        mentorOgretmenId: profil?.uid || '', mentorOgretmenAd: profil?.ad || '',
+        mentorOgretmenId: kullanici?.uid || '', mentorOgretmenAd: profil?.ad || '',
         yorum: degForm.yorum || '',
-        degerlendiriciId: profil?.uid || '', degerlendiriciAd: profil?.ad || profil?.email || '',
+        degerlendiriciId: kullanici?.uid || '', degerlendiriciAd: profil?.ad || profil?.email || '',
         guncellenmeTarihi: serverTimestamp(),
       }
       KRITERLER.forEach(k => { veri[k.id] = degForm[k.id] })
       await setDoc(doc(db, 'kurumlar', hedefKurumId, 'mentorRaporlari', `${o.id}_d${donem}`), veri)
-      logKaydet({ profil, islem: 'guncelle', modul: 'mentor', hedefAd: `${o.ad} ${o.soyad}`, kurumId: hedefKurumId, detay: `Dönem ${donem} raporu` })
+      logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'mentor', hedefAd: `${o.ad} ${o.soyad}`, kurumId: hedefKurumId, detay: `Dönem ${donem} raporu` })
       setDegModal(null)
     } catch (err) { setDegHata(err.message) }
     finally { setDegKayded(false) }

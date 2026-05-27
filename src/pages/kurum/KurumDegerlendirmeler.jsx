@@ -47,7 +47,7 @@ function OrtBadge({ ort }) {
 
 export default function KurumDegerlendirmeler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
-  const { profil } = useAuth()
+  const { profil, kullanici } = useAuth()
 
   const ust    = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
@@ -267,7 +267,7 @@ export default function KurumDegerlendirmeler() {
           })
         })
       )
-      logKaydet({ profil, islem: 'guncelle', modul: 'degerlendirmeler', hedefAd: secilenRubrik?.ad || '', kurumId: hedefKurumId, detay: `${Object.keys(degisiklikler).length} öğrenci, Dönem ${secilenDonem}` })
+      logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'degerlendirmeler', hedefAd: secilenRubrik?.ad || '', kurumId: hedefKurumId, detay: `${Object.keys(degisiklikler).length} öğrenci, Dönem ${secilenDonem}` })
       setDegisiklikler({})
     } catch (err) { alert('Kayıt hatası: ' + err.message) }
     finally { setKaydediyor(false) }

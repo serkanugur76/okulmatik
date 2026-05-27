@@ -32,7 +32,7 @@ const ŞABLON_ÖRNEK    = ['Ali Yılmaz', '12345678901', '5-A', 'Ayşe Yılmaz',
 
 export default function KurumSiniflar() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
-  const { profil } = useAuth()
+  const { profil, kullanici } = useAuth()
 
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
@@ -168,10 +168,10 @@ export default function KurumSiniflar() {
     try {
       if (duzenlenen) {
         await updateDoc(doc(db, 'kurumlar', hedefKurumId, 'siniflar', duzenlenen.id), { ad: form.ad, seviye: form.seviye, sube: form.sube })
-        logKaydet({ profil, islem: 'guncelle', modul: 'siniflar', hedefAd: form.ad, kurumId: hedefKurumId })
+        logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'siniflar', hedefAd: form.ad, kurumId: hedefKurumId })
       } else {
         await addDoc(collection(db, 'kurumlar', hedefKurumId, 'siniflar'), { ...form, olusturmaTarihi: serverTimestamp() })
-        logKaydet({ profil, islem: 'olustur', modul: 'siniflar', hedefAd: form.ad, kurumId: hedefKurumId })
+        logKaydet({ profil, kullanici, islem: 'olustur', modul: 'siniflar', hedefAd: form.ad, kurumId: hedefKurumId })
       }
       modalKapat()
     } catch (err) { setHata('Kayıt hatası: ' + err.message) }
@@ -181,7 +181,7 @@ export default function KurumSiniflar() {
   async function sil(sinif) {
     if (!window.confirm('Bu sınıfı silmek istediğinize emin misiniz?')) return
     await deleteDoc(doc(db, 'kurumlar', sinif._kurumId, 'siniflar', sinif.id))
-    logKaydet({ profil, islem: 'sil', modul: 'siniflar', hedefAd: sinif.ad, kurumId: sinif._kurumId })
+    logKaydet({ profil, kullanici, islem: 'sil', modul: 'siniflar', hedefAd: sinif.ad, kurumId: sinif._kurumId })
   }
 
   // ── Öğretmen atama ──────────────────────────────────────
@@ -336,7 +336,7 @@ export default function KurumSiniflar() {
         })
       })
       await batch.commit()
-      logKaydet({ profil, islem: 'yukle', modul: 'ogrenciler', hedefAd: `${yazilacaklar.length} öğrenci`, kurumId: hedefKurumId, detay: importSinif ? `Sınıf: ${importSinif.ad}` : 'Toplu sınıf yüklemesi' })
+      logKaydet({ profil, kullanici, islem: 'yukle', modul: 'ogrenciler', hedefAd: `${yazilacaklar.length} öğrenci`, kurumId: hedefKurumId, detay: importSinif ? `Sınıf: ${importSinif.ad}` : 'Toplu sınıf yüklemesi' })
       importKapat()
     } catch (err) {
       setImportHata('Kayıt hatası: ' + err.message)
