@@ -59,9 +59,50 @@ export default function KurumKulupler() {
   const [etkTip, setEtkTip] = useState('turnuva') // turnuva, yarisma, sergi, diger
   const [etkAciklama, setEtkAciklama] = useState('')
 
+  const activeTip = useMemo(() => {
+    return erisimKurumlar.find(k => k.id === secilenKurumId)?.tip
+  }, [erisimKurumlar, secilenKurumId])
+
+  const sorguIds = useMemo(() => {
+    if (!secilenKurumId) return []
+    
+    // 1. Alt kurumları (descendants) bul
+    let descendants = []
+    if (activeTip === 'kampus') {
+      descendants = erisimKurumlar.filter(k => k.parentId === secilenKurumId).map(k => k.id)
+    } else if (activeTip === 'kurum') {
+      descendants = erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId).map(k => k.id)
+    }
+
+    // 2. Üst kurumları (ancestors) bul
+    const ancestors = []
+    let currId = secilenKurumId
+    while (currId) {
+      const currObj = erisimKurumlar.find(k => k.id === currId)
+      if (!currObj) break
+      
+      const pId = currObj.parentId
+      if (pId && pId !== currId && !ancestors.includes(pId)) {
+        ancestors.push(pId)
+        currId = pId
+      } else {
+        const rId = currObj.rootKurumId
+        if (rId && rId !== currId && !ancestors.includes(rId)) {
+          ancestors.push(rId)
+        }
+        break
+      }
+    }
+
+    const uniqueIds = new Set([secilenKurumId, ...descendants, ...ancestors])
+    return [...uniqueIds]
+  }, [secilenKurumId, erisimKurumlar, activeTip])
+
+  const sorguIdsKey = sorguIds.join(',')
+
   // Firestore Dinleyicileri (onSnapshot)
   useEffect(() => {
-    if (!secilenKurumId) return
+    if (!secilenKurumId || sorguIds.length === 0) return
     setYukleniyor(true)
 
     // 1. Kulüpleri Dinle
@@ -75,40 +116,42 @@ export default function KurumKulupler() {
       setYukleniyor(false)
     })
 
-    // Hiyerarşik kurum listesini çıkar (Öğretmenler ve Öğrenciler için)
-    const secilenTip = erisimKurumlar.find(k => k.id === secilenKurumId)?.tip
-    const sorguIds = secilenTip === 'altKurum'
-      ? [secilenKurumId]
-      : secilenTip === 'kampus'
-        ? [secilenKurumId, ...erisimKurumlar.filter(k => k.parentId === secilenKurumId).map(k => k.id)]
-        : [secilenKurumId, ...erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId).map(k => k.id)]
+    const unsubs = []
 
-    // 2. Öğretmenleri (Kullanıcıları) Dinle (Tüm ilgili kurumlardan)
+    // 2. Öğretmenleri (Kullanıcıları) Dinle (Tüm hiyerarşik kurumlardan)
     const ogrParcalar = {}
-    const unsubOgretmenlerList = sorguIds.map(kid => {
-      return onSnapshot(collection(db, 'kurumlar', kid, 'kullanicilar'), (snap) => {
+    sorguIds.forEach(kid => {
+      const unsub = onSnapshot(collection(db, 'kurumlar', kid, 'kullanicilar'), (snap) => {
         ogrParcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.rol === 'ogretmen')
         const birlesik = [...new Map(Object.values(ogrParcalar).flat().map(o => [o.id, o])).values()]
           .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
         setOgretmenler(birlesik)
       })
+      unsubs.push(unsub)
     })
 
-    // 3. Öğrencileri Dinle (Tüm ilgili kurumlardan)
+    // 3. Öğrencileri Dinle (Tüm hiyerarşik kurumlardan)
     const ogrnParcalar = {}
-    const unsubOgrencilerList = sorguIds.map(kid => {
-      return onSnapshot(collection(db, 'kurumlar', kid, 'ogrenciler'), (snap) => {
+    sorguIds.forEach(kid => {
+      const unsub = onSnapshot(collection(db, 'kurumlar', kid, 'ogrenciler'), (snap) => {
         ogrnParcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         const birlesik = [...new Map(Object.values(ogrnParcalar).flat().map(o => [o.id, o])).values()]
           .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
         setOgrenciler(birlesik)
       })
+      unsubs.push(unsub)
     })
 
-    // 4. Rubrikleri Dinle
-    const unsubRubrikler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'rubrikler'), (snap) => {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setRubrikler(list)
+    // 4. Rubrikleri Dinle (Tüm hiyerarşik kurumlardan)
+    const rubrikParcalar = {}
+    sorguIds.forEach(kid => {
+      const unsub = onSnapshot(collection(db, 'kurumlar', kid, 'rubrikler'), (snap) => {
+        rubrikParcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        const birlesik = [...new Map(Object.values(rubrikParcalar).flat().map(r => [r.id, r])).values()]
+          .sort((a, b) => (a.baslik || '').localeCompare(b.baslik || '', 'tr'))
+        setRubrikler(birlesik)
+      })
+      unsubs.push(unsub)
     })
 
     // 5. Yoklamaları Dinle
@@ -116,22 +159,20 @@ export default function KurumKulupler() {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setYoklamalar(list)
     })
+    unsubs.push(unsubYoklamalar)
 
     // 6. Etkinlikleri Dinle
     const unsubEtkinlikler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'kulupEtkinlikleri'), (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setEtkinlikler(list)
     })
+    unsubs.push(unsubEtkinlikler)
 
     return () => {
       unsubKulupler()
-      unsubOgretmenlerList.forEach(u => u())
-      unsubOgrencilerList.forEach(u => u())
-      unsubRubrikler()
-      unsubYoklamalar()
-      unsubEtkinlikler()
+      unsubs.forEach(u => u())
     }
-  }, [secilenKurumId, erisimKurumlar.map(k => k.id).join(',')])
+  }, [secilenKurumId, sorguIdsKey])
 
   // Öğretmenin sorumlu olduğu kulüpler
   const goruntulenenKulupler = useMemo(() => {
