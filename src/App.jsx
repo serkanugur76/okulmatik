@@ -19,6 +19,7 @@ import Hakkinda               from './pages/Hakkinda'
 import PlatformLoglar         from './pages/platform/PlatformLoglar'
 import KurumKutuphane         from './pages/kurum/KurumKutuphane'
 import KurumOgretmenler       from './pages/kurum/KurumOgretmenler'
+import KurumNobet             from './pages/kurum/KurumNobet'
 import PlatformSistemIslemleri from './pages/platform/PlatformSistemIslemleri'
 
 function KorunanRoute({ izinliRoller, children }) {
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="kurum/degerlendirmeler" element={<KurumDegerlendirmeler />} />
             <Route path="kurum/mentor"           element={<KurumMentor />} />
             <Route path="kurum/ogretmenler"      element={<KurumOgretmenler />} />
+            <Route path="kurum/nobet"            element={<KurumNobet />} />
             <Route path="kurum/kutuphane"        element={<KurumKutuphane />} />
             <Route path="hakkinda"               element={<Hakkinda />} />
             <Route path="loglar"                 element={<PlatformLoglar />} />
@@ -85,6 +87,7 @@ export default function App() {
             <Route path="degerlendirmeler" element={<KurumDegerlendirmeler />} />
             <Route path="mentor"           element={<KurumMentor />} />
             <Route path="ogretmenler"      element={<KurumOgretmenler />} />
+            <Route path="nobet"            element={<KurumNobet />} />
             <Route path="kutuphane"        element={<KurumKutuphane />} />
             <Route path="hakkinda"         element={<Hakkinda />} />
           </Route>
