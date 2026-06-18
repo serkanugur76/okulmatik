@@ -248,8 +248,8 @@ export default function KurumKulupler() {
     })
     unsubs.push(unsubTalepler)
 
-    // 8. Belirli Günleri Dinle
-    const unsubBelirliGunler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'belirliGunler'), (snap) => {
+    // 8. Belirli Günleri Dinle (Global koleksiyon)
+    const unsubBelirliGunler = onSnapshot(collection(db, 'belirliGunler'), (snap) => {
       setBelirliGunler(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     })
     unsubs.push(unsubBelirliGunler)
@@ -938,34 +938,19 @@ export default function KurumKulupler() {
       let tatilNedeni = ''
       let tatilMi = false
 
+      const pztYmd = `${pzt.getFullYear()}-${String(pzt.getMonth() + 1).padStart(2, '0')}-${String(pzt.getDate()).padStart(2, '0')}`
+      const cumaYmd = `${cuma.getFullYear()}-${String(cuma.getMonth() + 1).padStart(2, '0')}-${String(cuma.getDate()).padStart(2, '0')}`
+
       for (const bg of belirliGunler) {
-        if (!bg.tatilMi) continue
+        if (!bg.tatilMi || !bg.baslangicTarihi) continue
 
-        const aralik = bg.tarihAraligi || ''
-        if (aralik.includes('-')) {
-          const [basPart, bitPart] = aralik.split('-').map(x => x.trim())
-          const [basG, basA] = basPart.split('.').map(Number)
-          const [bitG, bitA] = bitPart.split('.').map(Number)
+        const basYmd = bg.baslangicTarihi
+        const bitYmd = bg.bitisTarihi || basYmd
 
-          const tatilYil = pzt.getFullYear()
-          const tatilBas = new Date(tatilYil, basA - 1, basG)
-          const tatilBit = new Date(tatilYil, bitA - 1, bitG)
-
-          if (pzt <= tatilBit && cuma >= tatilBas) {
-            tatilMi = true
-            tatilNedeni = bg.baslik
-            break
-          }
-        } else {
-          const [g, a] = aralik.split('.').map(Number)
-          const tatilYil = pzt.getFullYear()
-          const tatilGun = new Date(tatilYil, a - 1, g)
-
-          if (tatilGun >= pzt && tatilGun <= cuma) {
-            tatilMi = true
-            tatilNedeni = bg.baslik
-            break
-          }
+        if (basYmd <= cumaYmd && bitYmd >= pztYmd) {
+          tatilMi = true
+          tatilNedeni = bg.baslik
+          break
         }
       }
 

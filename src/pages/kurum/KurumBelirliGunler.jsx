@@ -18,42 +18,34 @@ export default function KurumBelirliGunler() {
   const [asistanModal, setAsistanModal] = useState(false)
   const [kaydediyor, setKaydediyor] = useState(false)
 
-  // Asistan Form State'leri (Ara tatil, sömestr ve bayram tarihleri)
-  const [araTatil1Bas, setAraTatil1Bas] = useState('16.11')
-  const [araTatil1Bit, setAraTatil1Bit] = useState('20.11')
-  const [somestrBas, setSomestrBas] = useState('25.01')
-  const [somestrBit, setSomestrBit] = useState('05.02')
-  const [araTatil2Bas, setAraTatil2Bas] = useState('12.04')
-  const [araTatil2Bit, setAraTatil2Bit] = useState('16.04')
+  // Rol kontrolü: Sadece platform yöneticisi düzenleme yapabilir
+  const platformAdmin = profil?.rol === 'platform_admin'
+
+  // Manuel Ekleme Form State'leri
+  const [manuelBaslik, setManuelBaslik] = useState('')
+  const [manuelBaslangic, setManuelBaslangic] = useState('')
+  const [manuelBitis, setManuelBitis] = useState('')
+  const [manuelTatilMi, setManuelTatilMi] = useState(false)
+
+  // Asistan Form State'leri (Artık date-picker takvim girdileri olacak)
+  const [akademikYil, setAkademikYil] = useState(new Date().getFullYear())
+  const [araTatil1Bas, setAraTatil1Bas] = useState('')
+  const [araTatil1Bit, setAraTatil1Bit] = useState('')
+  const [somestrBas, setSomestrBas] = useState('')
+  const [somestrBit, setSomestrBit] = useState('')
+  const [araTatil2Bas, setAraTatil2Bas] = useState('')
+  const [araTatil2Bit, setAraTatil2Bit] = useState('')
   const [ramazanBas, setRamazanBas] = useState('')
   const [ramazanBit, setRamazanBit] = useState('')
   const [kurbanBas, setKurbanBas] = useState('')
   const [kurbanBit, setKurbanBit] = useState('')
 
-  // Firestore Dinleyicisi
+  // Global Firestore Dinleyicisi
   useEffect(() => {
-    if (!secilenKurumId) {
-      setBelirliGunler([])
-      setYukleniyor(false)
-      return
-    }
     setYukleniyor(true)
-    const q = query(collection(db, 'kurumlar', secilenKurumId, 'belirliGunler'), orderBy('olusturmaTarihi', 'desc'))
+    const q = query(collection(db, 'belirliGunler'), orderBy('baslangicTarihi', 'asc'))
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      // Akademik takvim yılı sıralaması: Eylül'den (9) başlayıp Haziran'a (6) kadar kronolojik sıralama
-      list.sort((a, b) => {
-        const parseTarih = (str) => {
-          if (!str) return 9999
-          const ilkKisim = str.split('-')[0].trim()
-          const [gun, ay] = ilkKisim.split('.').map(Number)
-          if (!ay || !gun) return 9999
-          // Eylül (9) ay sırası 0, Ekim (10) -> 1, ..., Ocak (1) -> 4, ..., Haziran (6) -> 9
-          const okulYiliAySira = ay >= 9 ? ay - 9 : ay + 3
-          return okulYiliAySira * 100 + gun
-        }
-        return parseTarih(a.tarihAraligi) - parseTarih(b.tarihAraligi)
-      })
       setBelirliGunler(list)
       setYukleniyor(false)
     }, (err) => {
@@ -61,15 +53,56 @@ export default function KurumBelirliGunler() {
       setYukleniyor(false)
     })
     return () => unsub()
-  }, [secilenKurumId])
+  }, [])
+
+  // Tarih Formatlayıcı Yardımcı (YYYY-MM-DD -> GG.AA.YYYY)
+  function formatTarihTr(tarihStr) {
+    if (!tarihStr) return ''
+    const parts = tarihStr.split('-')
+    if (parts.length !== 3) return tarihStr
+    const [y, a, d] = parts
+    return `${d}.${a}.${y}`
+  }
+
+  // Manuel Belirli Gün Ekle
+  async function handleManuelEkle(e) {
+    e.preventDefault()
+    if (!platformAdmin) return
+    if (!manuelBaslik || !manuelBaslangic) {
+      alert('Lütfen başlık ve başlangıç tarihini seçin.')
+      return
+    }
+
+    setKaydediyor(true)
+    try {
+      await addDoc(collection(db, 'belirliGunler'), {
+        baslik: manuelBaslik,
+        baslangicTarihi: manuelBaslangic,
+        bitisTarihi: manuelBitis || manuelBaslangic,
+        tatilMi: manuelTatilMi,
+        olusturmaTarihi: serverTimestamp()
+      })
+
+      logKaydet({ profil, kullanici, islem: 'olustur', modul: 'belirliGunler', hedefAd: manuelBaslik, kurumId: secilenKurumId || 'sistem' })
+      setManuelBaslik('')
+      setManuelBaslangic('')
+      setManuelBitis('')
+      setManuelTatilMi(false)
+      alert('Kayıt başarıyla eklendi.')
+    } catch (err) {
+      alert('Ekleme sırasında hata oluştu: ' + err.message)
+    } finally {
+      setKaydediyor(false)
+    }
+  }
 
   // Tekil Sil
   async function handleSil(id, baslik) {
-    if (!secilenKurumId) return
-    if (!window.confirm(`"${baslik}" kaydını silmek istediğinize emin misiniz?`)) return
+    if (!platformAdmin) return
+    if (!window.confirm(`"${baslik}" kaydını sistem genelinden silmek istediğinize emin misiniz?`)) return
     try {
-      await deleteDoc(doc(db, 'kurumlar', secilenKurumId, 'belirliGunler', id))
-      logKaydet({ profil, kullanici, islem: 'sil', modul: 'belirliGunler', hedefAd: baslik, kurumId: secilenKurumId })
+      await deleteDoc(doc(db, 'belirliGunler', id))
+      logKaydet({ profil, kullanici, islem: 'sil', modul: 'belirliGunler', hedefAd: baslik, kurumId: secilenKurumId || 'sistem' })
     } catch (err) {
       alert('Kayıt silinirken hata oluştu: ' + err.message)
     }
@@ -77,17 +110,17 @@ export default function KurumBelirliGunler() {
 
   // Tümünü Temizle
   async function handleTumunuTemizle() {
-    if (!secilenKurumId || belirliGunler.length === 0) return
-    if (!window.confirm('Kayıtlı tüm belirli gün ve tatilleri silmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) return
+    if (!platformAdmin || belirliGunler.length === 0) return
+    if (!window.confirm('Sistem genelindeki tüm belirli gün ve tatilleri silmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) return
     
     setKaydediyor(true)
     try {
       const batch = writeBatch(db)
       belirliGunler.forEach(g => {
-        batch.delete(doc(db, 'kurumlar', secilenKurumId, 'belirliGunler', g.id))
+        batch.delete(doc(db, 'belirliGunler', g.id))
       })
       await batch.commit()
-      logKaydet({ profil, kullanici, islem: 'sil', modul: 'belirliGunler', hedefAd: 'Tüm Liste Temizlendi', kurumId: secilenKurumId })
+      logKaydet({ profil, kullanici, islem: 'sil', modul: 'belirliGunler', hedefAd: 'Tüm Liste Temizlendi', kurumId: secilenKurumId || 'sistem' })
       alert('Tüm kayıtlar başarıyla temizlendi.')
     } catch (err) {
       alert('Kayıtlar silinirken hata oluştu: ' + err.message)
@@ -96,105 +129,107 @@ export default function KurumBelirliGunler() {
     }
   }
 
-  // Hazır Şablon Asistanını Kaydet
+  // Hazır MEB Şablon Asistanını Kaydet
   async function handleAsistanKaydet(e) {
     e.preventDefault()
-    if (!secilenKurumId) return
+    if (!platformAdmin) return
     setKaydediyor(true)
     try {
       const batch = writeBatch(db)
       
-      // Önce mevcutları silelim (tercihe bağlı ama temiz kurulum en iyisidir)
+      // Önce mevcutları silelim (temiz kurulum)
       belirliGunler.forEach(g => {
-        batch.delete(doc(db, 'kurumlar', secilenKurumId, 'belirliGunler', g.id))
+        batch.delete(doc(db, 'belirliGunler', g.id))
       })
 
+      const yil = Number(akademikYil)
+      
       // Hazır MEB Takvimi Verileri (Sosyal Etkinlikler Yönetmeliği Ek-8 Çizelgesi)
       const hazirVeriler = [
         // Eylül
-        { tarihAraligi: '15.09-21.09', baslik: 'İlköğretim Haftası', tatilMi: false },
-        { tarihAraligi: '19.09', baslik: 'Gaziler Günü', tatilMi: false },
+        { baslangicTarihi: `${yil}-09-15`, bitisTarihi: `${yil}-09-21`, baslik: 'İlköğretim Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil}-09-19`, bitisTarihi: `${yil}-09-19`, baslik: 'Gaziler Günü', tatilMi: false },
 
         // Ekim
-        { tarihAraligi: '04.10', baslik: 'Hayvanları Koruma Günü', tatilMi: false },
-        { tarihAraligi: '13.10', baslik: 'Dünya Afet Azaltma Günü', tatilMi: false },
-        { tarihAraligi: '29.10', baslik: 'Cumhuriyet Bayramı', tatilMi: true },
-        { tarihAraligi: '29.10-04.11', baslik: 'Kızılay Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil}-10-04`, bitisTarihi: `${yil}-10-04`, baslik: 'Hayvanları Koruma Günü', tatilMi: false },
+        { baslangicTarihi: `${yil}-10-13`, bitisTarihi: `${yil}-10-13`, baslik: 'Dünya Afet Azaltma Günü', tatilMi: false },
+        { baslangicTarihi: `${yil}-10-29`, bitisTarihi: `${yil}-10-29`, baslik: 'Cumhuriyet Bayramı', tatilMi: true },
+        { baslangicTarihi: `${yil}-10-29`, bitisTarihi: `${yil}-11-04`, baslik: 'Kızılay Haftası', tatilMi: false },
 
         // Kasım
-        { tarihAraligi: '03.11-09.11', baslik: 'Organ Bağışı ve Nakli Haftası', tatilMi: false },
-        { tarihAraligi: '10.11', baslik: 'Atatürk\'ü Anma Günü', tatilMi: false },
-        { tarihAraligi: '10.11-16.11', baslik: 'Atatürk Haftası', tatilMi: false },
-        { tarihAraligi: '12.11', baslik: 'Afet Eğitimi Hazırlık Günü', tatilMi: false },
-        { tarihAraligi: '24.11', baslik: 'Öğretmenler Günü', tatilMi: false },
+        { baslangicTarihi: `${yil}-11-03`, bitisTarihi: `${yil}-11-09`, baslik: 'Organ Bağışı ve Nakli Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil}-11-10`, bitisTarihi: `${yil}-11-10`, baslik: 'Atatürk\'ü Anma Günü', tatilMi: false },
+        { baslangicTarihi: `${yil}-11-10`, bitisTarihi: `${yil}-11-16`, baslik: 'Atatürk Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil}-11-12`, bitisTarihi: `${yil}-11-12`, baslik: 'Afet Eğitimi Hazırlık Günü', tatilMi: false },
+        { baslangicTarihi: `${yil}-11-24`, bitisTarihi: `${yil}-11-24`, baslik: 'Öğretmenler Günü', tatilMi: false },
 
         // Aralık
-        { tarihAraligi: '03.12', baslik: 'Dünya Engelliler Günü', tatilMi: false },
-        { tarihAraligi: '10.12-16.12', baslik: 'İnsan Hakları ve Demokrasi Haftası', tatilMi: false },
-        { tarihAraligi: '12.12-18.12', baslik: 'Tutum, Yatırım ve Türk Malları Haftası', tatilMi: false },
-        { tarihAraligi: '20.12-27.12', baslik: 'Mehmet Akif Ersoy\'u Anma Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil}-12-03`, bitisTarihi: `${yil}-12-03`, baslik: 'Dünya Engelliler Günü', tatilMi: false },
+        { baslangicTarihi: `${yil}-12-10`, bitisTarihi: `${yil}-12-16`, baslik: 'İnsan Hakları ve Demokrasi Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil}-12-12`, bitisTarihi: `${yil}-12-18`, baslik: 'Tutum, Yatırım ve Türk Malları Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil}-12-20`, bitisTarihi: `${yil}-12-27`, baslik: 'Mehmet Akif Ersoy\'u Anma Haftası', tatilMi: false },
 
         // Ocak
-        { tarihAraligi: '01.01', baslik: 'Yılbaşı Tatili', tatilMi: true },
-        { tarihAraligi: '11.01-17.01', baslik: 'Enerji Tasarrufu Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-01-01`, bitisTarihi: `${yil + 1}-01-01`, baslik: 'Yılbaşı Tatili', tatilMi: true },
+        { baslangicTarihi: `${yil + 1}-01-11`, bitisTarihi: `${yil + 1}-01-17`, baslik: 'Enerji Tasarrufu Haftası', tatilMi: false },
 
         // Şubat
-        { tarihAraligi: '22.02-28.02', baslik: 'Vergi Haftası', tatilMi: false },
-        { tarihAraligi: '28.02', baslik: 'Sivil Savunma Günü', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-02-22`, bitisTarihi: `${yil + 1}-02-28`, baslik: 'Vergi Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-02-28`, bitisTarihi: `${yil + 1}-02-28`, baslik: 'Sivil Savunma Günü', tatilMi: false },
 
         // Mart
-        { tarihAraligi: '01.03-07.03', baslik: 'Yeşilay Haftası', tatilMi: false },
-        { tarihAraligi: '01.03-07.03', baslik: 'Girişimcilik Haftası', tatilMi: false },
-        { tarihAraligi: '08.03-14.03', baslik: 'Bilim ve Teknoloji Haftası', tatilMi: false },
-        { tarihAraligi: '12.03', baslik: 'İstiklal Marşı\'nın Kabulü ve Mehmet Akif Ersoy\'u Anma Günü', tatilMi: false },
-        { tarihAraligi: '15.03-21.03', baslik: 'Tüketiciyi Koruma Haftası', tatilMi: false },
-        { tarihAraligi: '18.03', baslik: 'Çanakkale Zaferi ve Şehitleri Anma Günü', tatilMi: false },
-        { tarihAraligi: '21.03-26.03', baslik: 'Orman Haftası', tatilMi: false },
-        { tarihAraligi: '27.03', baslik: 'Dünya Tiyatrolar Günü', tatilMi: false },
-        { tarihAraligi: '29.03-04.04', baslik: 'Kütüphane Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-03-01`, bitisTarihi: `${yil + 1}-03-07`, baslik: 'Yeşilay Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-03-01`, bitisTarihi: `${yil + 1}-03-07`, baslik: 'Girişimcilik Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-03-08`, bitisTarihi: `${yil + 1}-03-14`, baslik: 'Bilim ve Teknoloji Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-03-12`, bitisTarihi: `${yil + 1}-03-12`, baslik: 'İstiklal Marşı\'nın Kabulü ve Mehmet Akif Ersoy\'u Anma Günü', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-03-15`, bitisTarihi: `${yil + 1}-03-21`, baslik: 'Tüketiciyi Koruma Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-03-18`, bitisTarihi: `${yil + 1}-03-18`, baslik: 'Çanakkale Zaferi ve Şehitleri Anma Günü', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-03-21`, bitisTarihi: `${yil + 1}-03-26`, baslik: 'Orman Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-03-27`, bitisTarihi: `${yil + 1}-03-27`, baslik: 'Dünya Tiyatrolar Günü', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-03-29`, bitisTarihi: `${yil + 1}-04-04`, baslik: 'Kütüphane Haftası', tatilMi: false },
 
         // Nisan
-        { tarihAraligi: '02.04', baslik: 'Otizm Farkındalık Günü', tatilMi: false },
-        { tarihAraligi: '07.04-13.04', baslik: 'Sağlık Haftası', tatilMi: false },
-        { tarihAraligi: '15.04-22.04', baslik: 'Turizm Haftası', tatilMi: false },
-        { tarihAraligi: '23.04', baslik: 'Ulusal Egemenlik ve Çocuk Bayramı', tatilMi: true },
-        { tarihAraligi: '23.04-29.04', baslik: 'Dünya Kitap Günü ve Kütüphaneler Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-04-02`, bitisTarihi: `${yil + 1}-04-02`, baslik: 'Otizm Farkındalık Günü', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-04-07`, bitisTarihi: `${yil + 1}-04-13`, baslik: 'Sağlık Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-04-15`, bitisTarihi: `${yil + 1}-04-22`, baslik: 'Turizm Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-04-23`, bitisTarihi: `${yil + 1}-04-23`, baslik: 'Ulusal Egemenlik ve Çocuk Bayramı', tatilMi: true },
+        { baslangicTarihi: `${yil + 1}-04-23`, bitisTarihi: `${yil + 1}-04-29`, baslik: 'Dünya Kitap Günü ve Kütüphaneler Haftası', tatilMi: false },
 
         // Mayıs
-        { tarihAraligi: '01.05', baslik: 'Emek ve Dayanışma Günü', tatilMi: true },
-        { tarihAraligi: '01.05-07.05', baslik: 'Bilişim Haftası', tatilMi: false },
-        { tarihAraligi: '01.05-07.05', baslik: 'Trafik ve İlk Yardım Haftası', tatilMi: false },
-        { tarihAraligi: '10.05-16.05', baslik: 'Engelliler Haftası', tatilMi: false },
-        { tarihAraligi: '18.05-24.05', baslik: 'Müzeler Haftası', tatilMi: false },
-        { tarihAraligi: '19.05', baslik: 'Atatürk\'ü Anma, Gençlik ve Spor Bayramı', tatilMi: true },
-        { tarihAraligi: '25.05', baslik: 'Etik Günü', tatilMi: false },
-        { tarihAraligi: '29.05', baslik: 'İstanbul\'un Fethi', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-05-01`, bitisTarihi: `${yil + 1}-05-01`, baslik: 'Emek ve Dayanışma Günü', tatilMi: true },
+        { baslangicTarihi: `${yil + 1}-05-01`, bitisTarihi: `${yil + 1}-05-07`, baslik: 'Bilişim Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-05-01`, bitisTarihi: `${yil + 1}-05-07`, baslik: 'Trafik ve İlk Yardım Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-05-10`, bitisTarihi: `${yil + 1}-05-16`, baslik: 'Engelliler Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-05-18`, bitisTarihi: `${yil + 1}-05-24`, baslik: 'Müzeler Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-05-19`, bitisTarihi: `${yil + 1}-05-19`, baslik: 'Atatürk\'ü Anma, Gençlik ve Spor Bayramı', tatilMi: true },
+        { baslangicTarihi: `${yil + 1}-05-25`, bitisTarihi: `${yil + 1}-05-25`, baslik: 'Etik Günü', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-05-29`, bitisTarihi: `${yil + 1}-05-29`, baslik: 'İstanbul\'un Fethi', tatilMi: false },
 
         // Haziran & Temmuz
-        { tarihAraligi: '05.06-11.06', baslik: 'Çevre Koruma Haftası', tatilMi: false },
-        { tarihAraligi: '15.07', baslik: 'Demokrasi ve Milli Birlik Günü', tatilMi: true }
+        { baslangicTarihi: `${yil + 1}-06-05`, bitisTarihi: `${yil + 1}-06-11`, baslik: 'Çevre Koruma Haftası', tatilMi: false },
+        { baslangicTarihi: `${yil + 1}-07-15`, bitisTarihi: `${yil + 1}-07-15`, baslik: 'Demokrasi ve Milli Birlik Günü', tatilMi: true }
       ]
 
-      // Kullanıcının girdiği değişken tatilleri ekleyelim
+      // Kullanıcının girdiği değişken tatilleri ekleyelim (Date picker'dan gelen YYYY-MM-DD değerleri)
       if (araTatil1Bas && araTatil1Bit) {
-        hazirVeriler.push({ tarihAraligi: `${araTatil1Bas}-${araTatil1Bit}`, baslik: '1. Ara Tatil', tatilMi: true })
+        hazirVeriler.push({ baslangicTarihi: araTatil1Bas, bitisTarihi: araTatil1Bit, baslik: '1. Ara Tatil', tatilMi: true })
       }
       if (somestrBas && somestrBit) {
-        hazirVeriler.push({ tarihAraligi: `${somestrBas}-${somestrBit}`, baslik: 'Sömestr Tatili', tatilMi: true })
+        hazirVeriler.push({ baslangicTarihi: somestrBas, bitisTarihi: somestrBit, baslik: 'Sömestr Tatili', tatilMi: true })
       }
       if (araTatil2Bas && araTatil2Bit) {
-        hazirVeriler.push({ tarihAraligi: `${araTatil2Bas}-${araTatil2Bit}`, baslik: '2. Ara Tatil', tatilMi: true })
+        hazirVeriler.push({ baslangicTarihi: araTatil2Bas, bitisTarihi: araTatil2Bit, baslik: '2. Ara Tatil', tatilMi: true })
       }
       if (ramazanBas && ramazanBit) {
-        hazirVeriler.push({ tarihAraligi: `${ramazanBas}-${ramazanBit}`, baslik: 'Ramazan Bayramı Tatili', tatilMi: true })
+        hazirVeriler.push({ baslangicTarihi: ramazanBas, bitisTarihi: ramazanBit, baslik: 'Ramazan Bayramı Tatili', tatilMi: true })
       }
       if (kurbanBas && kurbanBit) {
-        hazirVeriler.push({ tarihAraligi: `${kurbanBas}-${kurbanBit}`, baslik: 'Kurban Bayramı Tatili', tatilMi: true })
+        hazirVeriler.push({ baslangicTarihi: kurbanBas, bitisTarihi: kurbanBit, baslik: 'Kurban Bayramı Tatili', tatilMi: true })
       }
 
-      // Batch'e yazalım
+      // Batch olarak yazalım
       hazirVeriler.forEach(veri => {
-        const newDocRef = doc(collection(db, 'kurumlar', secilenKurumId, 'belirliGunler'))
+        const newDocRef = doc(collection(db, 'belirliGunler'))
         batch.set(newDocRef, {
           ...veri,
           olusturmaTarihi: serverTimestamp()
@@ -202,8 +237,8 @@ export default function KurumBelirliGunler() {
       })
 
       await batch.commit()
-      logKaydet({ profil, kullanici, islem: 'olustur', modul: 'belirliGunler', hedefAd: 'Hazır MEB Şablonu Yüklendi', kurumId: secilenKurumId })
-      alert('MEB Takvimi ve Resmi Tatiller başarıyla sisteme yüklendi!')
+      logKaydet({ profil, kullanici, islem: 'olustur', modul: 'belirliGunler', hedefAd: 'Hazır MEB Şablonu Yüklendi', kurumId: secilenKurumId || 'sistem' })
+      alert('MEB Takvimi ve Resmi Tatiller başarıyla yüklendi!')
       setAsistanModal(false)
     } catch (err) {
       alert('Yükleme sırasında hata oluştu: ' + err.message)
@@ -215,9 +250,9 @@ export default function KurumBelirliGunler() {
   // Excel Şablon İndir
   function handleSablonIndir() {
     const data = [
-      { 'Tarih / Aralık (Örn: 29.10 veya 16.11-20.11)': '29.10', 'Açıklama / Başlık': 'Cumhuriyet Bayramı', 'Tatil Mi (Evet/Hayır)': 'Evet' },
-      { 'Tarih / Aralık (Örn: 29.10 veya 16.11-20.11)': '10.11-16.11', 'Açıklama / Başlık': 'Atatürk Haftası', 'Tatil Mi (Evet/Hayır)': 'Hayır' },
-      { 'Tarih / Aralık (Örn: 29.10 veya 16.11-20.11)': '25.01-05.02', 'Açıklama / Başlık': 'Sömestr Tatili', 'Tatil Mi (Evet/Hayır)': 'Evet' },
+      { 'Başlangıç Tarihi (GG.AA.YYYY)': '29.10.2026', 'Bitiş Tarihi (GG.AA.YYYY)': '29.10.2026', 'Açıklama / Başlık': 'Cumhuriyet Bayramı', 'Tatil Mi (Evet/Hayır)': 'Evet' },
+      { 'Başlangıç Tarihi (GG.AA.YYYY)': '10.11.2026', 'Bitiş Tarihi (GG.AA.YYYY)': '16.11.2026', 'Açıklama / Başlık': 'Atatürk Haftası', 'Tatil Mi (Evet/Hayır)': 'Hayır' },
+      { 'Başlangıç Tarihi (GG.AA.YYYY)': '25.01.2027', 'Bitiş Tarihi (GG.AA.YYYY)': '05.02.2027', 'Açıklama / Başlık': 'Sömestr Tatili', 'Tatil Mi (Evet/Hayır)': 'Evet' },
     ]
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
@@ -225,8 +260,9 @@ export default function KurumBelirliGunler() {
     XLSX.writeFile(wb, 'belirli_gunler_sablonu.xlsx')
   }
 
-  // Excel Yükleme İşlemi
+  // Excel Yükleme İşlemi (Sadece Platform Admin)
   function handleExcelOku(e) {
+    if (!platformAdmin) return
     const file = e.target.files[0]
     if (!file) return
     const reader = new FileReader()
@@ -248,16 +284,29 @@ export default function KurumBelirliGunler() {
         setKaydediyor(true)
         const batch = writeBatch(db)
         
+        const parseTrDateToYmd = (str) => {
+          if (!str) return ''
+          const parts = String(str).trim().split('.')
+          if (parts.length !== 3) return ''
+          const [d, m, y] = parts
+          return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+        }
+
         rows.forEach(r => {
-          const tarihStr = String(r['Tarih / Aralık (Örn: 29.10 veya 16.11-20.11)'] || '').trim()
+          const baslangicTr = r['Başlangıç Tarihi (GG.AA.YYYY)']
+          const bitisTr = r['Bitiş Tarihi (GG.AA.YYYY)']
+          const baslangicYmd = parseTrDateToYmd(baslangicTr)
+          const bitisYmd = parseTrDateToYmd(bitisTr)
+          
           const baslik = String(r['Açıklama / Başlık'] || '').trim()
           const tatilStr = String(r['Tatil Mi (Evet/Hayır)'] || '').trim().toLowerCase()
           const tatilMi = tatilStr === 'evet' || tatilStr === 'true' || tatilStr === 'yes'
 
-          if (tarihStr && baslik) {
-            const newDocRef = doc(collection(db, 'kurumlar', secilenKurumId, 'belirliGunler'))
+          if (baslangicYmd && baslik) {
+            const newDocRef = doc(collection(db, 'belirliGunler'))
             batch.set(newDocRef, {
-              tarihAraligi: tarihStr,
+              baslangicTarihi: baslangicYmd,
+              bitisTarihi: bitisYmd || baslangicYmd,
               baslik,
               tatilMi,
               olusturmaTarihi: serverTimestamp()
@@ -266,7 +315,7 @@ export default function KurumBelirliGunler() {
         })
 
         await batch.commit()
-        logKaydet({ profil, kullanici, islem: 'olustur', modul: 'belirliGunler', hedefAd: 'Excel Toplu Yükleme', kurumId: secilenKurumId })
+        logKaydet({ profil, kullanici, islem: 'olustur', modul: 'belirliGunler', hedefAd: 'Excel Toplu Yükleme', kurumId: secilenKurumId || 'sistem' })
         alert('Excel verileri başarıyla yüklendi!')
       } catch (err) {
         alert('Excel okuma hatası: ' + err.message)
@@ -287,144 +336,222 @@ export default function KurumBelirliGunler() {
             📅 Belirli Gün, Hafta & Tatiller
           </h1>
           <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: '600' }}>
-            {secilenKurum?.ad || 'Kurum Seçilmedi'} — Akademik Takvim Bloke Günleri
+            {platformAdmin ? 'Sistem Genel Takvim Yönetimi (Platform Admin)' : 'Sistem Resmi Tatil ve Belirli Gün Çizelgesi (Salt Okunur)'}
           </span>
         </div>
 
-        {secilenKurumId && (
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setAsistanModal(true)}
-              style={{
-                padding: '0.5rem 1rem', background: '#10B981', color: '#fff', border: 'none',
-                borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '4px'
-              }}
-            >
-              ✨ MEB Şablon Yükle
-            </button>
-            <button
-              onClick={handleSablonIndir}
-              style={{
-                padding: '0.5rem 1rem', background: '#4F46E5', color: '#fff', border: 'none',
-                borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
-              }}
-            >
-              📥 Excel Şablon İndir
-            </button>
-            <button
-              onClick={() => fileInputRef.current.click()}
-              style={{
-                padding: '0.5rem 1rem', background: '#1B3A6B', color: '#fff', border: 'none',
-                borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
-              }}
-            >
-              📤 Excel'den Yükle
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleExcelOku}
-              accept=".xlsx, .xls"
-              style={{ display: 'none' }}
-            />
-            {belirliGunler.length > 0 && (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Sadece Platform Yöneticisine Özel İşlemler */}
+          {platformAdmin && (
+            <>
               <button
-                onClick={handleTumunuTemizle}
-                disabled={kaydediyor}
+                onClick={() => setAsistanModal(true)}
                 style={{
-                  padding: '0.5rem 1rem', background: '#EF4444', color: '#fff', border: 'none',
+                  padding: '0.5rem 1rem', background: '#10B981', color: '#fff', border: 'none',
                   borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer',
-                  opacity: kaydediyor ? 0.6 : 1
+                  display: 'flex', alignItems: 'center', gap: '4px'
                 }}
               >
-                🗑️ Tümünü Temizle
+                ✨ MEB Şablon Yükle
               </button>
-            )}
+              <button
+                onClick={() => fileInputRef.current.click()}
+                style={{
+                  padding: '0.5rem 1rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                  borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                }}
+              >
+                📤 Excel'den Yükle
+              </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleExcelOku}
+                accept=".xlsx, .xls"
+                style={{ display: 'none' }}
+              />
+              {belirliGunler.length > 0 && (
+                <button
+                  onClick={handleTumunuTemizle}
+                  disabled={kaydediyor}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#EF4444', color: '#fff', border: 'none',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer',
+                    opacity: kaydediyor ? 0.6 : 1
+                  }}
+                >
+                  🗑️ Tümünü Temizle
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Excel Şablon İndirme Butonu Herkes İçin Açık */}
+          <button
+            onClick={handleSablonIndir}
+            style={{
+              padding: '0.5rem 1rem', background: '#4F46E5', color: '#fff', border: 'none',
+              borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+            }}
+          >
+            📥 Excel Şablon İndir
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: platformAdmin ? '1fr 320px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+        {/* Sol Sütun: Liste */}
+        <div>
+          {yukleniyor ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px', color: '#64748B' }}>
+              Takvim verileri yükleniyor...
+            </div>
+          ) : belirliGunler.length === 0 ? (
+            <div style={{ padding: '3rem 1.5rem', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', textAlign: 'center', color: '#94A3B8' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📅</div>
+              Kayıtlı belirli gün, hafta veya resmi tatil bulunmuyor.
+              {platformAdmin && (
+                <div style={{ fontSize: '0.75rem', marginTop: '4px', color: '#64748B' }}>
+                  "MEB Şablon Yükle" veya "Yeni Belirli Gün Ekle" butonlarını kullanarak ilk takvimi oluşturabilirsiniz.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #E2E8F0', background: '#F8FAFC' }}>
+                    <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700' }}>Tarih / Aralık</th>
+                    <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700' }}>Belirli Gün / Resmi Tatil Açıklaması</th>
+                    <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700', textAlign: 'center' }}>Ders Yapılabilir Mi?</th>
+                    {platformAdmin && <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700', textAlign: 'right' }}>İşlem</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const TURKCE_AYLAR = {
+                      1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran',
+                      7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
+                    }
+                    let sonAy = null
+                    return belirliGunler.map(g => {
+                      const ay = g.baslangicTarihi ? parseInt(g.baslangicTarihi.split('-')[1]) : 0
+                      const ayAdi = TURKCE_AYLAR[ay] || 'Diğer / Tanımsız'
+
+                      const ayDegisti = ay !== sonAy
+                      sonAy = ay
+
+                      const tarihMetni = g.baslangicTarihi === g.bitisTarihi
+                        ? formatTarihTr(g.baslangicTarihi)
+                        : `${formatTarihTr(g.baslangicTarihi)} - ${formatTarihTr(g.bitisTarihi)}`
+
+                      return (
+                        <React.Fragment key={g.id}>
+                          {ayDegisti && (
+                            <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #E2E8F0' }}>
+                              <td colSpan={platformAdmin ? 4 : 3} style={{ padding: '8px 12px', fontWeight: '800', color: '#1B3A6B', fontSize: '0.85rem' }}>
+                                📅 {ayAdi} Ayı Tatil ve Belirli Günleri
+                              </td>
+                            </tr>
+                          )}
+                          <tr style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <td style={{ padding: '10px 12px', fontWeight: '700', color: '#334155' }}>{tarihMetni}</td>
+                            <td style={{ padding: '10px 12px', color: '#334155' }}>{g.baslik}</td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              <span style={{
+                                padding: '2px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '700',
+                                background: g.tatilMi ? '#FEE2E2' : '#D1FAE5',
+                                color: g.tatilMi ? '#991B1B' : '#065F46'
+                              }}>
+                                {g.tatilMi ? '🚫 Hayır (Tatil)' : '✅ Evet (Okul Var)'}
+                              </span>
+                            </td>
+                            {platformAdmin && (
+                              <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                                <button
+                                  onClick={() => handleSil(g.id, g.baslik)}
+                                  style={{ padding: '2px 8px', background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}
+                                >
+                                  Sil
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        </React.Fragment>
+                      )
+                    })
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Sağ Sütun: Manuel Belirli Gün Ekleme Formu (Sadece Platform Admin) */}
+        {platformAdmin && (
+          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
+            <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#1B3A6B', fontWeight: '700' }}>
+              ➕ Yeni Gün / Hafta Ekle
+            </h3>
+            
+            <form onSubmit={handleManuelEkle} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Başlık / Açıklama:
+                <input
+                  type="text"
+                  placeholder="Örn: 29 Ekim Cumhuriyet Bayramı"
+                  value={manuelBaslik}
+                  onChange={e => setManuelBaslik(e.target.value)}
+                  style={{ padding: '0.45rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.8rem' }}
+                  required
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Başlangıç Tarihi:
+                <input
+                  type="date"
+                  value={manuelBaslangic}
+                  onChange={e => setManuelBaslangic(e.target.value)}
+                  style={{ padding: '0.45rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.8rem' }}
+                  required
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Bitiş Tarihi (Opsiyonel):
+                <input
+                  type="date"
+                  value={manuelBitis}
+                  onChange={e => setManuelBitis(e.target.value)}
+                  style={{ padding: '0.45rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.8rem' }}
+                />
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: '600', color: '#475569', cursor: 'pointer', marginTop: '4px' }}>
+                <input
+                  type="checkbox"
+                  checked={manuelTatilMi}
+                  onChange={e => setManuelTatilMi(e.target.checked)}
+                />
+                Bu tarih aralığı tatil mi? (Ders Bloke)
+              </label>
+
+              <button
+                type="submit"
+                disabled={kaydediyor}
+                style={{
+                  padding: '0.5rem 1rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                  borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer',
+                  marginTop: '6px', opacity: kaydediyor ? 0.6 : 1
+                }}
+              >
+                {kaydediyor ? 'Kaydediliyor...' : 'Listeye Ekle'}
+              </button>
+            </form>
           </div>
         )}
       </div>
-
-      {!secilenKurumId ? (
-        <div style={{ padding: '2rem', background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '12px', textAlign: 'center', color: '#92400E' }}>
-          Lütfen sol menünün üst kısmından işlem yapacağınız aktif bir okul seçin.
-        </div>
-      ) : yukleniyor ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px', color: '#64748B' }}>
-          Takvim verileri yükleniyor...
-        </div>
-      ) : belirliGunler.length === 0 ? (
-        <div style={{ padding: '3rem 1.5rem', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', textAlign: 'center', color: '#94A3B8' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📅</div>
-          Kayıtlı belirli gün, hafta veya resmi tatil bulunmuyor.
-          <div style={{ fontSize: '0.75rem', marginTop: '4px', color: '#64748B' }}>
-            "MEB Şablon Yükle" butonuna basarak standart MEB takvimini tek tıkla yükleyebilirsiniz.
-          </div>
-        </div>
-      ) : (
-        <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #E2E8F0', background: '#F8FAFC' }}>
-                <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700' }}>Tarih / Aralık</th>
-                <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700' }}>Belirli Gün / Resmi Tatil Açıklaması</th>
-                <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700', textAlign: 'center' }}>Ders Yapılabilir Mi?</th>
-                <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700', textAlign: 'right' }}>İşlem</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(() => {
-                const TURKCE_AYLAR = {
-                  1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran',
-                  7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
-                }
-                let sonAy = null
-                return belirliGunler.map(g => {
-                  const ilkKisim = (g.tarihAraligi || '').split('-')[0].trim()
-                  const ay = parseInt(ilkKisim.split('.')[1]) || 0
-                  const ayAdi = TURKCE_AYLAR[ay] || 'Diğer / Tanımsız'
-
-                  const ayDegisti = ay !== sonAy
-                  sonAy = ay
-
-                  return (
-                    <React.Fragment key={g.id}>
-                      {ayDegisti && (
-                        <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #E2E8F0' }}>
-                          <td colSpan={4} style={{ padding: '8px 12px', fontWeight: '800', color: '#1B3A6B', fontSize: '0.85rem' }}>
-                            📅 {ayAdi} Ayı Tatil ve Belirli Günleri
-                          </td>
-                        </tr>
-                      )}
-                      <tr style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                        <td style={{ padding: '10px 12px', fontWeight: '700', color: '#334155' }}>{g.tarihAraligi}</td>
-                        <td style={{ padding: '10px 12px', color: '#334155' }}>{g.baslik}</td>
-                        <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                          <span style={{
-                            padding: '2px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '700',
-                            background: g.tatilMi ? '#FEE2E2' : '#D1FAE5',
-                            color: g.tatilMi ? '#991B1B' : '#065F46'
-                          }}>
-                            {g.tatilMi ? '🚫 Hayır (Tatil)' : '✅ Evet (Okul Var)'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                          <button
-                            onClick={() => handleSil(g.id, g.baslik)}
-                            style={{ padding: '2px 8px', background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}
-                          >
-                            Sil
-                          </button>
-                        </td>
-                      </tr>
-                    </React.Fragment>
-                  )
-                })
-              })()}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {/* ✨ ŞABLON ASİSTANI MODALI */}
       {asistanModal && (
@@ -434,7 +561,7 @@ export default function KurumBelirliGunler() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
           <div style={{
-            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '480px',
+            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '500px',
             boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
           }}>
             <div style={{ background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -442,48 +569,62 @@ export default function KurumBelirliGunler() {
               <button onClick={() => setAsistanModal(false)} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>×</button>
             </div>
             
-            <form onSubmit={handleAsistanKaydet} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <form onSubmit={handleAsistanKaydet} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '80vh', overflowY: 'auto' }}>
               <p style={{ fontSize: '0.78rem', color: '#64748B', margin: 0 }}>
-                Sabit resmi tatiller (29 Ekim, 23 Nisan vb.) otomatik yüklenecektir. Lütfen o eğitim yılına ait değişken tatil tarihlerini (GG.AA formatında) belirtiniz:
+                Lütfen akademik eğitim yılının başlangıç yılını ve değişken resmi tatil tarihlerini takvimden seçin. Sabit resmi tatiller seçilen yıla göre otomatik hesaplanacaktır.
               </p>
+
+              {/* Akademik Yıl Seçimi */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 2fr', gap: '8px', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '10px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>Eğitim Başlangıç Yılı:</span>
+                <select
+                  value={akademikYil}
+                  onChange={e => setAkademikYil(Number(e.target.value))}
+                  style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600' }}
+                >
+                  <option value={new Date().getFullYear() - 1}>{new Date().getFullYear() - 1}</option>
+                  <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
+                  <option value={new Date().getFullYear() + 1}>{new Date().getFullYear() + 1}</option>
+                </select>
+              </div>
 
               {/* Ara Tatil 1 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>1. Ara Tatil:</span>
-                <input type="text" placeholder="Baş (16.11)" value={araTatil1Bas} onChange={e => setAraTatil1Bas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
-                <input type="text" placeholder="Bit (20.11)" value={araTatil1Bit} onChange={e => setAraTatil1Bit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={araTatil1Bas} onChange={e => setAraTatil1Bas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={araTatil1Bit} onChange={e => setAraTatil1Bit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
               </div>
 
               {/* Sömestr */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>Sömestr Tatili:</span>
-                <input type="text" placeholder="Baş (25.01)" value={somestrBas} onChange={e => setSomestrBas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
-                <input type="text" placeholder="Bit (05.02)" value={somestrBit} onChange={e => setSomestrBit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={somestrBas} onChange={e => setSomestrBas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={somestrBit} onChange={e => setSomestrBit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
               </div>
 
               {/* Ara Tatil 2 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>2. Ara Tatil:</span>
-                <input type="text" placeholder="Baş (12.04)" value={araTatil2Bas} onChange={e => setAraTatil2Bas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
-                <input type="text" placeholder="Bit (16.04)" value={araTatil2Bit} onChange={e => setAraTatil2Bit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={araTatil2Bas} onChange={e => setAraTatil2Bas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={araTatil2Bit} onChange={e => setAraTatil2Bit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
               </div>
 
               {/* Ramazan Bayramı */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>Ramazan Bayr:</span>
-                <input type="text" placeholder="Baş (20.03)" value={ramazanBas} onChange={e => setRamazanBas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
-                <input type="text" placeholder="Bit (23.03)" value={ramazanBit} onChange={e => setRamazanBit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
+                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>Ramazan Bayramı:</span>
+                <input type="date" value={ramazanBas} onChange={e => setRamazanBas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
+                <input type="date" value={ramazanBit} onChange={e => setRamazanBit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
               </div>
 
               {/* Kurban Bayramı */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>Kurban Bayr:</span>
-                <input type="text" placeholder="Baş (27.05)" value={kurbanBas} onChange={e => setKurbanBas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
-                <input type="text" placeholder="Bit (30.05)" value={kurbanBit} onChange={e => setKurbanBit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
+                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>Kurban Bayramı:</span>
+                <input type="date" value={kurbanBas} onChange={e => setKurbanBas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
+                <input type="date" value={kurbanBit} onChange={e => setKurbanBit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
               </div>
 
               <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontStyle: 'italic', marginTop: '4px' }}>
-                * Not: Şablon yüklendiğinde mevcut listedeki tüm tatil ve belirli gün kayıtları temizlenecektir.
+                * Not: Şablon yüklendiğinde mevcut listedeki tüm belirli gün ve tatiller silinerek yerine yenileri yazılacaktır.
               </div>
 
               {/* Modal Aksiyonları */}
