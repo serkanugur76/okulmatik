@@ -58,6 +58,47 @@ export default function KurumKutuphane() {
     ? (secilenKurumId || null)
     : seviye === 'altKurum' ? secilenKurumId : (secilenAltKurumId || null)
 
+  const activeTip = useMemo(() => {
+    return erisimKurumlar.find(k => k.id === hedefKurumId)?.tip
+  }, [erisimKurumlar, hedefKurumId])
+
+  const sorguIds = useMemo(() => {
+    if (!hedefKurumId) return []
+    
+    // 1. Alt kurumları (descendants) bul
+    let descendants = []
+    if (activeTip === 'kampus') {
+      descendants = erisimKurumlar.filter(k => k.parentId === hedefKurumId).map(k => k.id)
+    } else if (activeTip === 'kurum') {
+      descendants = erisimKurumlar.filter(k => k.rootKurumId === hedefKurumId).map(k => k.id)
+    }
+
+    // 2. Üst kurumları (ancestors) bul
+    const ancestors = []
+    let currId = hedefKurumId
+    while (currId) {
+      const currObj = erisimKurumlar.find(k => k.id === currId)
+      if (!currObj) break
+      
+      const pId = currObj.parentId
+      if (pId && pId !== currId && !ancestors.includes(pId)) {
+        ancestors.push(pId)
+        currId = pId
+      } else {
+        const rId = currObj.rootKurumId
+        if (rId && rId !== currId && !ancestors.includes(rId)) {
+          ancestors.push(rId)
+        }
+        break
+      }
+    }
+
+    const uniqueIds = new Set([hedefKurumId, ...descendants, ...ancestors])
+    return [...uniqueIds]
+  }, [hedefKurumId, erisimKurumlar, activeTip])
+
+  const sorguIdsKey = sorguIds.join(',')
+
   // ── State variables ───────────────────────────────────────
   const [kitaplar, setKitaplar] = useState([])
   const [oduncKayitlari, setOduncKayitlari] = useState([])
@@ -123,29 +164,42 @@ export default function KurumKutuphane() {
 
   // Students & Staff for lending select dropdowns
   useEffect(() => {
-    if (!hedefKurumId) {
+    if (!hedefKurumId || sorguIds.length === 0) {
       setOgrenciler([])
       setKullanicilar([])
       return
     }
 
-    // Students list
-    const unsubOgr = onSnapshot(
-      query(collection(db, 'kurumlar', hedefKurumId, 'ogrenciler'), orderBy('ad', 'asc')),
-      snap => setOgrenciler(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    )
+    const unsubs = []
 
-    // Staff list
-    const unsubKul = onSnapshot(
-      query(collection(db, 'kurumlar', hedefKurumId, 'kullanicilar'), orderBy('ad', 'asc')),
-      snap => setKullanicilar(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    )
+    // 1. Öğrencileri Dinle (Tüm hiyerarşik kurumlardan)
+    const ogrnParcalar = {}
+    sorguIds.forEach(kid => {
+      const unsub = onSnapshot(collection(db, 'kurumlar', kid, 'ogrenciler'), (snap) => {
+        ogrnParcalar[kid] = snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() }))
+        const birlesik = [...new Map(Object.values(ogrnParcalar).flat().map(o => [o.id, o])).values()]
+          .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+        setOgrenciler(birlesik)
+      })
+      unsubs.push(unsub)
+    })
+
+    // 2. Kullanıcıları Dinle (Tüm hiyerarşik kurumlardan)
+    const ogrParcalar = {}
+    sorguIds.forEach(kid => {
+      const unsub = onSnapshot(collection(db, 'kurumlar', kid, 'kullanicilar'), (snap) => {
+        ogrParcalar[kid] = snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() }))
+        const birlesik = [...new Map(Object.values(ogrParcalar).flat().map(o => [o.id, o])).values()]
+          .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+        setKullanicilar(birlesik)
+      })
+      unsubs.push(unsub)
+    })
 
     return () => {
-      unsubOgr()
-      unsubKul()
+      unsubs.forEach(u => u())
     }
-  }, [hedefKurumId])
+  }, [hedefKurumId, sorguIdsKey])
 
   // Distinct genres list for filter dropdown
   const kitapTurleri = useMemo(() => {
@@ -568,8 +622,9 @@ export default function KurumKutuphane() {
 
     try {
       const batch = writeBatch(db)
+      const targetKid = uye.raw?._kurumId || hedefKurumId
       
-      const subRef = doc(db, 'kurumlar', hedefKurumId, 'kullanicilar', uye.id)
+      const subRef = doc(db, 'kurumlar', targetKid, 'kullanicilar', uye.id)
       const subIzinler = { ...(uye.raw?.modulIzinler || {}), kutuphane_yonet: yeniYetki }
       batch.update(subRef, { modulIzinler: subIzinler })
 
@@ -581,7 +636,7 @@ export default function KurumKutuphane() {
       logKaydet({
         profil, kullanici, islem: 'guncelle', modul: 'kutuphane',
         hedefAd: `Kütüphane Yetkisi: ${uye.ad} → ${yeniYetki ? 'Yetkili' : 'Yetkisiz'}`,
-        kurumId: hedefKurumId
+        kurumId: targetKid
       })
 
       alert('Kütüphane yetkisi başarıyla güncellendi.')
