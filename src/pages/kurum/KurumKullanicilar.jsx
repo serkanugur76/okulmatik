@@ -456,11 +456,14 @@ export default function KurumKullanicilar() {
               <div>
                 {rootKurumlar.map(root => {
                   const rootAcik   = acikGruplar.has(root.id)
-                  const rootUsers  = aktifListe.filter(k => k.kurumId === root.id)
+                  const rootUsers  = aktifListe.filter(k => k.kurumId === root.id && (!k.erisimKurumIdler || k.erisimKurumIdler.length === 0))
                   const rootKampus = kampusKurumlar.filter(k => k.parentId === root.id)
                   // Toplam kullanıcı sayısı (tüm alt seviyeler dahil)
                   const tumIds = [root.id, ...rootKampus.map(k => k.id), ...altKurumlar.filter(k => rootKampus.some(kp => kp.id === k.parentId)).map(k => k.id)]
-                  const toplamSayisi = aktifListe.filter(k => tumIds.includes(k.kurumId)).length
+                  const toplamSayisi = aktifListe.filter(k => 
+                    tumIds.includes(k.kurumId) || 
+                    (k.erisimKurumIdler || []).some(id => tumIds.includes(id))
+                  ).length
                   if (!toplamSayisi && aramaMetni) return null
 
                   return (
@@ -485,9 +488,13 @@ export default function KurumKullanicilar() {
                           {/* Kampüsler */}
                           {rootKampus.map(kampus => {
                             const kampusAcik  = acikGruplar.has(kampus.id)
-                            const kampusUsers = aktifListe.filter(k => k.kurumId === kampus.id)
+                            const kampusUsers = aktifListe.filter(k => k.kurumId === kampus.id || (k.erisimKurumIdler || []).includes(kampus.id))
                             const kampusAltlar = altKurumlar.filter(k => k.parentId === kampus.id)
-                            const kampusToplam = aktifListe.filter(k => k.kurumId === kampus.id || kampusAltlar.some(a => a.id === k.kurumId)).length
+                            const kampusToplam = aktifListe.filter(k => 
+                              k.kurumId === kampus.id || 
+                              (k.erisimKurumIdler || []).includes(kampus.id) ||
+                              kampusAltlar.some(a => a.id === k.kurumId || (k.erisimKurumIdler || []).includes(a.id))
+                            ).length
                             if (!kampusToplam && aramaMetni) return null
 
                             return (
@@ -512,7 +519,7 @@ export default function KurumKullanicilar() {
                                     {/* AltKurumlar */}
                                     {kampusAltlar.map(alt => {
                                       const altAcik  = acikGruplar.has(alt.id)
-                                      const altUsers = aktifListe.filter(k => k.kurumId === alt.id)
+                                      const altUsers = aktifListe.filter(k => k.kurumId === alt.id || (k.erisimKurumIdler || []).includes(alt.id))
                                       if (!altUsers.length && aramaMetni) return null
 
                                       return (
