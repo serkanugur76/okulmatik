@@ -41,13 +41,16 @@ export default function KurumBelirliGunler() {
     const q = query(collection(db, 'kurumlar', secilenKurumId, 'belirliGunler'), orderBy('olusturmaTarihi', 'desc'))
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      // Tarihe göre sıralama (ay.gün bazında sıralayabiliriz)
+      // Akademik takvim yılı sıralaması: Eylül'den (9) başlayıp Haziran'a (6) kadar kronolojik sıralama
       list.sort((a, b) => {
         const parseTarih = (str) => {
-          if (!str) return 0
+          if (!str) return 9999
           const ilkKisim = str.split('-')[0].trim()
           const [gun, ay] = ilkKisim.split('.').map(Number)
-          return (ay || 0) * 100 + (gun || 0)
+          if (!ay || !gun) return 9999
+          // Eylül (9) ay sırası 0, Ekim (10) -> 1, ..., Ocak (1) -> 4, ..., Haziran (6) -> 9
+          const okulYiliAySira = ay >= 9 ? ay - 9 : ay + 3
+          return okulYiliAySira * 100 + gun
         }
         return parseTarih(a.tarihAraligi) - parseTarih(b.tarihAraligi)
       })
@@ -316,29 +319,54 @@ export default function KurumBelirliGunler() {
               </tr>
             </thead>
             <tbody>
-              {belirliGunler.map(g => (
-                <tr key={g.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '10px 12px', fontWeight: '700', color: '#334155' }}>{g.tarihAraligi}</td>
-                  <td style={{ padding: '10px 12px', color: '#334155' }}>{g.baslik}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                    <span style={{
-                      padding: '2px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '700',
-                      background: g.tatilMi ? '#FEE2E2' : '#D1FAE5',
-                      color: g.tatilMi ? '#991B1B' : '#065F46'
-                    }}>
-                      {g.tatilMi ? '🚫 Hayır (Tatil)' : '✅ Evet (Okul Var)'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                    <button
-                      onClick={() => handleSil(g.id, g.baslik)}
-                      style={{ padding: '2px 8px', background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}
-                    >
-                      Sil
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {(() => {
+                const TURKCE_AYLAR = {
+                  1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran',
+                  7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
+                }
+                let sonAy = null
+                return belirliGunler.map(g => {
+                  const ilkKisim = (g.tarihAraligi || '').split('-')[0].trim()
+                  const ay = parseInt(ilkKisim.split('.')[1]) || 0
+                  const ayAdi = TURKCE_AYLAR[ay] || 'Diğer / Tanımsız'
+
+                  const ayDegisti = ay !== sonAy
+                  sonAy = ay
+
+                  return (
+                    <React.Fragment key={g.id}>
+                      {ayDegisti && (
+                        <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #E2E8F0' }}>
+                          <td colSpan={4} style={{ padding: '8px 12px', fontWeight: '800', color: '#1B3A6B', fontSize: '0.85rem' }}>
+                            📅 {ayAdi} Ayı Tatil ve Belirli Günleri
+                          </td>
+                        </tr>
+                      )}
+                      <tr style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ padding: '10px 12px', fontWeight: '700', color: '#334155' }}>{g.tarihAraligi}</td>
+                        <td style={{ padding: '10px 12px', color: '#334155' }}>{g.baslik}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '700',
+                            background: g.tatilMi ? '#FEE2E2' : '#D1FAE5',
+                            color: g.tatilMi ? '#991B1B' : '#065F46'
+                          }}>
+                            {g.tatilMi ? '🚫 Hayır (Tatil)' : '✅ Evet (Okul Var)'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                          <button
+                            onClick={() => handleSil(g.id, g.baslik)}
+                            style={{ padding: '2px 8px', background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}
+                          >
+                            Sil
+                          </button>
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                  )
+                })
+              })()}
             </tbody>
           </table>
         </div>
