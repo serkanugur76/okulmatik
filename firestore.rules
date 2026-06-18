@@ -261,5 +261,12 @@ service cloud.firestore {
       allow update: if ogretmenKurumErisimi(kurumId) || platformAdmin() || kurumAdmin(kurumId);
       allow delete: if platformAdmin() || kurumAdmin(kurumId);
     }
+
+    match /kurumlar/{kurumId}/kulupDegerlendirmeleri/{degerlendirmeId} {
+      allow read:   if kurumUyesi(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+      allow write:  if kurumAdmin(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+    }
   }
 }

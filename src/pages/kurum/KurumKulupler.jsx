@@ -7,6 +7,22 @@ import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { logKaydet } from '../../services/logService'
 
+// Rubrikten tüm alt kriterler (düz liste)
+function altKriterListesi(rubrik) {
+  return (rubrik?.kriterler || []).flatMap(k =>
+    (k.altKriterler || []).map(ak => ({ ...ak, anaAd: k.ad, anaId: k.id }))
+  )
+}
+
+// Ortalama hesapla (tüm alt kriterler üzerinden)
+function hesaplaOrt(puanlar, rubrik) {
+  const liste = altKriterListesi(rubrik)
+  if (!liste.length) return null
+  const degerler = liste.map(ak => puanlar?.[ak.id]).filter(v => v > 0)
+  if (!degerler.length) return null
+  return degerler.reduce((a, b) => a + b, 0) / degerler.length
+}
+
 export default function KurumKulupler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
   const { profil, kullanici } = useAuth()
@@ -52,6 +68,13 @@ export default function KurumKulupler() {
   const [temsilciModalAcik, setTemsilciModalAcik] = useState(false)
   const [seciliEtkinlikId, setSeciliEtkinlikId] = useState('')
   const [geciciTemsilciler, setGeciciTemsilciler] = useState([])
+
+  // Rubrik Değerlendirme State'leri
+  const [seciliHafta, setSeciliHafta] = useState('')
+  const [seciliDegerlendirmeRubrikId, setSeciliDegerlendirmeRubrikId] = useState('')
+  const [mevcutDegerlendirmeler, setMevcutDegerlendirmeler] = useState({})
+  const [degerlendirmePuanlari, setDegerlendirmePuanlari] = useState({})
+  const [degerlendirmeKaydediyor, setDegerlendirmeKaydediyor] = useState(false)
 
   // Öğrenci Arama & Atama State'leri
   const [ogrenciArama, setOgrenciArama] = useState('')
@@ -243,6 +266,53 @@ export default function KurumKulupler() {
     return ogrenciler.filter(o => seciliKulup.ogrenciIds.includes(o.id))
   }, [seciliKulup, ogrenciler])
 
+  // Rubrik Değerlendirme useEffect ve Yardımcı Fonksiyonlar
+  useEffect(() => {
+    if (!secilenKurumId || !seciliKulupId || !seciliHafta || !seciliDegerlendirmeRubrikId) {
+      setMevcutDegerlendirmeler({})
+      setDegerlendirmePuanlari({})
+      return
+    }
+
+    const q = query(
+      collection(db, 'kurumlar', secilenKurumId, 'kulupDegerlendirmeleri'),
+      where('kulupId', '==', seciliKulupId),
+      where('hafta', '==', Number(seciliHafta)),
+      where('rubrikId', '==', seciliDegerlendirmeRubrikId)
+    )
+
+    const unsub = onSnapshot(q, (snap) => {
+      const map = {}
+      snap.docs.forEach(d => {
+        const data = d.data()
+        map[data.ogrenciId] = data.puanlar || {}
+      })
+      setMevcutDegerlendirmeler(map)
+      setDegerlendirmePuanlari({})
+    }, (err) => {
+      console.error('Değerlendirmeler dinlenirken hata:', err)
+    })
+
+    return () => unsub()
+  }, [secilenKurumId, seciliKulupId, seciliHafta, seciliDegerlendirmeRubrikId])
+
+  function getKulupPuan(ogrenciId, akId) {
+    if (degerlendirmePuanlari[ogrenciId]?.hasOwnProperty(akId)) {
+      return degerlendirmePuanlari[ogrenciId][akId]
+    }
+    return mevcutDegerlendirmeler[ogrenciId]?.[akId] || null
+  }
+
+  function handleKulupPuanDegis(ogrenciId, akId, puan) {
+    setDegerlendirmePuanlari(prev => ({
+      ...prev,
+      [ogrenciId]: {
+        ...(prev[ogrenciId] || {}),
+        [akId]: puan ? Number(puan) : null
+      }
+    }))
+  }
+
   // Yoklama Sayfası Açıldığında Yoklama Durumunu Hazırla
   useEffect(() => {
     if (seciliKulup && kulupOgrencileri.length > 0) {
@@ -399,6 +469,56 @@ export default function KurumKulupler() {
     } catch (err) {
       console.error(err)
       alert('Talep kaydedilirken bir hata oluştu.')
+    }
+  }
+
+  // Kulüp Rubrik Değerlendirmesini Kaydet
+  async function handleKulupDegerlendirmeKaydet() {
+    const degisiklikSayisi = Object.keys(degerlendirmePuanlari).length
+    if (!secilenKurumId || !seciliKulupId || !seciliHafta || !seciliDegerlendirmeRubrikId || !degisiklikSayisi) return
+
+    setDegerlendirmeKaydediyor(true)
+    try {
+      const seciliRubrik = rubrikler.find(r => r.id === seciliDegerlendirmeRubrikId)
+      const seciliHaftaBilgisi = seciliKulup.dersPlani?.find(h => h.hafta === Number(seciliHafta))
+
+      await Promise.all(
+        Object.entries(degerlendirmePuanlari).map(([ogrenciId, yeniPuanlar]) => {
+          const birlesik = { ...(mevcutDegerlendirmeler[ogrenciId] || {}) }
+          Object.entries(yeniPuanlar).forEach(([akId, p]) => {
+            if (p != null) birlesik[akId] = p; else delete birlesik[akId]
+          })
+
+          const ogr = kulupOgrencileri.find(o => o.id === ogrenciId)
+          const ort = hesaplaOrt(birlesik, seciliRubrik)
+          const docId = `${seciliKulupId}_${ogrenciId}_${seciliDegerlendirmeRubrikId}_h${seciliHafta}`
+
+          return setDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupDegerlendirmeleri', docId), {
+            kulupId: seciliKulupId,
+            kulupAd: seciliKulup.ad || '',
+            ogrenciId,
+            ogrenciAd: ogr?.ad || '',
+            ogrenciSoyad: ogr?.soyad || '',
+            rubrikId: seciliDegerlendirmeRubrikId,
+            rubrikAd: seciliRubrik?.ad || '',
+            hafta: Number(seciliHafta),
+            konu: seciliHaftaBilgisi?.konu || '',
+            puanlar: birlesik,
+            ort: ort != null ? parseFloat(ort.toFixed(2)) : null,
+            degerlendiriciId: profil?.uid || '',
+            degerlendiriciAd: profil?.ad || profil?.email || '',
+            guncellenmeTarihi: serverTimestamp()
+          })
+        })
+      )
+
+      alert('Değerlendirmeler başarıyla kaydedildi.')
+      setDegerlendirmePuanlari({})
+    } catch (err) {
+      console.error(err)
+      alert('Değerlendirme kaydedilirken hata oluştu: ' + err.message)
+    } finally {
+      setDegerlendirmeKaydediyor(false)
     }
   }
 
@@ -876,6 +996,14 @@ export default function KurumKulupler() {
               color: aktifTab === 'talepler' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
             }}>
             📩 Geçiş Talepleri
+          </button>
+          <button onClick={() => setAktifTab('degerlendirme')}
+            style={{
+              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
+              cursor: 'pointer', background: aktifTab === 'degerlendirme' ? '#fff' : 'transparent',
+              color: aktifTab === 'degerlendirme' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
+            }}>
+            📊 Rubrik Değerlendirme
           </button>
         </div>
       </div>
@@ -1602,6 +1730,201 @@ export default function KurumKulupler() {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── TAB 6: RUBRİK DEĞERLENDİRME ── */}
+          {aktifTab === 'degerlendirme' && (
+            <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {/* Kulüp Seçimi */}
+                  <select
+                    value={seciliKulupId}
+                    onChange={e => setSeciliKulupId(e.target.value)}
+                    style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
+                  >
+                    <option value="">— Kulüp Seçin —</option>
+                    {goruntulenenKulupler.map(k => (
+                      <option key={k.id} value={k.id}>{k.ad}</option>
+                    ))}
+                  </select>
+
+                  {/* Hafta Seçimi */}
+                  {seciliKulup && (
+                    <select
+                      value={seciliHafta}
+                      onChange={e => setSeciliHafta(e.target.value)}
+                      style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
+                    >
+                      <option value="">— Hafta / Konu Seçin —</option>
+                      {(seciliKulup.dersPlani || []).map(h => (
+                        <option key={h.hafta} value={h.hafta}>
+                          Hafta {h.hafta}: {h.konu} {h.tamamlandi ? '(Tamamlandı)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* Rubrik Seçimi */}
+                  {seciliKulup && (
+                    <select
+                      value={seciliDegerlendirmeRubrikId}
+                      onChange={e => setSeciliDegerlendirmeRubrikId(e.target.value)}
+                      style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
+                    >
+                      <option value="">— Rubrik Seçin —</option>
+                      {rubrikler.filter(r => seciliKulup.rubrikIds && seciliKulup.rubrikIds.includes(r.id)).map(r => (
+                        <option key={r.id} value={r.id}>
+                          {r.ad} {r.isKulup ? '(🏆 Kulüp)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {seciliKulup && (
+                  <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>
+                    Toplam: {kulupOgrencileri.length} Öğrenci
+                  </span>
+                )}
+              </div>
+
+              {!seciliKulupId ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8', fontSize: '0.85rem' }}>
+                  Lütfen değerlendirme yapmak için üst kısımdan bir kulüp seçin.
+                </div>
+              ) : !seciliHafta ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8', fontSize: '0.85rem' }}>
+                  Lütfen üst kısımdan değerlendirilecek haftayı seçin. Ders planınız yoksa önce "Ders Planı" sekmesinden plan ekleyin.
+                </div>
+              ) : !seciliDegerlendirmeRubrikId ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8', fontSize: '0.85rem' }}>
+                  Lütfen değerlendirmede kullanılacak rubriği üst kısımdan seçin. Kulübünüze rubrik atanmamışsa önce kulüp düzenleme ekranından rubrik atayın.
+                </div>
+              ) : kulupOgrencileri.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8', fontSize: '0.85rem' }}>
+                  Bu kulüpte kayıtlı öğrenci bulunmuyor.
+                </div>
+              ) : (() => {
+                const seciliRubrik = rubrikler.find(r => r.id === seciliDegerlendirmeRubrikId)
+                if (!seciliRubrik) return null
+                const altKriterler = altKriterListesi(seciliRubrik)
+
+                return (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
+                          <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '700', color: '#1B3A6B' }}>Öğrenci Adı Soyadı</th>
+                          {altKriterler.map(ak => (
+                            <th key={ak.id} style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '700', color: '#1B3A6B', minWidth: '130px' }}>
+                              <div>{ak.ad}</div>
+                              <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '400' }}>({ak.anaAd})</span>
+                            </th>
+                          ))}
+                          <th style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '700', color: '#1B3A6B', width: '80px' }}>Ort.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {kulupOgrencileri.map(o => {
+                          const satirPuanlar = {}
+                          altKriterler.forEach(ak => {
+                            const p = getKulupPuan(o.id, ak.id)
+                            if (p != null) satirPuanlar[ak.id] = p
+                          })
+                          const ort = hesaplaOrt(satirPuanlar, seciliRubrik)
+
+                          return (
+                            <tr key={o.id} style={{ borderBottom: '1px solid #E2E8F0' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                              <td style={{ padding: '0.75rem', fontWeight: '600', color: '#1E293B' }}>
+                                <div>{o.ad} {o.soyad || ''}</div>
+                                <div style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '400' }}>No: {o.ogrenciNo || '—'} · Sınıf: {o.sinifAd || '—'}</div>
+                              </td>
+
+                              {altKriterler.map(ak => {
+                                const aktifPuan = getKulupPuan(o.id, ak.id)
+                                const seviyeler = ak.seviyeler || [
+                                  { ad: '1', puan: 1 },
+                                  { ad: '2', puan: 2 },
+                                  { ad: '3', puan: 3 },
+                                  { ad: '4', puan: 4 }
+                                ]
+
+                                return (
+                                  <td key={ak.id} style={{ padding: '0.75rem', textAlign: 'center' }}>
+                                    <div style={{ display: 'flex', gap: '3px', justifyContent: 'center' }}>
+                                      {seviyeler.map(sev => {
+                                        const secili = aktifPuan === sev.puan
+                                        return (
+                                          <button
+                                            key={sev.puan}
+                                            type="button"
+                                            onClick={() => handleKulupPuanDegis(o.id, ak.id, secili ? null : sev.puan)}
+                                            title={sev.ad || `Puan: ${sev.puan}`}
+                                            style={{
+                                              width: '24px', height: '24px', borderRadius: '50%',
+                                              border: '1px solid',
+                                              borderColor: secili ? '#1B3A6B' : '#CBD5E1',
+                                              background: secili ? '#1B3A6B' : '#fff',
+                                              color: secili ? '#fff' : '#475569',
+                                              fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer',
+                                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                              transition: 'all 0.1s'
+                                            }}
+                                          >
+                                            {sev.puan}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                  </td>
+                                )
+                              })}
+
+                              <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                                {ort != null ? (
+                                  <span style={{
+                                    padding: '2px 8px', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem',
+                                    background: ort >= 3.5 ? '#D1FAE5' : ort >= 2.5 ? '#DBEAFE' : ort >= 1.5 ? '#FEF3C7' : '#FEE2E2',
+                                    color: ort >= 3.5 ? '#065F46' : ort >= 2.5 ? '#1E40AF' : ort >= 1.5 ? '#92400E' : '#991B1B'
+                                  }}>
+                                    {ort.toFixed(2)}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#CBD5E1' }}>—</span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+
+                    <div style={{
+                      display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+                      marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #F1F5F9', gap: '1rem'
+                    }}>
+                      {Object.keys(degerlendirmePuanlari).length > 0 && (
+                        <span style={{ fontSize: '0.75rem', color: '#C2410C', fontWeight: '700' }}>
+                          ⚠️ {Object.keys(degerlendirmePuanlari).length} öğrenci için kaydedilmemiş değişiklik var!
+                        </span>
+                      )}
+                      <button
+                        onClick={handleKulupDegerlendirmeKaydet}
+                        disabled={degerlendirmeKaydediyor || Object.keys(degerlendirmePuanlari).length === 0}
+                        style={{
+                          padding: '0.5rem 1.5rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                          borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer',
+                          opacity: (degerlendirmeKaydediyor || Object.keys(degerlendirmePuanlari).length === 0) ? 0.6 : 1
+                        }}
+                      >
+                        {degerlendirmeKaydediyor ? 'Kaydediliyor...' : 'Değerlendirmeleri Kaydet'}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           )}
         </>
