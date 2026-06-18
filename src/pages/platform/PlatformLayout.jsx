@@ -9,6 +9,7 @@ const PLATFORM_MENULER = [
   { yol: '/platform/kurumlar',     etiket: 'Kurumlar',     ikon: '🏛' },
   { yol: '/platform/kullanicilar', etiket: 'Kullanıcılar', ikon: '👥' },
   { yol: '/platform/rubrikler',    etiket: 'Rubrik Şablonlar', ikon: '📋' },
+  { yol: '/platform/belirli-gunler', etiket: 'Belirli Gün & Tatiller', ikon: '📅' },
   { yol: '/platform/loglar',        etiket: 'İşlem Logları', ikon: '🗒️' },
   { yol: '/platform/sistem',       etiket: 'Sistem İşlemleri', ikon: '⚙️' },
   { yol: '/platform/hakkinda',     etiket: 'Hakkında',      ikon: 'ℹ️' },
@@ -31,7 +32,6 @@ const KURUM_MENULER = [
   { yol: '/platform/kurum/mentor',          etiket: 'Mentor',           ikon: '🎓' },
   { yol: '/platform/kurum/nobet',           etiket: 'Nöbet Yönetimi',   ikon: '🛡️' },
   { yol: '/platform/kurum/kulupler',        etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
-  { yol: '/platform/kurum/belirli-gunler',   etiket: 'Belirli Gün & Tatiller', ikon: '📅' },
   { yol: '/platform/kurum/kutuphane',       etiket: 'Kütüphane',        ikon: '📚' },
 ]
 

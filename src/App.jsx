@@ -72,7 +72,7 @@ export default function App() {
             <Route path="kurum/ogretmenler"      element={<KurumOgretmenler />} />
             <Route path="kurum/nobet"            element={<KurumNobet />} />
             <Route path="kurum/kulupler"         element={<KurumKulupler />} />
-            <Route path="kurum/belirli-gunler"   element={<KurumBelirliGunler />} />
+            <Route path="belirli-gunler"         element={<KurumBelirliGunler />} />
             <Route path="kurum/kutuphane"        element={<KurumKutuphane />} />
             <Route path="hakkinda"               element={<Hakkinda />} />
             <Route path="loglar"                 element={<PlatformLoglar />} />
