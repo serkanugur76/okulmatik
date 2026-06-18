@@ -1,11 +1,14 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  collection, onSnapshot, query, orderBy, where
+  collection, onSnapshot, query, orderBy, where, doc, getDoc
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
+import * as XLSX from 'xlsx'
+import { davetEt } from '../../services/davetEt'
+import { logKaydet } from '../../services/logService'
 
 export default function KurumOgretmenler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar, ogretmenModu } = useKurumYonetim()
@@ -58,6 +61,14 @@ export default function KurumOgretmenler() {
   const [bransFiltre, setBransFiltre] = useState('')
   const [koordinatorFiltre, setKoordinatorFiltre] = useState('hepsi') // 'hepsi' | 'koordinator' | 'normal'
   const [durumFiltre, setDurumFiltre] = useState('hepsi') // 'hepsi' | 'aktif' | 'bekleyen'
+
+  // Toplu öğretmen yükleme states
+  const [importModal, setImportModal] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importSatirlar, setImportSatirlar] = useState([])
+  const [importHata, setImportHata] = useState('')
+  const [importProgress, setImportProgress] = useState(0)
+  const [importProgressText, setImportProgressText] = useState('')
 
   // Resolve all sub-institution IDs in the hierarchy
   const activeTip = erisimKurumlar.find(k => k.id === secilenKurumId)?.tip
@@ -318,6 +329,130 @@ export default function KurumOgretmenler() {
     sinifBadge: { background: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0' }
   }
 
+  // ── Toplu Öğretmen Import Yardımcıları ──────────────────────
+  const SABLON_BASLIKLAR = ['ÖĞRETMEN ADI SOYADI', 'E-POSTA', 'BRANŞLAR', 'KOORDİNATÖR MÜ?']
+  const SABLON_ORNEK = ['Süleyman Demir', 'suleyman.demir@gelecekkoleji.com', 'Matematik, Fen Bilimleri', 'Evet']
+
+  function sablonIndir() {
+    const ws = XLSX.utils.aoa_to_sheet([SABLON_BASLIKLAR, SABLON_ORNEK])
+    ws['!cols'] = SABLON_BASLIKLAR.map((_, i) => ({ wch: [24, 32, 28, 18][i] }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Öğretmenler')
+    XLSX.writeFile(wb, 'ogretmen_davet_sablonu.xlsx')
+  }
+
+  function dosyaOku(e) {
+    const dosya = e.target.files[0]
+    if (!dosya) return
+    setImportHata('')
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: 'array' })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+        if (rows.length < 2) { setImportHata('Dosyada veri satırı bulunamadı.'); return }
+
+        let dataStart = 1
+        for (let i = 0; i < Math.min(rows.length, 5); i++) {
+          if (rows[i].some(c => c?.toString().toUpperCase().includes('E-POSTA') || c?.toString().toUpperCase().includes('ÖĞRETMEN'))) {
+            dataStart = i + 1; break
+          }
+        }
+
+        const parsedRows = rows.slice(dataStart).filter(r => r[1]?.toString().trim()).map(r => {
+          const ad = r[0]?.toString().trim() || ''
+          const email = r[1]?.toString().trim().toLowerCase() || ''
+          const branslarRaw = r[2]?.toString().trim() || ''
+          const koordinatorRaw = r[3]?.toString().trim().toLowerCase() || ''
+
+          const branslar = branslarRaw.split(',').map(b => b.trim()).filter(Boolean)
+          const koordinator = ['evet', 'yes', '1', 'true'].includes(koordinatorRaw)
+          const emailGecerli = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+          return {
+            ad,
+            email,
+            branslar,
+            koordinator,
+            _hatali: !email || !emailGecerli,
+            _hataMesaji: !email ? 'E-posta boş olamaz' : !emailGecerli ? 'E-posta formatı geçersiz' : ''
+          }
+        })
+
+        if (parsedRows.length === 0) { setImportHata('Geçerli e-posta içeren satır bulunamadı.'); return }
+        setImportSatirlar(parsedRows)
+      } catch (err) {
+        setImportHata('Dosya okunamadı: ' + err.message)
+      }
+    }
+    reader.readAsArrayBuffer(dosya)
+    e.target.value = ''
+  }
+
+  async function topluKaydet() {
+    if (!hedefKurumId || importSatirlar.length === 0) return
+    setImporting(true)
+    setImportHata('')
+    
+    let isGoogle = false
+    try {
+      const snap = await getDoc(doc(db, 'kurumlar', hedefKurumId))
+      if (snap.exists()) {
+        isGoogle = !!snap.data().googleAltyapisi
+      }
+    } catch (e) {
+      console.warn('Kurum bilgisi okunamadı:', e.message)
+    }
+
+    const validRows = importSatirlar.filter(s => !s._hatali)
+    let basariliSayisi = 0
+
+    try {
+      for (let i = 0; i < validRows.length; i++) {
+        const satir = validRows[i]
+        setImportProgressText(`${i + 1}/${validRows.length}: ${satir.email} davet ediliyor...`)
+        setImportProgress(Math.round(((i + 1) / validRows.length) * 100))
+
+        await davetEt({
+          email: satir.email,
+          rol: 'ogretmen',
+          kurumId: hedefKurumId,
+          googleAltyapisi: isGoogle,
+          ad: satir.ad,
+          branslar: satir.branslar,
+          modulIzinler: { rubrik_olustur: satir.koordinator },
+          sinifAtamalari: [],
+          sinifIdler: [],
+          erisimKurumIdler: [hedefKurumId],
+          parentKurumIdler: secilenKurum?.parentId ? [secilenKurum.parentId] : []
+        })
+        
+        basariliSayisi++
+      }
+
+      await logKaydet({
+        profil,
+        kullanici,
+        islem: 'davet',
+        modul: 'kullanicilar',
+        hedefAd: `${basariliSayisi} öğretmen`,
+        kurumId: hedefKurumId,
+        detay: `E-tablo ile toplu öğretmen daveti gönderildi.`
+      })
+
+      alert(`Başarılı: ${basariliSayisi} öğretmen davet edildi.`)
+      setImportModal(false)
+      setImportSatirlar([])
+    } catch (err) {
+      setImportHata(`Kayıt sırasında hata (Başarılı: ${basariliSayisi}): ` + err.message)
+    } finally {
+      setImporting(false)
+      setImportProgress(0)
+      setImportProgressText('')
+    }
+  }
+
   return (
     <div style={{ paddingBottom: '60px' }}>
       {/* Header section */}
@@ -331,8 +466,39 @@ export default function KurumOgretmenler() {
           </p>
         </div>
 
-        {/* Institution dropdown if platform admin or campus managers */}
-        {seviye !== 'altKurum' && !ogretmenModu && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {/* Toplu Öğretmen Ekle Button */}
+          <button
+            onClick={() => {
+              if (!hedefKurumId) {
+                alert('Lütfen toplu öğretmen eklemek için önce sağ üstten bir okul seçin.');
+                return;
+              }
+              setImportModal(true);
+              setImportSatirlar([]);
+              setImportHata('');
+            }}
+            style={{
+              padding: '0.65rem 1.25rem',
+              background: '#fff',
+              border: '1.5px solid #D1D5DB',
+              borderRadius: '10px',
+              fontSize: '0.875rem',
+              fontWeight: '700',
+              color: '#374151',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            📥 Toplu Öğretmen Tanımla
+          </button>
+
+          {/* Institution dropdown if platform admin or campus managers */}
+          {seviye !== 'altKurum' && !ogretmenModu && (
           <div style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)', border: '1px solid #C7D2FE', borderRadius: '12px', padding: '0.75rem 1.125rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#3730A3' }}>🏫 Okul Seçimi:</span>
             <select value={secilenAltKurumId} onChange={e => setSecilenAltKurumId(e.target.value)}
@@ -363,6 +529,7 @@ export default function KurumOgretmenler() {
           </div>
         )}
       </div>
+    </div>
 
       {/* Stats Grid */}
       <div style={styles.statsGrid}>
@@ -513,6 +680,131 @@ export default function KurumOgretmenler() {
           </tbody>
         </table>
       </div>
+
+      {/* ── Toplu öğretmen import modal ── */}
+      {importModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+          onClick={e => e.target === e.currentTarget && !importing && setImportModal(false)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', position: 'relative' }}>
+
+            {/* Yükleme overlay */}
+            {importing && (
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.92)', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10, gap: '1rem' }}>
+                <div style={{ width: '48px', height: '48px', border: '5px solid #E2E8F0', borderTopColor: '#4F46E5', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1E293B' }}>Öğretmenler Davet Ediliyor...</div>
+                <div style={{ fontSize: '0.85rem', color: '#4F46E5', fontWeight: '600' }}>{importProgressText}</div>
+                
+                {/* Progress bar */}
+                <div style={{ width: '80%', height: '8px', background: '#E2E8F0', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${importProgress}%`, height: '100%', background: '#4F46E5', transition: 'width 0.2s ease' }} />
+                </div>
+                <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+              </div>
+            )}
+
+            {/* Başlık */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📥 Toplu Öğretmen Davet Et
+              </h2>
+              <button disabled={importing} onClick={() => setImportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: '#94A3B8' }}>✕</button>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '1.5rem' }}>
+              Aşağıdaki adımları takip ederek Excel şablonu ile birden çok öğretmene toplu davet gönderebilirsiniz.
+              Okul: <strong>{erisimKurumlar.find(k => k.id === hedefKurumId)?.ad}</strong>
+            </p>
+
+            {/* Adım 1: Şablon */}
+            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#166534', marginBottom: '0.35rem' }}>1. Excel Şablonunu İndirin</div>
+              <div style={{ fontSize: '0.8rem', color: '#14532D', marginBottom: '0.75rem', lineHeight: '1.4' }}>
+                İlk olarak şablon dosyasını bilgisayarınıza indirin ve kolon yapısını değiştirmeden öğretmen bilgilerinizi doldurun.
+              </div>
+              <button onClick={sablonIndir} style={{ padding: '0.55rem 1.125rem', background: '#166534', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                ⬇ Şablonu İndir (.xlsx)
+              </button>
+            </div>
+
+            {/* Adım 2: Yükle */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.5rem' }}>2. Doldurulan Dosyayı Yükleyin</div>
+              <label style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                border: '2px dashed #CBD5E1', borderRadius: '12px', padding: '1.75rem', cursor: 'pointer',
+                background: '#F8FAFC', transition: 'border-color 0.2s',
+              }}>
+                <span style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📂</span>
+                <span style={{ fontSize: '0.875rem', color: '#475569', fontWeight: '600' }}>
+                  {importSatirlar.length > 0 ? `✅ ${importSatirlar.length} öğretmen verisi okundu` : 'Dosya seçmek için tıklayın veya sürükleyin'}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '0.25rem' }}>Desteklenen formatlar: .xlsx, .xls, .csv</span>
+                <input type="file" accept=".xlsx,.xls,.csv" onChange={dosyaOku} style={{ display: 'none' }} />
+              </label>
+            </div>
+
+            {/* Önizleme Tablosu */}
+            {importSatirlar.length > 0 && (
+              <div style={{ marginBottom: '1.25rem' }}>
+                <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.5rem' }}>
+                  Önizleme ({importSatirlar.length} satır{importSatirlar.length > 5 ? `, ilk 5 gösteriliyor` : ''})
+                </div>
+                <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr style={{ background: '#F8FAFC' }}>
+                        {['Öğretmen Adı Soyadı', 'E-Posta', 'Branşlar', 'Koordinatör mü?'].map(h => (
+                          <th key={h} style={{ padding: '0.6rem 0.8rem', textAlign: 'left', color: '#475569', fontWeight: '600', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importSatirlar.slice(0, 5).map((satir, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #F1F5F9', background: satir._hatali ? '#FEF2F2' : 'transparent' }}>
+                          <td style={{ padding: '0.6rem 0.8rem', color: '#1E293B', fontWeight: '600' }}>{satir.ad || '—'}</td>
+                          <td style={{ padding: '0.6rem 0.8rem', color: satir._hatali ? '#991B1B' : '#475569' }}>
+                            {satir.email} {satir._hatali && <span style={{ fontSize: '0.75rem', fontWeight: '700' }}>({satir._hataMesaji})</span>}
+                          </td>
+                          <td style={{ padding: '0.6rem 0.8rem', color: '#475569' }}>
+                            {satir.branslar.join(', ') || '—'}
+                          </td>
+                          <td style={{ padding: '0.6rem 0.8rem', color: '#475569' }}>
+                            {satir.koordinator ? 'Evet ⭐' : 'Hayır'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {importSatirlar.length > 5 && (
+                  <p style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '0.375rem', fontStyle: 'italic' }}>... ve {importSatirlar.length - 5} satır daha</p>
+                )}
+              </div>
+            )}
+
+            {importHata && <p style={{ fontSize: '0.875rem', color: '#991B1B', background: '#FEE2E2', borderRadius: '8px', padding: '0.6rem 0.875rem', marginBottom: '1.25rem', fontWeight: '600' }}>⚠️ {importHata}</p>}
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', borderTop: '1px solid #F1F5F9', paddingTop: '1.25rem', marginTop: '1.5rem' }}>
+              <button disabled={importing} onClick={() => setImportModal(false)} style={{ padding: '0.6rem 1.25rem', background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#374151', fontWeight: '600' }}>İptal</button>
+              <button
+                onClick={topluKaydet}
+                disabled={importing || importSatirlar.length === 0}
+                style={{
+                  padding: '0.6rem 1.25rem',
+                  background: importSatirlar.length === 0 ? '#CBD5E1' : '#1B3A6B',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  cursor: importSatirlar.length === 0 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {importing ? 'Kaydediliyor...' : `${importSatirlar.filter(s => !s._hatali).length} Öğretmen Davet Et`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
