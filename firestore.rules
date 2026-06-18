@@ -225,5 +225,28 @@ service cloud.firestore {
                    || kurumAdmin(kurumId)
                    || platformAdmin();
     }
+
+    // Kulüp Yönetimi Yetkileri
+    match /kurumlar/{kurumId}/kulupler/{kulupId} {
+      allow read:   if kurumUyesi(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+      allow create, delete: if kurumAdmin(kurumId) || platformAdmin();
+      allow update: if kurumAdmin(kurumId) || platformAdmin()
+                    || (kullaniciBilgisi().rol == 'ogretmen' && request.auth.uid in resource.data.ogretmenIds);
+    }
+
+    match /kurumlar/{kurumId}/kulupYoklama/{yoklamaId} {
+      allow read:   if kurumUyesi(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+      allow write:  if kurumAdmin(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+    }
+
+    match /kurumlar/{kurumId}/kulupEtkinlikleri/{etkinlikId} {
+      allow read:   if kurumUyesi(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+      allow write:  if kurumAdmin(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+    }
   }
 }

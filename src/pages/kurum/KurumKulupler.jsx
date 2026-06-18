@@ -1,0 +1,1259 @@
+import React, { useState, useEffect, useMemo } from 'react'
+import {
+  collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, query, orderBy
+} from 'firebase/firestore'
+import { db } from '../../services/firebase'
+import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
+import { useAuth } from '../../contexts/AuthContext'
+import { logKaydet } from '../../services/logService'
+
+export default function KurumKulupler() {
+  const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
+  const { profil, kullanici } = useAuth()
+
+  // Rol kontrolü: admin mi öğretmen mi?
+  const adminModu = useMemo(() => {
+    return profil?.rol === 'platform_admin' || profil?.rol === 'kurum_admin'
+  }, [profil])
+
+  const [aktifTab, setAktifTab] = useState('kulupler') // 'kulupler' | 'yoklama' | 'dersPlani' | 'etkinlikler'
+  const [kulupler, setKulupler] = useState([])
+  const [ogretmenler, setOgretmenler] = useState([])
+  const [ogrenciler, setOgrenciler] = useState([])
+  const [rubrikler, setRubrikler] = useState([])
+  const [yoklamalar, setYoklamalar] = useState([])
+  const [etkinlikler, setEtkinlikler] = useState([])
+  const [yukleniyor, setYukleniyor] = useState(true)
+
+  // Seçili Kulüp (Yoklama, Ders Planı ve Etkinlikler sekmesi için)
+  const [seciliKulupId, setSeciliKulupId] = useState('')
+
+  // Modaller
+  const [kulupModalAcik, setKulupModalAcik] = useState(false)
+  const [ogrenciModalAcik, setOgrenciModalAcik] = useState(false)
+  const [etkinlikModalAcik, setEtkinlikModalAcik] = useState(false)
+
+  // Form State'leri
+  const [formAd, setFormAd] = useState('')
+  const [formTanitim, setFormTanitim] = useState('')
+  const [formOgretmenler, setFormOgretmenler] = useState([]) // seçilen öğretmen ID'leri
+  const [formRubrikler, setFormRubrikler] = useState([]) // seçilen rubrik ID'leri
+  const [duzenlenenKulupId, setDuzenlenenKulupId] = useState(null)
+
+  // Öğrenci Arama & Atama State'leri
+  const [ogrenciArama, setOgrenciArama] = useState('')
+  const [geciciOgrenciler, setGeciciOgrenciler] = useState([]) // atanan öğrenci ID'leri
+
+  // Yoklama State'leri
+  const [yoklamaTarih, setYoklamaTarih] = useState(new Date().toISOString().split('T')[0])
+  const [gelenlerMap, setGelenlerMap] = useState({}) // ogrenciId -> boolean
+  const [yoklamaKayitlar, setYoklamaKayitlar] = useState([])
+
+  // Ders Planı Ekleme Formu
+  const [yeniDersHafta, setYeniDersHafta] = useState('')
+  const [yeniDersKonu, setYeniDersKonu] = useState('')
+
+  // Etkinlik Form State'leri
+  const [etkAd, setEtkAd] = useState('')
+  const [etkTarih, setEtkTarih] = useState('')
+  const [etkTip, setEtkTip] = useState('turnuva') // turnuva, yarisma, sergi, diger
+  const [etkAciklama, setEtkAciklama] = useState('')
+
+  // Firestore Dinleyicileri (onSnapshot)
+  useEffect(() => {
+    if (!secilenKurumId) return
+    setYukleniyor(true)
+
+    // 1. Kulüpleri Dinle
+    const unsubKulupler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'kulupler'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setKulupler(list)
+      // Eğer seçili kulüp yoksa ve liste doluysa ilk kulübü otomatik seç
+      if (list.length > 0 && !seciliKulupId) {
+        setSeciliKulupId(list[0].id)
+      }
+      setYukleniyor(false)
+    })
+
+    // 2. Öğretmenleri (Kullanıcıları) Dinle
+    const unsubOgretmenler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'kullanicilar'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.rol === 'ogretmen')
+      setOgretmenler(list)
+    })
+
+    // 3. Öğrencileri Dinle
+    const unsubOgrenciler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'ogrenciler'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setOgrenciler(list)
+    })
+
+    // 4. Rubrikleri Dinle
+    const unsubRubrikler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'rubrikler'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setRubrikler(list)
+    })
+
+    // 5. Yoklamaları Dinle
+    const unsubYoklamalar = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'kulupYoklama'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setYoklamalar(list)
+    })
+
+    // 6. Etkinlikleri Dinle
+    const unsubEtkinlikler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'kulupEtkinlikleri'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setEtkinlikler(list)
+    })
+
+    return () => {
+      unsubKulupler()
+      unsubOgretmenler()
+      unsubOgrenciler()
+      unsubRubrikler()
+      unsubYoklamalar()
+      unsubEtkinlikler()
+    }
+  }, [secilenKurumId])
+
+  // Öğretmenin sorumlu olduğu kulüpler
+  const goruntulenenKulupler = useMemo(() => {
+    if (adminModu) return kulupler
+    // Öğretmen ise sadece ogretmenIds listesinde kendi uid'si bulunan kulüpleri görsün
+    return kulupler.filter(k => k.ogretmenIds && k.ogretmenIds.includes(kullanici?.uid))
+  }, [kulupler, adminModu, kullanici])
+
+  // Seçili Kulüp Nesnesi
+  const seciliKulup = useMemo(() => {
+    return kulupler.find(k => k.id === seciliKulupId) || null
+  }, [kulupler, seciliKulupId])
+
+  // Seçili kulübün öğrencileri
+  const kulupOgrencileri = useMemo(() => {
+    if (!seciliKulup || !seciliKulup.ogrenciIds) return []
+    return ogrenciler.filter(o => seciliKulup.ogrenciIds.includes(o.id))
+  }, [seciliKulup, ogrenciler])
+
+  // Yoklama Sayfası Açıldığında Yoklama Durumunu Hazırla
+  useEffect(() => {
+    if (seciliKulup && kulupOgrencileri.length > 0) {
+      // Seçili tarihteki yoklama var mı kontrol et
+      const varolan = yoklamalar.find(y => y.kulupId === seciliKulupId && y.tarih === yoklamaTarih)
+      const map = {}
+      kulupOgrencileri.forEach(o => {
+        if (varolan) {
+          // Eğer yoklama alınmışsa gelmeyenlerde mi kontrol et
+          const gelmedi = varolan.gelmeyenOgrenciler.some(g => g.id === o.id)
+          map[o.id] = !gelmedi // gelmediyse false, geldiyse true
+        } else {
+          // Varsayılan olarak herkes geldi işaretlensin
+          map[o.id] = true
+        }
+      })
+      setGelenlerMap(map)
+    }
+  }, [seciliKulupId, yoklamaTarih, yoklamalar, kulupOgrencileri])
+
+  // Kulüp Ekle / Düzenle Kaydet
+  async function handleKulupKaydet(e) {
+    e.preventDefault()
+    if (!secilenKurumId) return
+    if (!formAd) return alert('Lütfen kulüp adını giriniz.')
+
+    const veri = {
+      ad: formAd,
+      tanitim: formTanitim,
+      ogretmenIds: formOgretmenler,
+      rubrikIds: formRubrikler,
+      ogrenciIds: duzenlenenKulupId ? (seciliKulup?.ogrenciIds || []) : [],
+      dersPlani: duzenlenenKulupId ? (seciliKulup?.dersPlani || []) : [],
+      olusturmaTarihi: serverTimestamp()
+    }
+
+    try {
+      if (duzenlenenKulupId) {
+        await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', duzenlenenKulupId), veri)
+        await logKaydet('KULÜP', `Kulüp güncellendi: ${formAd}`, profil)
+      } else {
+        await addDoc(collection(db, 'kurumlar', secilenKurumId, 'kulupler'), veri)
+        await logKaydet('KULÜP', `Yeni kulüp oluşturuldu: ${formAd}`, profil)
+      }
+      setKulupModalAcik(false)
+      formTemizle()
+    } catch (err) {
+      console.error(err)
+      alert('Kulüp kaydedilirken bir hata oluştu.')
+    }
+  }
+
+  // Kulüp Düzenleme Aç
+  function handleKulupDuzenle(kulup) {
+    setDuzenlenenKulupId(kulup.id)
+    setFormAd(kulup.ad)
+    setFormTanitim(kulup.tanitim || '')
+    setFormOgretmenler(kulup.ogretmenIds || [])
+    setFormRubrikler(kulup.rubrikIds || [])
+    setKulupModalAcik(true)
+  }
+
+  // Kulüp Sil
+  async function handleKulupSil(id, ad) {
+    if (!window.confirm(`"${ad}" kulübünü ve bağlı tüm verilerini silmek istediğinize emin misiniz?`)) return
+    try {
+      await deleteDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', id))
+      await logKaydet('KULÜP', `Kulüp silindi: ${ad}`, profil)
+    } catch (err) {
+      console.error(err)
+      alert('Silme işlemi başarısız.')
+    }
+  }
+
+  function formTemizle() {
+    setFormAd('')
+    setFormTanitim('')
+    setFormOgretmenler([])
+    setFormRubrikler([])
+    setDuzenlenenKulupId(null)
+  }
+
+  // Öğrenci Atamalarını Kaydet
+  async function handleOgrenciAtamaKaydet() {
+    if (!secilenKurumId || !seciliKulupId) return
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', seciliKulupId), {
+        ogrenciIds: geciciOgrenciler
+      })
+      await logKaydet('KULÜP', `"${seciliKulup?.ad}" kulübünün öğrenci listesi güncellendi.`, profil)
+      setOgrenciModalAcik(false)
+    } catch (err) {
+      console.error(err)
+      alert('Öğrenci ataması başarısız.')
+    }
+  }
+
+  // Öğrenci Ekle/Çıkar Checkbox
+  function handleOgrenciSecimToggle(id) {
+    setGeciciOgrenciler(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  // Yoklama Kaydet
+  async function handleYoklamaKaydet() {
+    if (!secilenKurumId || !seciliKulupId) return
+    const gelmeyenler = []
+    Object.keys(gelenlerMap).forEach(id => {
+      if (!gelenlerMap[id]) {
+        const ogr = ogrenciler.find(o => o.id === id)
+        if (ogr) {
+          gelmeyenler.push({ id: ogr.id, adSoyad: `${ogr.ad} ${ogr.soyad || ''}`.trim() })
+        }
+      }
+    })
+
+    const yoklamaId = `${seciliKulupId}_${yoklamaTarih}`
+    const veri = {
+      kulupId: seciliKulupId,
+      tarih: yoklamaTarih,
+      gelmeyenOgrenciler: gelmeyenler,
+      yoklamaAlanUid: kullanici?.uid || '',
+      yoklamaAlanAd: profil?.ad || profil?.email || 'Öğretmen',
+      timestamp: serverTimestamp()
+    }
+
+    try {
+      await setDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupYoklama', yoklamaId), veri)
+      alert('Yoklama başarıyla sisteme kaydedildi ve okul idaresine raporlandı!')
+      await logKaydet('KULÜP', `"${seciliKulup?.ad}" kulübü için yoklama alındı. (${yoklamaTarih})`, profil)
+    } catch (err) {
+      console.error(err)
+      alert('Yoklama kaydedilirken hata oluştu.')
+    }
+  }
+
+  // Ders Planına Konu Ekle
+  async function handleDersPlaniEkle(e) {
+    e.preventDefault()
+    if (!secilenKurumId || !seciliKulupId || !yeniDersHafta || !yeniDersKonu) return
+
+    const plan = seciliKulup.dersPlani || []
+    const yeniPlan = [
+      ...plan,
+      { hafta: parseInt(yeniDersHafta), konu: yeniDersKonu, tamamlandi: false }
+    ].sort((a, b) => a.hafta - b.hafta)
+
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', seciliKulupId), {
+        dersPlani: yeniPlan
+      })
+      setYeniDersHafta('')
+      setYeniDersKonu('')
+    } catch (err) {
+      console.error(err)
+      alert('Ders planı güncellenemedi.')
+    }
+  }
+
+  // Ders Planı Konusu Durum Değiştir (Tamamlandı / Tamamlanmadı)
+  async function handleDersPlaniTamamlaToggle(index) {
+    if (!secilenKurumId || !seciliKulupId) return
+    const plan = [...(seciliKulup.dersPlani || [])]
+    plan[index].tamamlandi = !plan[index].tamamlandi
+
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', seciliKulupId), {
+        dersPlani: plan
+      })
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  // Ders Planından Konu Sil
+  async function handleDersPlaniSil(index) {
+    if (!window.confirm('Bu haftayı plandan silmek istiyor musunuz?')) return
+    if (!secilenKurumId || !seciliKulupId) return
+    const plan = [...(seciliKulup.dersPlani || [])].filter((_, i) => i !== index)
+
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', seciliKulupId), {
+        dersPlani: plan
+      })
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  // Etkinlik Kaydet
+  async function handleEtkinlikKaydet(e) {
+    e.preventDefault()
+    if (!secilenKurumId || !seciliKulupId || !etkAd || !etkTarih) return
+
+    const veri = {
+      kulupId: seciliKulupId,
+      ad: etkAd,
+      tarih: etkTarih,
+      tip: etkTip,
+      aciklama: etkAciklama,
+      timestamp: serverTimestamp()
+    }
+
+    try {
+      await addDoc(collection(db, 'kurumlar', secilenKurumId, 'kulupEtkinlikleri'), veri)
+      setEtkinlikModalAcik(false)
+      setEtkAd('')
+      setEtkTarih('')
+      setEtkAciklama('')
+      await logKaydet('KULÜP', `Kulüp etkinliği eklendi: ${etkAd}`, profil)
+    } catch (err) {
+      console.error(err)
+      alert('Etkinlik kaydedilemedi.')
+    }
+  }
+
+  // Etkinlik Sil
+  async function handleEtkinlikSil(id, ad) {
+    if (!window.confirm(`"${ad}" etkinliğini silmek istiyor musunuz?`)) return
+    try {
+      await deleteDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupEtkinlikleri', id))
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  // Filtrelenmiş öğrenci listesi (atama modalı için)
+  const filtrelenmisOgrenciler = useMemo(() => {
+    const metin = ogrenciArama.toLowerCase().trim()
+    if (!metin) return ogrenciler
+    return ogrenciler.filter(o =>
+      `${o.ad} ${o.soyad || ''}`.toLowerCase().includes(metin) ||
+      (o.ogrenciNo || '').toString().includes(metin) ||
+      (o.sinifAd || '').toLowerCase().includes(metin)
+    )
+  }, [ogrenciler, ogrenciArama])
+
+  if (yukleniyor) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px', color: '#64748B' }}>
+        <span>Kulüp verileri yükleniyor...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {/* Üst Bilgi Başlığı */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1B3A6B', margin: 0 }}>
+            🏆 Sosyal Kulüpler Yönetim Modülü
+          </h1>
+          <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0.25rem 0 0' }}>
+            Kurum içi sosyal kulüp tanımlamaları, öğretmen-öğrenci atamaları, yoklama defteri ve etkinlik planlamaları.
+          </p>
+        </div>
+
+        {/* Tab Seçiciler */}
+        <div style={{ display: 'flex', background: '#E2E8F0', padding: '4px', borderRadius: '8px' }}>
+          <button onClick={() => setAktifTab('kulupler')}
+            style={{
+              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
+              cursor: 'pointer', background: aktifTab === 'kulupler' ? '#fff' : 'transparent',
+              color: aktifTab === 'kulupler' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
+            }}>
+            🏆 Kulüpler
+          </button>
+          <button onClick={() => setAktifTab('yoklama')}
+            style={{
+              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
+              cursor: 'pointer', background: aktifTab === 'yoklama' ? '#fff' : 'transparent',
+              color: aktifTab === 'yoklama' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
+            }}>
+            📝 Yoklama Defteri
+          </button>
+          <button onClick={() => setAktifTab('dersPlani')}
+            style={{
+              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
+              cursor: 'pointer', background: aktifTab === 'dersPlani' ? '#fff' : 'transparent',
+              color: aktifTab === 'dersPlani' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
+            }}>
+            📖 Ders Planı
+          </button>
+          <button onClick={() => setAktifTab('etkinlikler')}
+            style={{
+              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
+              cursor: 'pointer', background: aktifTab === 'etkinlikler' ? '#fff' : 'transparent',
+              color: aktifTab === 'etkinlikler' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
+            }}>
+            🏁 Etkinlik & Turnuvalar
+          </button>
+        </div>
+      </div>
+
+      {/* Seçilen kurum doğrulaması */}
+      {!secilenKurumId && (
+        <div style={{ padding: '2rem', background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '12px', textAlign: 'center', color: '#92400E' }}>
+          Lütfen sol menünün üst kısmından işlem yapacağınız aktif bir okul seçin.
+        </div>
+      )}
+
+      {secilenKurumId && (
+        <>
+          {/* ── TAB 1: KULÜPLER TANIMI ── */}
+          {aktifTab === 'kulupler' && (
+            <div>
+              {adminModu && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                  <button
+                    onClick={() => { formTemizle(); setKulupModalAcik(true) }}
+                    style={{
+                      padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                      borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#11223F'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#1B3A6B'}
+                  >
+                    + Yeni Kulüp Ekle
+                  </button>
+                </div>
+              )}
+
+              {goruntulenenKulupler.length === 0 ? (
+                <div style={{ background: '#fff', border: '1px dashed #CBD5E1', borderRadius: '12px', padding: '3rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🏆</div>
+                  <h4 style={{ margin: 0, color: '#1E293B' }}>Henüz Kulüp Tanımlanmamış</h4>
+                  <p style={{ color: '#64748B', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                    {adminModu ? 'Yeni kulüp oluşturup öğretmen atamaya başlayın.' : 'Atanmış olduğunuz herhangi bir aktif sosyal kulüp bulunmamaktadır.'}
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '1rem' }}>
+                  {goruntulenenKulupler.map(kulup => {
+                    const atananOgretmenIsimleri = ogretmenler
+                      .filter(o => kulup.ogretmenIds && kulup.ogretmenIds.includes(o.id))
+                      .map(o => o.ad)
+                      .join(', ') || 'Atanmamış'
+
+                    return (
+                      <div key={kulup.id} style={{
+                        background: '#fff', border: '1px solid #E2E8F0', borderRadius: '14px',
+                        padding: '1.25rem', display: 'flex', flexDirection: 'column',
+                        justifyContent: 'space-between', boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                      }}>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#1E293B' }}>{kulup.ad}</h3>
+                            <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: '#F1F5F9', color: '#475569', borderRadius: '999px', fontWeight: '700' }}>
+                              👥 {kulup.ogrenciIds?.length || 0} Öğrenci
+                            </span>
+                          </div>
+
+                          <p style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: '1.4', minHeight: '40px', margin: '0 0 1rem' }}>
+                            {kulup.tanitim || 'Tanıtım açıklaması girilmemiş.'}
+                          </p>
+
+                          <div style={{ fontSize: '0.75rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
+                            <div><strong>🧑‍🏫 Danışman Öğretmen:</strong> {atananOgretmenIsimleri}</div>
+                            <div><strong>📋 Ölçme Kriteri (Rubrik):</strong> {
+                              rubrikler.filter(r => kulup.rubrikIds && kulup.rubrikIds.includes(r.id)).map(r => r.baslik).join(', ') || 'Atanmamış'
+                            }</div>
+                          </div>
+                        </div>
+
+                        {/* Aksiyon Butonları */}
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '1.25rem' }}>
+                          <button
+                            onClick={() => {
+                              setSeciliKulupId(kulup.id)
+                              // Öğrenci atama modalını başlat
+                              setGeciciOgrenciler(kulup.ogrenciIds || [])
+                              setOgrenciModalAcik(true)
+                            }}
+                            style={{
+                              flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#EFF6FF',
+                              color: '#1E40AF', border: '1px solid #BFDBFE', borderRadius: '6px',
+                              fontWeight: '600', cursor: 'pointer'
+                            }}
+                          >
+                            Öğrencileri Yönet
+                          </button>
+
+                          {adminModu && (
+                            <>
+                              <button onClick={() => handleKulupDuzenle(kulup)}
+                                style={{
+                                  padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: '#F8FAFC',
+                                  color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px',
+                                  fontWeight: '600', cursor: 'pointer'
+                                }}>
+                                Düzenle
+                              </button>
+                              <button onClick={() => handleKulupSil(kulup.id, kulup.ad)}
+                                style={{
+                                  padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: '#FEF2F2',
+                                  color: '#991B1B', border: '1px solid #FCA5A5', borderRadius: '6px',
+                                  fontWeight: '600', cursor: 'pointer'
+                                }}>
+                                Sil
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── TAB 2: YOKLAMA DEFTERİ ── */}
+          {aktifTab === 'yoklama' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
+              
+              {/* Sol Kolon: Yoklama Tablosu */}
+              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <select
+                      value={seciliKulupId}
+                      onChange={e => setSeciliKulupId(e.target.value)}
+                      style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
+                    >
+                      <option value="">— Kulüp Seçin —</option>
+                      {goruntulenenKulupler.map(k => (
+                        <option key={k.id} value={k.id}>{k.ad}</option>
+                      ))}
+                    </select>
+
+                    <input
+                      type="date"
+                      value={yoklamaTarih}
+                      onChange={e => setYoklamaTarih(e.target.value)}
+                      style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  
+                  {seciliKulup && (
+                    <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>
+                      Toplam: {kulupOgrencileri.length} Öğrenci
+                    </span>
+                  )}
+                </div>
+
+                {!seciliKulupId ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8', fontSize: '0.85rem' }}>
+                    Lütfen yoklama listesini görüntülemek için üst kısımdan bir kulüp seçin.
+                  </div>
+                ) : kulupOgrencileri.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8', fontSize: '0.85rem' }}>
+                    Bu kulübe henüz hiç öğrenci ataması yapılmamış.
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {kulupOgrencileri.map(o => {
+                        const geldiMi = gelenlerMap[o.id] !== false // undefined/true ise geldi kabul et
+                        return (
+                          <div key={o.id} style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '0.65rem 0.85rem', background: geldiMi ? '#F8FAFC' : '#FFF5F5',
+                            border: geldiMi ? '1px solid #F1F5F9' : '1px solid #FEE2E2', borderRadius: '8px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{
+                                width: '28px', height: '28px', borderRadius: '50%',
+                                background: geldiMi ? '#E0F2FE' : '#FEE2E2',
+                                color: geldiMi ? '#0369A1' : '#B91C1C',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '0.75rem', fontWeight: '700'
+                              }}>
+                                {o.ad[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#1E293B' }}>{o.ad} {o.soyad || ''}</span>
+                                <span style={{ fontSize: '0.7rem', color: '#64748B', marginLeft: '8px' }}>
+                                  No: {o.ogrenciNo || '—'} · Sınıf: {o.sinifAd || '—'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Geldi/Gelmedi Buton Grubu */}
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button
+                                onClick={() => setGelenlerMap(prev => ({ ...prev, [o.id]: true }))}
+                                style={{
+                                  padding: '3px 10px', fontSize: '0.75rem', border: 'none', borderRadius: '5px',
+                                  cursor: 'pointer', fontWeight: '700',
+                                  background: geldiMi ? '#10B981' : '#E2E8F0',
+                                  color: geldiMi ? '#fff' : '#64748B'
+                                }}
+                              >
+                                Geldi
+                              </button>
+                              <button
+                                onClick={() => setGelenlerMap(prev => ({ ...prev, [o.id]: false }))}
+                                style={{
+                                  padding: '3px 10px', fontSize: '0.75rem', border: 'none', borderRadius: '5px',
+                                  cursor: 'pointer', fontWeight: '700',
+                                  background: !geldiMi ? '#EF4444' : '#E2E8F0',
+                                  color: !geldiMi ? '#fff' : '#64748B'
+                                }}
+                              >
+                                Gelmedi
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <button
+                      onClick={handleYoklamaKaydet}
+                      style={{
+                        marginTop: '1.25rem', width: '100%', padding: '0.6rem',
+                        background: '#10B981', color: '#fff', border: 'none',
+                        borderRadius: '8px', fontWeight: '700', cursor: 'pointer',
+                        fontSize: '0.85rem', transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#059669'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#10B981'}
+                    >
+                      Yoklama Defterini Kaydet & İdareye Raporla
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Sağ Kolon: Geçmiş Yoklama Kayıtları */}
+              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700', color: '#1E293B' }}>
+                  🗒️ Geçmiş Yoklama Raporları
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: '#64748B', margin: 0 }}>
+                  Okul idaresi ve öğretmenler tarafından alınmış geçmiş yoklamalar.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
+                  {yoklamalar.filter(y => y.kulupId === seciliKulupId).length === 0 ? (
+                    <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontStyle: 'italic' }}>
+                      Kayıtlı yoklama arşivi bulunamadı.
+                    </div>
+                  ) : (
+                    yoklamalar
+                      .filter(y => y.kulupId === seciliKulupId)
+                      .sort((a, b) => b.tarih.localeCompare(a.tarih))
+                      .map(y => (
+                        <div key={y.id} style={{
+                          padding: '0.5rem 0.75rem', background: '#F8FAFC', borderRadius: '6px',
+                          border: '1px solid #E2E8F0', fontSize: '0.75rem'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', color: '#1B3A6B' }}>
+                            <span>📅 {y.tarih}</span>
+                            <span>Gelmedi: {y.gelmeyenOgrenciler?.length || 0}</span>
+                          </div>
+                          <div style={{ color: '#64748B', marginTop: '2px' }}>Alan: {y.yoklamaAlanAd}</div>
+                          {y.gelmeyenOgrenciler?.length > 0 && (
+                            <div style={{ marginTop: '4px', paddingLeft: '6px', borderLeft: '2px solid #EF4444', color: '#991B1B' }}>
+                              {y.gelmeyenOgrenciler.map(g => g.adSoyad).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 3: DERS PLANI ── */}
+          {aktifTab === 'dersPlani' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
+              
+              {/* Sol Kolon: Kazanım Plan Listesi */}
+              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
+                <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#1E293B', fontWeight: '700' }}>
+                  📖 Yıllık Ders & Kazanım Planı
+                </h3>
+
+                {!seciliKulupId ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8', fontSize: '0.85rem' }}>
+                    Ders planını görüntülemek için bir kulüp seçin.
+                  </div>
+                ) : !seciliKulup?.dersPlani || seciliKulup.dersPlani.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8', fontSize: '0.85rem', border: '1px dashed #E2E8F0', borderRadius: '8px' }}>
+                    Kayıtlı ders planı bulunmuyor. Sağdaki formu kullanarak haftalık planlar ekleyin.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {seciliKulup.dersPlani.map((ders, index) => (
+                      <div key={index} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '0.75rem', background: ders.tamamlandi ? '#F0FDF4' : '#F8FAFC',
+                        border: ders.tamamlandi ? '1px solid #BBF7D0' : '1px solid #E2E8F0', borderRadius: '8px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{
+                            fontSize: '0.75rem', fontWeight: '800', background: '#1B3A6B',
+                            color: '#fff', padding: '2px 8px', borderRadius: '4px'
+                          }}>
+                            Hafta {ders.hafta}
+                          </span>
+                          <span style={{
+                            fontSize: '0.85rem', color: '#1E293B',
+                            textDecoration: ders.tamamlandi ? 'line-through' : 'none',
+                            fontWeight: ders.tamamlandi ? '400' : '600'
+                          }}>
+                            {ders.konu}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer', color: '#475569' }}>
+                            <input
+                              type="checkbox"
+                              checked={ders.tamamlandi}
+                              onChange={() => handleDersPlaniTamamlaToggle(index)}
+                            />
+                            Tamamlandı
+                          </label>
+                          <button
+                            onClick={() => handleDersPlaniSil(index)}
+                            style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
+                          >
+                            Sil
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Sağ Kolon: Yeni Konu Ekle */}
+              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
+                <h3 style={{ margin: '0 0 0.85rem', fontSize: '0.95rem', color: '#1E293B', fontWeight: '700' }}>
+                  ➕ Plana Konu Ekle
+                </h3>
+                
+                {!seciliKulupId ? (
+                  <p style={{ fontSize: '0.78rem', color: '#94A3B8', margin: 0, fontStyle: 'italic' }}>
+                    İşlem yapmak için kulüp seçiniz.
+                  </p>
+                ) : (
+                  <form onSubmit={handleDersPlaniEkle} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                      Hafta Sayısı:
+                      <input
+                        type="number"
+                        min="1"
+                        max="40"
+                        placeholder="Örn: 1, 2, 3..."
+                        value={yeniDersHafta}
+                        onChange={e => setYeniDersHafta(e.target.value)}
+                        style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }}
+                        required
+                      />
+                    </label>
+
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                      Ders / Etkinlik Konusu:
+                      <textarea
+                        placeholder="Bu hafta ne işlenecek?"
+                        value={yeniDersKonu}
+                        onChange={e => setYeniDersKonu(e.target.value)}
+                        style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem', minHeight: '60px', resize: 'vertical' }}
+                        required
+                      />
+                    </label>
+
+                    <button
+                      type="submit"
+                      style={{
+                        padding: '0.5rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                        borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                      }}
+                    >
+                      Ders Planına Ekle
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 4: ETKİNLİKLER VE TURNUVALAR ── */}
+          {aktifTab === 'etkinlikler' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
+              
+              {/* Sol Kolon: Etkinlikler Listesi */}
+              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem', color: '#1E293B', fontWeight: '700' }}>
+                    🏆 Kulüp Etkinlikleri, Turnuva ve Yarışmalar
+                  </h3>
+                  {seciliKulupId && (
+                    <button onClick={() => setEtkinlikModalAcik(true)}
+                      style={{
+                        padding: '0.4rem 0.85rem', background: '#10B981', color: '#fff', border: 'none',
+                        borderRadius: '6px', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer'
+                      }}>
+                      + Etkinlik Ekle
+                    </button>
+                  )}
+                </div>
+
+                {!seciliKulupId ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8', fontSize: '0.85rem' }}>
+                    Etkinlikleri listelemek için bir kulüp seçin.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {etkinlikler.filter(e => e.kulupId === seciliKulupId).length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                        Bu kulüp için planlanmış bir etkinlik veya turnuva bulunmuyor.
+                      </div>
+                    ) : (
+                      etkinlikler
+                        .filter(e => e.kulupId === seciliKulupId)
+                        .map(etk => (
+                          <div key={etk.id} style={{
+                            padding: '1rem', background: '#F8FAFC', border: '1px solid #E2E8F0',
+                            borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'
+                          }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                <span style={{
+                                  fontSize: '0.7rem', padding: '2px 8px', background: '#EEF2F6',
+                                  color: '#334155', borderRadius: '999px', fontWeight: '700', textTransform: 'uppercase'
+                                }}>
+                                  {etk.tip === 'turnuva' ? '🏆 Turnuva' : etk.tip === 'yarisma' ? '🏁 Yarışma' : etk.tip === 'sergi' ? '🎨 Sergi' : '📅 Etkinlik'}
+                                </span>
+                                <span style={{ fontSize: '0.8rem', color: '#64748B' }}>📅 {etk.tarih}</span>
+                              </div>
+                              <h4 style={{ margin: '0 0 4px', fontSize: '0.9rem', color: '#1B3A6B', fontWeight: '700' }}>{etk.ad}</h4>
+                              <p style={{ margin: 0, fontSize: '0.78rem', color: '#475569', lineHeight: '1.4' }}>{etk.aciklama}</p>
+                            </div>
+
+                            <button
+                              onClick={() => handleEtkinlikSil(etk.id, etk.ad)}
+                              style={{
+                                background: 'none', border: 'none', color: '#EF4444',
+                                fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer'
+                              }}
+                            >
+                              Sil
+                            </button>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Sağ Kolon: Rehber Bilgisi */}
+              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', padding: '1rem', display: 'flex', gap: '0.75rem' }}>
+                <div style={{ fontSize: '1.5rem' }}>💡</div>
+                <div style={{ fontSize: '0.8rem', color: '#1E40AF', lineHeight: '1.4' }}>
+                  <strong>Etkinlik ve Turnuva Planlama:</strong> Kulüp içindeki satranç turnuvaları, robotik yarışmaları, resim sergileri gibi olayları buradan tanımlayarak kulübün aktif faaliyet takvimini oluşturabilir ve okul idaresine raporlayabilirsiniz.
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── MODAL 1: KULÜP EKLE / DÜZENLE FORMU ── */}
+      {kulupModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '460px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>
+                {duzenlenenKulupId ? '🏆 Kulüp Bilgilerini Güncelle' : '🏆 Yeni Sosyal Kulüp Oluştur'}
+              </span>
+              <button
+                onClick={() => { setKulupModalAcik(false); formTemizle() }}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Formu */}
+            <form onSubmit={handleKulupKaydet} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Kulüp Adı:
+                <input
+                  type="text"
+                  placeholder="Örn: Satranç Kulübü, Kodlama ve Robotik Kulübü"
+                  value={formAd}
+                  onChange={e => setFormAd(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem' }}
+                  required
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Tanıtım Açıklaması:
+                <textarea
+                  placeholder="Kulübün amacı ve faaliyet alanı..."
+                  value={formTanitim}
+                  onChange={e => setFormTanitim(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', minHeight: '60px', resize: 'vertical' }}
+                />
+              </label>
+
+              {/* Öğretmen Atama (Çoklu Seçim Checkbox) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                <span>🧑‍🏫 Danışman Öğretmen(ler):</span>
+                <div style={{
+                  maxHeight: '110px', overflowY: 'auto', border: '1px solid #CBD5E1',
+                  borderRadius: '8px', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px'
+                }}>
+                  {ogretmenler.length === 0 ? (
+                    <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontStyle: 'italic' }}>Okulda kayıtlı öğretmen bulunmuyor.</span>
+                  ) : (
+                    ogretmenler.map(ogr => (
+                      <label key={ogr.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: '400', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={formOgretmenler.includes(ogr.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setFormOgretmenler(prev => [...prev, ogr.id])
+                            } else {
+                              setFormOgretmenler(prev => prev.filter(id => id !== ogr.id))
+                            }
+                          }}
+                        />
+                        {ogr.ad}
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Rubrik Atama (Çoklu Seçim Checkbox) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                <span>📋 İlişkili Ölçme Rubrik(ler)i:</span>
+                <div style={{
+                  maxHeight: '110px', overflowY: 'auto', border: '1px solid #CBD5E1',
+                  borderRadius: '8px', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px'
+                }}>
+                  {rubrikler.length === 0 ? (
+                    <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontStyle: 'italic' }}>Okulda tanımlı aktif rubrik bulunmuyor.</span>
+                  ) : (
+                    rubrikler.map(rub => (
+                      <label key={rub.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: '400', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={formRubrikler.includes(rub.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setFormRubrikler(prev => [...prev, rub.id])
+                            } else {
+                              setFormRubrikler(prev => prev.filter(id => id !== rub.id))
+                            }
+                          }}
+                        />
+                        {rub.baslik}
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Aksiyonları */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.75rem', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => { setKulupModalAcik(false); formTemizle() }}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', color: '#475569'
+                  }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '0.5rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                  }}
+                >
+                  {duzenlenenKulupId ? 'Güncelle' : 'Oluştur'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 2: ÖĞRENCİ ATAMA MODALI ── */}
+      {ogrenciModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '520px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div>
+                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>👥 Kulüp Öğrenci Listesini Düzenle</span>
+                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>{seciliKulup?.ad}</div>
+              </div>
+              <button
+                onClick={() => { setOgrenciModalAcik(false); setOgrenciArama('') }}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Arama Kutusu */}
+            <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid #F1F5F9' }}>
+              <input
+                type="text"
+                placeholder="Öğrenci adı, sınıfı veya numarası ara..."
+                value={ogrenciArama}
+                onChange={e => setOgrenciArama(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem' }}
+              />
+            </div>
+
+            {/* Öğrenci Listesi */}
+            <div style={{ maxHeight: '280px', overflowY: 'auto', padding: '0.75rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {filtrelenmisOgrenciler.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '1rem', color: '#94A3B8', fontSize: '0.8rem' }}>Sonuç bulunamadı.</div>
+              ) : (
+                filtrelenmisOgrenciler.map(o => {
+                  const secili = geciciOgrenciler.includes(o.id)
+                  return (
+                    <label key={o.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '0.5rem 0.75rem', background: secili ? '#EFF6FF' : '#F8FAFC',
+                      border: secili ? '1px solid #BFDBFE' : '1px solid #E2E8F0',
+                      borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="checkbox"
+                          checked={secili}
+                          onChange={() => handleOgrenciSecimToggle(o.id)}
+                        />
+                        <div>
+                          <div style={{ fontWeight: '700', color: '#1E293B' }}>{o.ad} {o.soyad || ''}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748B' }}>No: {o.ogrenciNo || '—'} · Sınıf: {o.sinifAd || '—'}</div>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '0.65rem', padding: '2px 8px', borderRadius: '999px',
+                        background: secili ? '#3B82F6' : '#E2E8F0', color: secili ? '#fff' : '#475569',
+                        fontWeight: '700'
+                      }}>
+                        {secili ? 'Atandı' : 'Boşta'}
+                      </span>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Modal Aksiyonları */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderTop: '1px solid #F1F5F9', background: '#F8FAFC' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1B3A6B' }}>
+                Seçilen: {geciciOgrenciler.length} Öğrenci
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => { setOgrenciModalAcik(false); setOgrenciArama('') }}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', color: '#475569'
+                  }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  onClick={handleOgrenciAtamaKaydet}
+                  style={{
+                    padding: '0.5rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                  }}
+                >
+                  Listeyi Güncelle
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 3: ETKİNLİK EKLEME MODALI ── */}
+      {etkinlikModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '440px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div>
+                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>🏁 Yeni Etkinlik / Turnuva Tanımla</span>
+                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>{seciliKulup?.ad}</div>
+              </div>
+              <button
+                onClick={() => setEtkinlikModalAcik(false)}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Formu */}
+            <form onSubmit={handleEtkinlikKaydet} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Etkinlik / Yarışma Başlığı:
+                <input
+                  type="text"
+                  placeholder="Örn: 2026 Bahar Satranç Turnuvası"
+                  value={etkAd}
+                  onChange={e => setEtkAd(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem' }}
+                  required
+                />
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                  Etkinlik Tarihi:
+                  <input
+                    type="date"
+                    value={etkTarih}
+                    onChange={e => setEtkTarih(e.target.value)}
+                    style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem' }}
+                    required
+                  />
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                  Etkinlik Tipi:
+                  <select
+                    value={etkTip}
+                    onChange={e => setEtkTip(e.target.value)}
+                    style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem' }}
+                  >
+                    <option value="turnuva">🏆 Turnuva</option>
+                    <option value="yarisma">🏁 Yarışma</option>
+                    <option value="sergi">🎨 Sergi</option>
+                    <option value="diger">📅 Diğer Etkinlik</option>
+                  </select>
+                </label>
+              </div>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Açıklama / Detaylar:
+                <textarea
+                  placeholder="Etkinlik kuralları, yeri veya detayları..."
+                  value={etkAciklama}
+                  onChange={e => setEtkAciklama(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', minHeight: '60px', resize: 'vertical' }}
+                />
+              </label>
+
+              {/* Modal Aksiyonları */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.75rem', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setEtkinlikModalAcik(false)}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', color: '#475569'
+                  }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '0.5rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                  }}
+                >
+                  Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
