@@ -253,5 +253,13 @@ service cloud.firestore {
       allow write:  if kurumAdmin(kurumId) || platformAdmin()
                     || ogretmenKurumErisimi(kurumId);
     }
+
+    match /kurumlar/{kurumId}/kulupTalepleri/{talepId} {
+      allow read:   if kurumUyesi(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+      allow create: if ogretmenKurumErisimi(kurumId) || platformAdmin() || kurumAdmin(kurumId);
+      allow update: if ogretmenKurumErisimi(kurumId) || platformAdmin() || kurumAdmin(kurumId);
+      allow delete: if platformAdmin() || kurumAdmin(kurumId);
+    }
   }
 }

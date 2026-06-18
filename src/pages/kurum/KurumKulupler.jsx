@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, query, orderBy
+  collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, query, orderBy, writeBatch
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
@@ -36,6 +36,7 @@ export default function KurumKulupler() {
   // Form State'leri
   const [formAd, setFormAd] = useState('')
   const [formTanitim, setFormTanitim] = useState('')
+  const [formOkulDuzeyi, setFormOkulDuzeyi] = useState('genel') // ilkokul, ortaokul, lise, genel
   const [formOgretmenler, setFormOgretmenler] = useState([]) // seçilen öğretmen ID'leri
   const [formRubrikler, setFormRubrikler] = useState([]) // seçilen rubrik ID'leri
   const [duzenlenenKulupId, setDuzenlenenKulupId] = useState(null)
@@ -43,6 +44,23 @@ export default function KurumKulupler() {
   // Öğrenci Arama & Atama State'leri
   const [ogrenciArama, setOgrenciArama] = useState('')
   const [geciciOgrenciler, setGeciciOgrenciler] = useState([]) // atanan öğrenci ID'leri
+
+  // Talep Akış State'leri
+  const [talepModalAcik, setTalepModalAcik] = useState(false)
+  const [talepOgrenciId, setTalepOgrenciId] = useState('')
+  const [talepTipi, setTalepTipi] = useState('gecis') // 'gecis' | 'cikis'
+  const [talepHedefKulupId, setTalepHedefKulupId] = useState('')
+  const [talepAciklama, setTalepAciklama] = useState('')
+
+  const [talepler, setTalepler] = useState([])
+  const [hedefRedModalAcik, setHedefRedModalAcik] = useState(false)
+  const [hedefRedTalepId, setHedefRedTalepId] = useState('')
+  const [hedefRedNedeni, setHedefRedNedeni] = useState('kontenjan') // kontenjan, mufredat, malzeme, diger
+  const [hedefRedAciklamasi, setHedefRedAciklamasi] = useState('')
+
+  const [idareciRedModalAcik, setIdareciRedModalAcik] = useState(false)
+  const [idareciRedTalepId, setIdareciRedTalepId] = useState('')
+  const [idareciRedAciklamasi, setIdareciRedAciklamasi] = useState('')
 
   // Yoklama State'leri
   const [yoklamaTarih, setYoklamaTarih] = useState(new Date().toISOString().split('T')[0])
@@ -168,6 +186,18 @@ export default function KurumKulupler() {
     })
     unsubs.push(unsubEtkinlikler)
 
+    // 7. Talepleri Dinle
+    const unsubTalepler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'kulupTalepleri'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const tA = a.tarih?.seconds || 0
+          const tB = b.tarih?.seconds || 0
+          return tB - tA
+        })
+      setTalepler(list)
+    })
+    unsubs.push(unsubTalepler)
+
     return () => {
       unsubKulupler()
       unsubs.forEach(u => u())
@@ -180,6 +210,15 @@ export default function KurumKulupler() {
     // Öğretmen ise sadece ogretmenIds listesinde kendi uid'si bulunan kulüpleri görsün
     return kulupler.filter(k => k.ogretmenIds && k.ogretmenIds.includes(kullanici?.uid))
   }, [kulupler, adminModu, kullanici])
+
+  // Görüntülenen talepler (rol bazlı)
+  const goruntulenenTalepler = useMemo(() => {
+    if (adminModu) return talepler
+    return talepler.filter(t => 
+      t.ogretmenId === kullanici?.uid || 
+      (t.hedefKulupId && kulupler.find(k => k.id === t.hedefKulupId)?.ogretmenIds?.includes(kullanici?.uid))
+    )
+  }, [talepler, adminModu, kullanici, kulupler])
 
   // Seçili Kulüp Nesnesi
   const seciliKulup = useMemo(() => {
@@ -221,6 +260,7 @@ export default function KurumKulupler() {
     const veri = {
       ad: formAd,
       tanitim: formTanitim,
+      okulDuzeyi: formOkulDuzeyi,
       ogretmenIds: formOgretmenler,
       rubrikIds: formRubrikler,
       ogrenciIds: duzenlenenKulupId ? (seciliKulup?.ogrenciIds || []) : [],
@@ -249,6 +289,7 @@ export default function KurumKulupler() {
     setDuzenlenenKulupId(kulup.id)
     setFormAd(kulup.ad)
     setFormTanitim(kulup.tanitim || '')
+    setFormOkulDuzeyi(kulup.okulDuzeyi || 'genel')
     setFormOgretmenler(kulup.ogretmenIds || [])
     setFormRubrikler(kulup.rubrikIds || [])
     setKulupModalAcik(true)
@@ -269,6 +310,7 @@ export default function KurumKulupler() {
   function formTemizle() {
     setFormAd('')
     setFormTanitim('')
+    setFormOkulDuzeyi('genel')
     setFormOgretmenler([])
     setFormRubrikler([])
     setDuzenlenenKulupId(null)
@@ -294,6 +336,173 @@ export default function KurumKulupler() {
     setGeciciOgrenciler(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     )
+  }
+
+  // Talep Oluştur
+  async function handleTalepOlustur(e) {
+    e.preventDefault()
+    if (!secilenKurumId || !seciliKulupId || !talepOgrenciId) return alert('Lütfen öğrenci seçiniz.')
+    if (talepTipi === 'gecis' && !talepHedefKulupId) return alert('Lütfen hedef kulüp seçiniz.')
+
+    const ogr = ogrenciler.find(o => o.id === talepOgrenciId)
+    const ogrenciAdSoyad = ogr ? `${ogr.ad} ${ogr.soyad || ''}`.trim() : 'Bilinmeyen Öğrenci'
+    const kaynakKulup = kulupler.find(k => k.id === seciliKulupId)
+    const hedefKulup = talepTipi === 'gecis' ? kulupler.find(k => k.id === talepHedefKulupId) : null
+
+    const yeniTalep = {
+      ogrenciId: talepOgrenciId,
+      ogrenciAdSoyad,
+      tip: talepTipi,
+      kaynakKulupId: seciliKulupId,
+      kaynakKulupAd: kaynakKulup?.ad || '',
+      hedefKulupId: talepTipi === 'gecis' ? talepHedefKulupId : null,
+      hedefKulupAd: talepTipi === 'gecis' ? (hedefKulup?.ad || '') : null,
+      aciklama: talepAciklama,
+      ogretmenId: kullanici?.uid || '',
+      ogretmenAd: profil?.ad || profil?.email || 'Öğretmen',
+      durum: talepTipi === 'cikis' ? 'hedef_onayladi' : 'bekliyor',
+      tarih: serverTimestamp()
+    }
+
+    try {
+      await addDoc(collection(db, 'kurumlar', secilenKurumId, 'kulupTalepleri'), yeniTalep)
+      await logKaydet('KULÜP_TALEP', `"${ogrenciAdSoyad}" için ${talepTipi === 'gecis' ? `"${hedefKulup?.ad}" kulübüne geçiş` : 'kulüpten çıkış'} talebi oluşturuldu.`, profil)
+      setTalepModalAcik(false)
+      // Reset form states
+      setTalepOgrenciId('')
+      setTalepTipi('gecis')
+      setTalepHedefKulupId('')
+      setTalepAciklama('')
+      alert('Talebiniz başarıyla kaydedildi.')
+    } catch (err) {
+      console.error(err)
+      alert('Talep kaydedilirken bir hata oluştu.')
+    }
+  }
+
+  // Hedef Öğretmen Kararı (Kabul/Red)
+  async function handleTargetOgretmenKarar(talepId, kabulEdildi) {
+    if (!secilenKurumId || !talepId) return
+    const talep = talepler.find(t => t.id === talepId)
+    if (!talep) return
+
+    try {
+      if (kabulEdildi) {
+        await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupTalepleri', talepId), {
+          durum: 'hedef_onayladi',
+          hedefKararTarihi: serverTimestamp()
+        })
+        await logKaydet('KULÜP_TALEP', `Öğretmen, "${talep.ogrenciAdSoyad}" geçiş talebini kabul etti.`, profil)
+        alert('Talep kabul edildi, idarecinin son onayı bekleniyor.')
+      } else {
+        // Reddetme işlemi için modalı açacağız
+        setHedefRedTalepId(talepId)
+        setHedefRedNedeni('kontenjan')
+        setHedefRedAciklamasi('')
+        setHedefRedModalAcik(true)
+      }
+    } catch (err) {
+      console.error(err)
+      alert('İşlem sırasında bir hata oluştu.')
+    }
+  }
+
+  // Hedef Öğretmen Reddetme İşlemini Kaydet
+  async function handleHedefRedKaydet(e) {
+    e.preventDefault()
+    if (!secilenKurumId || !hedefRedTalepId) return
+    const talep = talepler.find(t => t.id === hedefRedTalepId)
+    if (!talep) return
+
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupTalepleri', hedefRedTalepId), {
+        durum: 'hedef_reddedildi',
+        hedefRedNedeni,
+        hedefRedAciklamasi,
+        hedefKararTarihi: serverTimestamp()
+      })
+      await logKaydet('KULÜP_TALEP', `Öğretmen, "${talep.ogrenciAdSoyad}" geçiş talebini reddetti. Gerekçe: ${hedefRedNedeni}`, profil)
+      setHedefRedModalAcik(false)
+      alert('Talep reddedildi.')
+    } catch (err) {
+      console.error(err)
+      alert('İşlem sırasında bir hata oluştu.')
+    }
+  }
+
+  // İdareci Kararı (Onay/Red)
+  async function handleIdareciKarar(talepId, onaylandi) {
+    if (!secilenKurumId || !talepId) return
+    const talep = talepler.find(t => t.id === talepId)
+    if (!talep) return
+
+    if (onaylandi) {
+      if (!window.confirm(`"${talep.ogrenciAdSoyad}" öğrencisinin kulüp ${talep.tip === 'gecis' ? 'geçişini' : 'çıkışını'} onaylıyor musunuz? Bu işlem otomatik olarak kulüp üyeliklerini güncelleyecektir.`)) return
+
+      try {
+        const batch = writeBatch(db)
+
+        // 1. Kaynak kulüpten öğrenciyi çıkar
+        const kaynakKulup = kulupler.find(k => k.id === talep.kaynakKulupId)
+        if (kaynakKulup) {
+          const yeniOgrenciIds = (kaynakKulup.ogrenciIds || []).filter(id => id !== talep.ogrenciId)
+          batch.update(doc(db, 'kurumlar', secilenKurumId, 'kulupler', talep.kaynakKulupId), {
+            ogrenciIds: yeniOgrenciIds
+          })
+        }
+
+        // 2. Eğer geçiş ise, hedef kulübe öğrenciyi ekle
+        if (talep.tip === 'gecis' && talep.hedefKulupId) {
+          const hedefKulup = kulupler.find(k => k.id === talep.hedefKulupId)
+          if (hedefKulup) {
+            const yeniOgrenciIds = [...new Set([...(hedefKulup.ogrenciIds || []), talep.ogrenciId])]
+            batch.update(doc(db, 'kurumlar', secilenKurumId, 'kulupler', talep.hedefKulupId), {
+              ogrenciIds: yeniOgrenciIds
+            })
+          }
+        }
+
+        // 3. Talebi onaylandı olarak güncelle
+        batch.update(doc(db, 'kurumlar', secilenKurumId, 'kulupTalepleri', talepId), {
+          durum: 'onaylandi',
+          idareKararTarihi: serverTimestamp()
+        })
+
+        await batch.commit()
+        await logKaydet('KULÜP_TALEP', `İdareci "${talep.ogrenciAdSoyad}" talebini onayladı ve kulüp geçiş/çıkış işlemini gerçekleştirdi.`, profil)
+        alert('İşlem başarıyla tamamlandı, kulüp listeleri güncellendi.')
+      } catch (err) {
+        console.error(err)
+        alert('İşlem sırasında bir veritabanı hatası oluştu.')
+      }
+    } else {
+      // İdareci reddetme modalını aç
+      setIdareciRedTalepId(talepId)
+      setIdareciRedAciklamasi('')
+      setIdareciRedModalAcik(true)
+    }
+  }
+
+  // İdareci Reddetme İşlemini Kaydet
+  async function handleIdareciRedKaydet(e) {
+    e.preventDefault()
+    if (!secilenKurumId || !idareciRedTalepId) return
+    const talep = talepler.find(t => t.id === idareciRedTalepId)
+    if (!talep) return
+
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupTalepleri', idareciRedTalepId), {
+        durum: 'idare_reddedildi',
+        idareRedAciklamasi,
+        idareKararTarihi: serverTimestamp()
+      })
+      await logKaydet('KULÜP_TALEP', `İdareci, "${talep.ogrenciAdSoyad}" talebini reddetti.`, profil)
+      setIdareciRedModalAcik(false)
+      alert('Talep reddedildi.')
+    } catch (err) {
+      console.error(err)
+      alert('İşlem sırasında bir hata oluştu.')
+    }
   }
 
   // Yoklama Kaydet
@@ -485,6 +694,14 @@ export default function KurumKulupler() {
             }}>
             🏁 Etkinlik & Turnuvalar
           </button>
+          <button onClick={() => setAktifTab('talepler')}
+            style={{
+              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
+              cursor: 'pointer', background: aktifTab === 'talepler' ? '#fff' : 'transparent',
+              color: aktifTab === 'talepler' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
+            }}>
+            📩 Geçiş Talepleri
+          </button>
         </div>
       </div>
 
@@ -542,9 +759,22 @@ export default function KurumKulupler() {
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
                             <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#1E293B' }}>{kulup.ad}</h3>
-                            <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: '#F1F5F9', color: '#475569', borderRadius: '999px', fontWeight: '700' }}>
-                              👥 {kulup.ogrenciIds?.length || 0} Öğrenci
-                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                              <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: '#F1F5F9', color: '#475569', borderRadius: '999px', fontWeight: '700' }}>
+                                👥 {kulup.ogrenciIds?.length || 0} Öğrenci
+                              </span>
+                              {kulup.okulDuzeyi && (
+                                <span style={{
+                                  fontSize: '0.65rem', padding: '1px 6px', borderRadius: '999px', fontWeight: '700',
+                                  background: kulup.okulDuzeyi === 'ilkokul' ? '#FEF3C7' : kulup.okulDuzeyi === 'ortaokul' ? '#E0F2FE' : kulup.okulDuzeyi === 'lise' ? '#FEE2E2' : '#F1F5F9',
+                                  color: kulup.okulDuzeyi === 'ilkokul' ? '#92400E' : kulup.okulDuzeyi === 'ortaokul' ? '#0369A1' : kulup.okulDuzeyi === 'lise' ? '#991B1B' : '#475569',
+                                  border: '1px solid',
+                                  borderColor: kulup.okulDuzeyi === 'ilkokul' ? '#FDE047' : kulup.okulDuzeyi === 'ortaokul' ? '#7DD3FC' : kulup.okulDuzeyi === 'lise' ? '#FCA5A5' : '#CBD5E1',
+                                }}>
+                                  {kulup.okulDuzeyi === 'ilkokul' ? '🏫 İlkokul' : kulup.okulDuzeyi === 'ortaokul' ? '🏫 Ortaokul' : kulup.okulDuzeyi === 'lise' ? '🏫 Lise' : '🌍 Genel'}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <p style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: '1.4', minHeight: '40px', margin: '0 0 1rem' }}>
@@ -561,21 +791,41 @@ export default function KurumKulupler() {
 
                         {/* Aksiyon Butonları */}
                         <div style={{ display: 'flex', gap: '6px', marginTop: '1.25rem' }}>
-                          <button
-                            onClick={() => {
-                              setSeciliKulupId(kulup.id)
-                              // Öğrenci atama modalını başlat
-                              setGeciciOgrenciler(kulup.ogrenciIds || [])
-                              setOgrenciModalAcik(true)
-                            }}
-                            style={{
-                              flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#EFF6FF',
-                              color: '#1E40AF', border: '1px solid #BFDBFE', borderRadius: '6px',
-                              fontWeight: '600', cursor: 'pointer'
-                            }}
-                          >
-                            Öğrencileri Yönet
-                          </button>
+                          {adminModu ? (
+                            <button
+                              onClick={() => {
+                                setSeciliKulupId(kulup.id)
+                                // Öğrenci atama modalını başlat
+                                setGeciciOgrenciler(kulup.ogrenciIds || [])
+                                setOgrenciModalAcik(true)
+                              }}
+                              style={{
+                                flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#EFF6FF',
+                                color: '#1E40AF', border: '1px solid #BFDBFE', borderRadius: '6px',
+                                fontWeight: '600', cursor: 'pointer'
+                              }}
+                            >
+                              Öğrencileri Yönet
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setSeciliKulupId(kulup.id)
+                                setTalepOgrenciId('')
+                                setTalepTipi('gecis')
+                                setTalepHedefKulupId('')
+                                setTalepAciklama('')
+                                setTalepModalAcik(true)
+                              }}
+                              style={{
+                                flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#F0FDF4',
+                                color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: '6px',
+                                fontWeight: '600', cursor: 'pointer'
+                              }}
+                            >
+                              Geçiş/Çıkış Talebi
+                            </button>
+                          )}
 
                           {adminModu && (
                             <>
@@ -959,6 +1209,169 @@ export default function KurumKulupler() {
               </div>
             </div>
           )}
+
+          {/* ── TAB 5: GEÇİŞ & ÇIKIŞ TALEPLERİ ── */}
+          {aktifTab === 'talepler' && (
+            <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1B3A6B', fontWeight: '700' }}>
+                  📩 Kulüp Geçiş ve Çıkış Talepleri
+                </h3>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '600', padding: '2px 8px', background: '#F1F5F9', borderRadius: '999px' }}>
+                  Toplam: {goruntulenenTalepler.length} Talep
+                </span>
+              </div>
+
+              {goruntulenenTalepler.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem 1.5rem', color: '#94A3B8', fontSize: '0.85rem' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✉️</div>
+                  Kayıtlı herhangi bir geçiş veya çıkış talebi bulunmuyor.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
+                        <th style={{ padding: '10px 12px', fontWeight: '700', color: '#475569' }}>Tarih</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700', color: '#475569' }}>Öğrenci</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700', color: '#475569' }}>Talep Tipi</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700', color: '#475569' }}>Kaynak Kulüp</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700', color: '#475569' }}>Hedef Kulüp</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700', color: '#475569' }}>Talep Eden</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700', color: '#475569' }}>Açıklama</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700', color: '#475569' }}>Durum</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700', color: '#475569', textAlign: 'right' }}>Aksiyon</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {goruntulenenTalepler.map(t => {
+                        const tarihStr = t.tarih?.toDate ? t.tarih.toDate().toLocaleString('tr-TR') : '—'
+                        const isTargetTeacher = t.hedefKulupId && kulupler.find(k => k.id === t.hedefKulupId)?.ogretmenIds?.includes(kullanici?.uid)
+
+                        // Durum Rozeti Renk ve Yazısı
+                        let durumBadge = null
+                        if (t.durum === 'bekliyor') {
+                          durumBadge = (
+                            <span style={{ padding: '4px 8px', background: '#FEF3C7', color: '#D97706', borderRadius: '6px', fontWeight: '700', fontSize: '0.72rem' }}>
+                              ⏳ Öğretmen Kararı Bekleniyor
+                            </span>
+                          )
+                        } else if (t.durum === 'hedef_onayladi') {
+                          durumBadge = (
+                            <span style={{ padding: '4px 8px', background: '#DBEAFE', color: '#2563EB', borderRadius: '6px', fontWeight: '700', fontSize: '0.72rem' }}>
+                              ⏳ İdare Onayı Bekleniyor
+                            </span>
+                          )
+                        } else if (t.durum === 'hedef_reddedildi') {
+                          const gerekceMap = {
+                            kontenjan: 'Kontenjan Sınırı',
+                            mufredat: 'Müfredat İlerleme Seviyesi',
+                            malzeme: 'Malzeme Yetersizliği',
+                            diger: 'Diğer Nedenler'
+                          }
+                          durumBadge = (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ alignSelf: 'flex-start', padding: '4px 8px', background: '#FEE2E2', color: '#DC2626', borderRadius: '6px', fontWeight: '700', fontSize: '0.72rem' }}>
+                                ❌ Öğretmen Reddetti
+                              </span>
+                              <span style={{ fontSize: '0.7rem', color: '#991B1B', fontStyle: 'italic' }}>
+                                Gerekçe: {gerekceMap[t.hedefRedNedeni] || 'Bilinmiyor'}
+                                {t.hedefRedAciklamasi && ` (${t.hedefRedAciklamasi})`}
+                              </span>
+                            </div>
+                          )
+                        } else if (t.durum === 'onaylandi') {
+                          durumBadge = (
+                            <span style={{ padding: '4px 8px', background: '#D1FAE5', color: '#059669', borderRadius: '6px', fontWeight: '700', fontSize: '0.72rem' }}>
+                              ✅ Onaylandı / Tamamlandı
+                            </span>
+                          )
+                        } else if (t.durum === 'idare_reddedildi') {
+                          durumBadge = (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ alignSelf: 'flex-start', padding: '4px 8px', background: '#FEE2E2', color: '#B91C1C', borderRadius: '6px', fontWeight: '700', fontSize: '0.72rem' }}>
+                                ❌ İdare Reddetti
+                              </span>
+                              {t.idareRedAciklamasi && (
+                                <span style={{ fontSize: '0.7rem', color: '#991B1B', fontStyle: 'italic' }}>
+                                  Neden: {t.idareRedAciklamasi}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <tr key={t.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <td style={{ padding: '12px 10px', color: '#475569', whiteSpace: 'nowrap' }}>{tarihStr}</td>
+                            <td style={{ padding: '12px 10px', fontWeight: '600', color: '#1E293B' }}>{t.ogrenciAdSoyad}</td>
+                            <td style={{ padding: '12px 10px' }}>
+                              <span style={{
+                                padding: '2px 6px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: '700',
+                                background: t.tip === 'gecis' ? '#EFF6FF' : '#FFF7ED',
+                                color: t.tip === 'gecis' ? '#1E40AF' : '#C2410C',
+                                border: t.tip === 'gecis' ? '1px solid #BFDBFE' : '1px solid #FFEDD5'
+                              }}>
+                                {t.tip === 'gecis' ? '🔄 Geçiş' : '🚪 Çıkış'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 10px', color: '#475569' }}>{t.kaynakKulupAd}</td>
+                            <td style={{ padding: '12px 10px', color: '#475569' }}>{t.hedefKulupAd || '—'}</td>
+                            <td style={{ padding: '12px 10px', color: '#475569' }}>{t.ogretmenAd}</td>
+                            <td style={{ padding: '12px 10px', color: '#64748B', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.aciklama}>
+                              {t.aciklama || '—'}
+                            </td>
+                            <td style={{ padding: '12px 10px' }}>{durumBadge}</td>
+                            <td style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              {/* Öğretmen Onay Aksiyonu */}
+                              {!adminModu && isTargetTeacher && t.durum === 'bekliyor' && (
+                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                                  <button
+                                    onClick={() => handleTargetOgretmenKarar(t.id, true)}
+                                    style={{ padding: '4px 8px', background: '#10B981', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '0.7rem', fontWeight: '700', cursor: 'pointer' }}
+                                  >
+                                    Kabul Et
+                                  </button>
+                                  <button
+                                    onClick={() => handleTargetOgretmenKarar(t.id, false)}
+                                    style={{ padding: '4px 8px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '0.7rem', fontWeight: '700', cursor: 'pointer' }}
+                                  >
+                                    Reddet
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* İdareci Onay Aksiyonu */}
+                              {adminModu && t.durum === 'hedef_onayladi' && (
+                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                                  <button
+                                    onClick={() => handleIdareciKarar(t.id, true)}
+                                    style={{ padding: '4px 8px', background: '#10B981', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '0.7rem', fontWeight: '700', cursor: 'pointer' }}
+                                  >
+                                    Onayla
+                                  </button>
+                                  <button
+                                    onClick={() => handleIdareciKarar(t.id, false)}
+                                    style={{ padding: '4px 8px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '0.7rem', fontWeight: '700', cursor: 'pointer' }}
+                                  >
+                                    Reddet
+                                  </button>
+                                </div>
+                              )}
+
+                              {!isTargetTeacher && !adminModu && t.durum === 'bekliyor' && (
+                                <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontStyle: 'italic' }}>Onay Bekleniyor</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -1012,6 +1425,20 @@ export default function KurumKulupler() {
                   onChange={e => setFormTanitim(e.target.value)}
                   style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', minHeight: '60px', resize: 'vertical' }}
                 />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Okul Düzeyi:
+                <select
+                  value={formOkulDuzeyi}
+                  onChange={e => setFormOkulDuzeyi(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', background: '#fff', cursor: 'pointer' }}
+                >
+                  <option value="ilkokul">🏫 İlkokul</option>
+                  <option value="ortaokul">🏫 Ortaokul</option>
+                  <option value="lise">🏫 Lise</option>
+                  <option value="genel">🌍 Genel / Tüm Düzeyler</option>
+                </select>
               </label>
 
               {/* Öğretmen Atama (Çoklu Seçim Checkbox) */}
@@ -1307,6 +1734,271 @@ export default function KurumKulupler() {
                   }}
                 >
                   Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 4: KULÜP GEÇİŞ / ÇIKIŞ TALEP MODALI ── */}
+      {talepModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '460px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div>
+                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>📩 Kulüp Geçiş / Çıkış Talebi</span>
+                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>{seciliKulup?.ad}</div>
+              </div>
+              <button
+                onClick={() => setTalepModalAcik(false)}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Formu */}
+            <form onSubmit={handleTalepOlustur} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Öğrenci Seçin:
+                <select
+                  value={talepOgrenciId}
+                  onChange={e => setTalepOgrenciId(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', background: '#fff', cursor: 'pointer' }}
+                  required
+                >
+                  <option value="">— Öğrenci Seçin —</option>
+                  {ogrenciler
+                    .filter(o => seciliKulup?.ogrenciIds?.includes(o.id))
+                    .map(o => (
+                      <option key={o.id} value={o.id}>{o.ad} {o.soyad || ''} ({o.sinifAd || 'Sınıfsız'})</option>
+                    ))
+                  }
+                </select>
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                İşlem Tipi:
+                <select
+                  value={talepTipi}
+                  onChange={e => setTalepTipi(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', background: '#fff', cursor: 'pointer' }}
+                >
+                  <option value="gecis">🔄 Kulüp Geçiş Talebi</option>
+                  <option value="cikis">🚪 Kulüpten Çıkarma Talebi</option>
+                </select>
+              </label>
+
+              {talepTipi === 'gecis' && (
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                  Gitmek İstediği Kulüp:
+                  <select
+                    value={talepHedefKulupId}
+                    onChange={e => setTalepHedefKulupId(e.target.value)}
+                    style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', background: '#fff', cursor: 'pointer' }}
+                    required
+                  >
+                    <option value="">— Hedef Kulüp Seçin —</option>
+                    {kulupler
+                      .filter(k => k.id !== seciliKulupId)
+                      .map(k => (
+                        <option key={k.id} value={k.id}>{k.ad} ({k.okulDuzeyi ? k.okulDuzeyi.toUpperCase() : 'GENEL'})</option>
+                      ))
+                    }
+                  </select>
+                </label>
+              )}
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Talep Açıklaması / Gerekçesi:
+                <textarea
+                  placeholder="Öğrencinin neden kulüp değiştirmek/çıkmak istediğini belirtin..."
+                  value={talepAciklama}
+                  onChange={e => setTalepAciklama(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', minHeight: '80px', resize: 'vertical' }}
+                  required
+                />
+              </label>
+
+              {/* Modal Aksiyonları */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.75rem', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setTalepModalAcik(false)}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', color: '#475569'
+                  }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '0.5rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                  }}
+                >
+                  Talebi Gönder
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 5: HEDEF ÖĞRETMEN RED DETAY MODALI ── */}
+      {hedefRedModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '440px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#EF4444', padding: '1rem 1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>❌ Geçiş Talebini Reddet</span>
+              <button
+                onClick={() => setHedefRedModalAcik(false)}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Formu */}
+            <form onSubmit={handleHedefRedKaydet} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Red Nedeni Seçin:
+                <select
+                  value={hedefRedNedeni}
+                  onChange={e => setHedefRedNedeni(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', background: '#fff', cursor: 'pointer' }}
+                >
+                  <option value="kontenjan">👥 Kontenjan Sınırı</option>
+                  <option value="mufredat">📚 Müfredat İlerleme Seviyesi</option>
+                  <option value="malzeme">🛠️ Kulüp Malzeme/Araç Yetersizliği</option>
+                  <option value="diger">❓ Diğer</option>
+                </select>
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Açıklama:
+                <textarea
+                  placeholder="Red gerekçesini detaylandırın..."
+                  value={hedefRedAciklamasi}
+                  onChange={e => setHedefRedAciklamasi(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', minHeight: '80px', resize: 'vertical' }}
+                  required
+                />
+              </label>
+
+              {/* Modal Aksiyonları */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.75rem', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setHedefRedModalAcik(false)}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', color: '#475569'
+                  }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '0.5rem 1.25rem', background: '#EF4444', color: '#fff', border: 'none',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                  }}
+                >
+                  Reddet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 6: İDARECİ RED DETAY MODALI ── */}
+      {idareciRedModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '440px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#B91C1C', padding: '1rem 1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>❌ Talebi Reddet (İdare)</span>
+              <button
+                onClick={() => setIdareciRedModalAcik(false)}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Formu */}
+            <form onSubmit={handleIdareciRedKaydet} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Red Nedeni / Açıklaması:
+                <textarea
+                  placeholder="Reddetme nedenini yazın..."
+                  value={idareciRedAciklamasi}
+                  onChange={e => setIdareciRedAciklamasi(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', minHeight: '80px', resize: 'vertical' }}
+                  required
+                />
+              </label>
+
+              {/* Modal Aksiyonları */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.75rem', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setIdareciRedModalAcik(false)}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', color: '#475569'
+                  }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '0.5rem 1.25rem', background: '#B91C1C', color: '#fff', border: 'none',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                  }}
+                >
+                  Reddet
                 </button>
               </div>
             </form>
