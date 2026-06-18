@@ -109,16 +109,70 @@ export default function KurumBelirliGunler() {
         batch.delete(doc(db, 'kurumlar', secilenKurumId, 'belirliGunler', g.id))
       })
 
-      // Hazır MEB Takvimi Verileri
+      // Hazır MEB Takvimi Verileri (Sosyal Etkinlikler Yönetmeliği Ek-8 Çizelgesi)
       const hazirVeriler = [
+        // Eylül
+        { tarihAraligi: '15.09-21.09', baslik: 'İlköğretim Haftası', tatilMi: false },
+        { tarihAraligi: '19.09', baslik: 'Gaziler Günü', tatilMi: false },
+
+        // Ekim
+        { tarihAraligi: '04.10', baslik: 'Hayvanları Koruma Günü', tatilMi: false },
+        { tarihAraligi: '13.10', baslik: 'Dünya Afet Azaltma Günü', tatilMi: false },
         { tarihAraligi: '29.10', baslik: 'Cumhuriyet Bayramı', tatilMi: true },
+        { tarihAraligi: '29.10-04.11', baslik: 'Kızılay Haftası', tatilMi: false },
+
+        // Kasım
+        { tarihAraligi: '03.11-09.11', baslik: 'Organ Bağışı ve Nakli Haftası', tatilMi: false },
         { tarihAraligi: '10.11', baslik: 'Atatürk\'ü Anma Günü', tatilMi: false },
         { tarihAraligi: '10.11-16.11', baslik: 'Atatürk Haftası', tatilMi: false },
+        { tarihAraligi: '12.11', baslik: 'Afet Eğitimi Hazırlık Günü', tatilMi: false },
         { tarihAraligi: '24.11', baslik: 'Öğretmenler Günü', tatilMi: false },
+
+        // Aralık
+        { tarihAraligi: '03.12', baslik: 'Dünya Engelliler Günü', tatilMi: false },
+        { tarihAraligi: '10.12-16.12', baslik: 'İnsan Hakları ve Demokrasi Haftası', tatilMi: false },
+        { tarihAraligi: '12.12-18.12', baslik: 'Tutum, Yatırım ve Türk Malları Haftası', tatilMi: false },
+        { tarihAraligi: '20.12-27.12', baslik: 'Mehmet Akif Ersoy\'u Anma Haftası', tatilMi: false },
+
+        // Ocak
         { tarihAraligi: '01.01', baslik: 'Yılbaşı Tatili', tatilMi: true },
+        { tarihAraligi: '11.01-17.01', baslik: 'Enerji Tasarrufu Haftası', tatilMi: false },
+
+        // Şubat
+        { tarihAraligi: '22.02-28.02', baslik: 'Vergi Haftası', tatilMi: false },
+        { tarihAraligi: '28.02', baslik: 'Sivil Savunma Günü', tatilMi: false },
+
+        // Mart
+        { tarihAraligi: '01.03-07.03', baslik: 'Yeşilay Haftası', tatilMi: false },
+        { tarihAraligi: '01.03-07.03', baslik: 'Girişimcilik Haftası', tatilMi: false },
+        { tarihAraligi: '08.03-14.03', baslik: 'Bilim ve Teknoloji Haftası', tatilMi: false },
+        { tarihAraligi: '12.03', baslik: 'İstiklal Marşı\'nın Kabulü ve Mehmet Akif Ersoy\'u Anma Günü', tatilMi: false },
+        { tarihAraligi: '15.03-21.03', baslik: 'Tüketiciyi Koruma Haftası', tatilMi: false },
+        { tarihAraligi: '18.03', baslik: 'Çanakkale Zaferi ve Şehitleri Anma Günü', tatilMi: false },
+        { tarihAraligi: '21.03-26.03', baslik: 'Orman Haftası', tatilMi: false },
+        { tarihAraligi: '27.03', baslik: 'Dünya Tiyatrolar Günü', tatilMi: false },
+        { tarihAraligi: '29.03-04.04', baslik: 'Kütüphane Haftası', tatilMi: false },
+
+        // Nisan
+        { tarihAraligi: '02.04', baslik: 'Otizm Farkındalık Günü', tatilMi: false },
+        { tarihAraligi: '07.04-13.04', baslik: 'Sağlık Haftası', tatilMi: false },
+        { tarihAraligi: '15.04-22.04', baslik: 'Turizm Haftası', tatilMi: false },
         { tarihAraligi: '23.04', baslik: 'Ulusal Egemenlik ve Çocuk Bayramı', tatilMi: true },
+        { tarihAraligi: '23.04-29.04', baslik: 'Dünya Kitap Günü ve Kütüphaneler Haftası', tatilMi: false },
+
+        // Mayıs
         { tarihAraligi: '01.05', baslik: 'Emek ve Dayanışma Günü', tatilMi: true },
+        { tarihAraligi: '01.05-07.05', baslik: 'Bilişim Haftası', tatilMi: false },
+        { tarihAraligi: '01.05-07.05', baslik: 'Trafik ve İlk Yardım Haftası', tatilMi: false },
+        { tarihAraligi: '10.05-16.05', baslik: 'Engelliler Haftası', tatilMi: false },
+        { tarihAraligi: '18.05-24.05', baslik: 'Müzeler Haftası', tatilMi: false },
         { tarihAraligi: '19.05', baslik: 'Atatürk\'ü Anma, Gençlik ve Spor Bayramı', tatilMi: true },
+        { tarihAraligi: '25.05', baslik: 'Etik Günü', tatilMi: false },
+        { tarihAraligi: '29.05', baslik: 'İstanbul\'un Fethi', tatilMi: false },
+
+        // Haziran & Temmuz
+        { tarihAraligi: '05.06-11.06', baslik: 'Çevre Koruma Haftası', tatilMi: false },
+        { tarihAraligi: '15.07', baslik: 'Demokrasi ve Milli Birlik Günü', tatilMi: true }
       ]
 
       // Kullanıcının girdiği değişken tatilleri ekleyelim
