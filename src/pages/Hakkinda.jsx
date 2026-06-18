@@ -1,3 +1,5 @@
+import React from 'react'
+
 export default function Hakkinda() {
   const MODULLER = [
     { ikon: '🏛', ad: 'Kurumlar',         aciklama: 'Okul, kampüs ve kurum hiyerarşisinin yönetimi; logo ve temel bilgi tanımları.' },
@@ -12,7 +14,6 @@ export default function Hakkinda() {
 
   return (
     <div style={{ maxWidth: '760px' }}>
-
       {/* Başlık */}
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '1.6rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.375rem' }}>

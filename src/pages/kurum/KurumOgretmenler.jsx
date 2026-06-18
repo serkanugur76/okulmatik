@@ -63,11 +63,37 @@ export default function KurumOgretmenler() {
   const activeTip = erisimKurumlar.find(k => k.id === secilenKurumId)?.tip
   const sorguIds = useMemo(() => {
     if (!secilenKurumId) return []
-    if (activeTip === 'altKurum') return [secilenKurumId]
+    
+    // 1. Resolve descendants (child institutions)
+    let descendants = []
     if (activeTip === 'kampus') {
-      return [secilenKurumId, ...erisimKurumlar.filter(k => k.parentId === secilenKurumId).map(k => k.id)]
+      descendants = erisimKurumlar.filter(k => k.parentId === secilenKurumId).map(k => k.id)
+    } else if (activeTip === 'kurum') {
+      descendants = erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId).map(k => k.id)
     }
-    return [secilenKurumId, ...erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId).map(k => k.id)]
+
+    // 2. Resolve ancestors (parent/root institutions)
+    const ancestors = []
+    let currId = secilenKurumId
+    while (currId) {
+      const currObj = erisimKurumlar.find(k => k.id === currId)
+      if (!currObj) break
+      
+      const pId = currObj.parentId
+      if (pId && pId !== currId && !ancestors.includes(pId)) {
+        ancestors.push(pId)
+        currId = pId
+      } else {
+        const rId = currObj.rootKurumId
+        if (rId && rId !== currId && !ancestors.includes(rId)) {
+          ancestors.push(rId)
+        }
+        break
+      }
+    }
+
+    const uniqueIds = new Set([secilenKurumId, ...descendants, ...ancestors])
+    return [...uniqueIds]
   }, [secilenKurumId, erisimKurumlar, activeTip])
 
   const sorguIdsKey = sorguIds.join(',')
