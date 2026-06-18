@@ -39,7 +39,19 @@ export default function KurumKulupler() {
   const [formOkulDuzeyi, setFormOkulDuzeyi] = useState('genel') // ilkokul, ortaokul, lise, genel
   const [formOgretmenler, setFormOgretmenler] = useState([]) // seçilen öğretmen ID'leri
   const [formRubrikler, setFormRubrikler] = useState([]) // seçilen rubrik ID'leri
+  const [formKontenjan, setFormKontenjan] = useState('') // kulüp kontenjan sınırı
   const [duzenlenenKulupId, setDuzenlenenKulupId] = useState(null)
+
+  // Materyal Listesi State'leri
+  const [materyalModalAcik, setMateryalModalAcik] = useState(false)
+  const [materyalTekAd, setMateryalTekAd] = useState('')
+  const [materyalTopluMetin, setMateryalTopluMetin] = useState('')
+  const [materyalEklemeTipi, setMateryalEklemeTipi] = useState('tek') // 'tek' | 'toplu'
+
+  // Etkinlik Temsilcisi State'leri
+  const [temsilciModalAcik, setTemsilciModalAcik] = useState(false)
+  const [seciliEtkinlikId, setSeciliEtkinlikId] = useState('')
+  const [geciciTemsilciler, setGeciciTemsilciler] = useState([])
 
   // Öğrenci Arama & Atama State'leri
   const [ogrenciArama, setOgrenciArama] = useState('')
@@ -261,6 +273,7 @@ export default function KurumKulupler() {
       ad: formAd,
       tanitim: formTanitim,
       okulDuzeyi: formOkulDuzeyi,
+      kontenjan: formKontenjan ? parseInt(formKontenjan) : null,
       ogretmenIds: formOgretmenler,
       rubrikIds: formRubrikler,
       ogrenciIds: duzenlenenKulupId ? (seciliKulup?.ogrenciIds || []) : [],
@@ -290,6 +303,7 @@ export default function KurumKulupler() {
     setFormAd(kulup.ad)
     setFormTanitim(kulup.tanitim || '')
     setFormOkulDuzeyi(kulup.okulDuzeyi || 'genel')
+    setFormKontenjan(kulup.kontenjan || '')
     setFormOgretmenler(kulup.ogretmenIds || [])
     setFormRubrikler(kulup.rubrikIds || [])
     setKulupModalAcik(true)
@@ -311,6 +325,7 @@ export default function KurumKulupler() {
     setFormAd('')
     setFormTanitim('')
     setFormOkulDuzeyi('genel')
+    setFormKontenjan('')
     setFormOgretmenler([])
     setFormRubrikler([])
     setDuzenlenenKulupId(null)
@@ -348,6 +363,13 @@ export default function KurumKulupler() {
     const ogrenciAdSoyad = ogr ? `${ogr.ad} ${ogr.soyad || ''}`.trim() : 'Bilinmeyen Öğrenci'
     const kaynakKulup = kulupler.find(k => k.id === seciliKulupId)
     const hedefKulup = talepTipi === 'gecis' ? kulupler.find(k => k.id === talepHedefKulupId) : null
+
+    if (talepTipi === 'gecis' && hedefKulup) {
+      const mevcutOgrenciSayisi = hedefKulup.ogrenciIds?.length || 0
+      if (hedefKulup.kontenjan && mevcutOgrenciSayisi >= hedefKulup.kontenjan) {
+        return alert(`Seçilen hedef kulübün kontenjanı doludur (${mevcutOgrenciSayisi} / ${hedefKulup.kontenjan}). Geçiş talebi oluşturamazsınız.`)
+      }
+    }
 
     const yeniTalep = {
       ogrenciId: talepOgrenciId,
@@ -437,6 +459,16 @@ export default function KurumKulupler() {
     if (!talep) return
 
     if (onaylandi) {
+      if (talep.tip === 'gecis' && talep.hedefKulupId) {
+        const hedefKulup = kulupler.find(k => k.id === talep.hedefKulupId)
+        if (hedefKulup && hedefKulup.kontenjan) {
+          const mevcutOgrenciSayisi = hedefKulup.ogrenciIds?.length || 0
+          if (mevcutOgrenciSayisi >= hedefKulup.kontenjan) {
+            return alert(`Hedef kulübün kontenjanı doludur (${mevcutOgrenciSayisi} / ${hedefKulup.kontenjan}). Geçiş talebini onaylamak için lütfen önce hedef kulübün kontenjan sınırını güncelleyin.`)
+          }
+        }
+      }
+
       if (!window.confirm(`"${talep.ogrenciAdSoyad}" öğrencisinin kulüp ${talep.tip === 'gecis' ? 'geçişini' : 'çıkışını'} onaylıyor musunuz? Bu işlem otomatik olarak kulüp üyeliklerini güncelleyecektir.`)) return
 
       try {
@@ -502,6 +534,149 @@ export default function KurumKulupler() {
     } catch (err) {
       console.error(err)
       alert('İşlem sırasında bir hata oluştu.')
+    }
+  }
+
+  // Materyal Ekle
+  async function handleMateryalEkle(e) {
+    e.preventDefault()
+    if (!secilenKurumId || !seciliKulupId) return
+    const kulup = kulupler.find(k => k.id === seciliKulupId)
+    if (!kulup) return
+
+    let yeniMateryaller = []
+    const ekleyenAd = profil?.ad || profil?.email || 'Öğretmen'
+    const tarihStr = new Date().toLocaleDateString('tr-TR')
+
+    if (materyalEklemeTipi === 'tek') {
+      if (!materyalTekAd.trim()) return alert('Lütfen materyal adı girin.')
+      yeniMateryaller.push({
+        id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9),
+        ad: materyalTekAd.trim(),
+        durum: 'taslak',
+        ekleyenAd,
+        tarih: tarihStr
+      })
+    } else {
+      if (!materyalTopluMetin.trim()) return alert('Lütfen e-tablodan kopyaladığınız satırları yapıştırın.')
+      const satirlar = materyalTopluMetin.split('\n')
+      satirlar.forEach((satir, i) => {
+        const ad = satir.trim()
+        if (ad) {
+          yeniMateryaller.push({
+            id: (Date.now() + i).toString() + '_' + Math.random().toString(36).substr(2, 9),
+            ad,
+            durum: 'taslak',
+            ekleyenAd,
+            tarih: tarihStr
+          })
+        }
+      })
+    }
+
+    const guncelMateryaller = [...(kulup.materyaller || []), ...yeniMateryaller]
+
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', seciliKulupId), {
+        materyaller: guncelMateryaller
+      })
+      setFormAd('') // reset if needed
+      setMateryalTekAd('')
+      setMateryalTopluMetin('')
+      alert('Materyaller taslak olarak başarıyla eklendi, resmiyet kazanması için idareci onayı bekleniyor.')
+    } catch (err) {
+      console.error(err)
+      alert('Materyal eklenirken hata oluştu.')
+    }
+  }
+
+  // Materyal Sil
+  async function handleMateryalSil(materyalId) {
+    if (!secilenKurumId || !seciliKulupId || !materyalId) return
+    const kulup = kulupler.find(k => k.id === seciliKulupId)
+    if (!kulup) return
+
+    const mat = (kulup.materyaller || []).find(m => m.id === materyalId)
+    if (!mat) return
+
+    if (mat.durum === 'onayli' && !adminModu) {
+      return alert('Onaylanmış (Resmi) materyaller yalnızca okul idarecileri tarafından silinebilir.')
+    }
+
+    if (!window.confirm(`"${mat.ad}" materyalini silmek istediğinize emin misiniz?`)) return
+
+    const guncelMateryaller = (kulup.materyaller || []).filter(m => m.id !== materyalId)
+
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', seciliKulupId), {
+        materyaller: guncelMateryaller
+      })
+    } catch (err) {
+      console.error(err)
+      alert('Materyal silinirken hata oluştu.')
+    }
+  }
+
+  // Materyal Onayla
+  async function handleMateryalOnayla(materyalId) {
+    if (!secilenKurumId || !seciliKulupId || !materyalId) return
+    const kulup = kulupler.find(k => k.id === seciliKulupId)
+    if (!kulup) return
+
+    const guncelMateryaller = (kulup.materyaller || []).map(m => {
+      if (m.id === materyalId) {
+        return { ...m, durum: 'onayli' }
+      }
+      return m
+    })
+
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', seciliKulupId), {
+        materyaller: guncelMateryaller
+      })
+      await logKaydet('KULÜP', `"${kulup.ad}" kulübünün bir materyali onaylandı.`, profil)
+    } catch (err) {
+      console.error(err)
+      alert('Materyal onaylanırken hata oluştu.')
+    }
+  }
+
+  // Tüm Materyalleri Onayla
+  async function handleTumMateryalleriOnayla() {
+    if (!secilenKurumId || !seciliKulupId) return
+    const kulup = kulupler.find(k => k.id === seciliKulupId)
+    if (!kulup) return
+
+    const guncelMateryaller = (kulup.materyaller || []).map(m => ({ ...m, durum: 'onayli' }))
+
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', seciliKulupId), {
+        materyaller: guncelMateryaller
+      })
+      await logKaydet('KULÜP', `"${kulup.ad}" kulübünün tüm materyalleri onaylandı.`, profil)
+      alert('Tüm materyaller resmi olarak onaylandı.')
+    } catch (err) {
+      console.error(err)
+      alert('Materyaller onaylanırken hata oluştu.')
+    }
+  }
+
+  // Etkinlik Temsilcisi Kaydet
+  async function handleTemsilciSecmeKaydet() {
+    if (!secilenKurumId || !seciliEtkinlikId) return
+    const etk = etkinlikler.find(e => e.id === seciliEtkinlikId)
+    if (!etk) return
+
+    try {
+      await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupEtkinlikleri', seciliEtkinlikId), {
+        temsilciIds: geciciTemsilciler
+      })
+      await logKaydet('KULÜP_ETKİNLİK', `"${etk.ad}" etkinliği için temsilci öğrenciler güncellendi.`, profil)
+      setTemsilciModalAcik(false)
+      alert('Temsilci öğrenciler başarıyla kaydedildi.')
+    } catch (err) {
+      console.error(err)
+      alert('Temsilciler kaydedilirken hata oluştu.')
     }
   }
 
@@ -760,8 +935,12 @@ export default function KurumKulupler() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
                             <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#1E293B' }}>{kulup.ad}</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                              <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: '#F1F5F9', color: '#475569', borderRadius: '999px', fontWeight: '700' }}>
-                                👥 {kulup.ogrenciIds?.length || 0} Öğrenci
+                              <span style={{
+                                fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', fontWeight: '700',
+                                background: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FEE2E2' : '#F1F5F9',
+                                color: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#991B1B' : '#475569',
+                              }}>
+                                👥 {kulup.ogrenciIds?.length || 0} / {kulup.kontenjan || '∞'} Üye
                               </span>
                               {kulup.okulDuzeyi && (
                                 <span style={{
@@ -790,7 +969,7 @@ export default function KurumKulupler() {
                         </div>
 
                         {/* Aksiyon Butonları */}
-                        <div style={{ display: 'flex', gap: '6px', marginTop: '1.25rem' }}>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '1.25rem', flexWrap: 'wrap' }}>
                           {adminModu ? (
                             <button
                               onClick={() => {
@@ -802,7 +981,7 @@ export default function KurumKulupler() {
                               style={{
                                 flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#EFF6FF',
                                 color: '#1E40AF', border: '1px solid #BFDBFE', borderRadius: '6px',
-                                fontWeight: '600', cursor: 'pointer'
+                                fontWeight: '600', cursor: 'pointer', minWidth: '110px'
                               }}
                             >
                               Öğrencileri Yönet
@@ -820,12 +999,29 @@ export default function KurumKulupler() {
                               style={{
                                 flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#F0FDF4',
                                 color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: '6px',
-                                fontWeight: '600', cursor: 'pointer'
+                                fontWeight: '600', cursor: 'pointer', minWidth: '110px'
                               }}
                             >
                               Geçiş/Çıkış Talebi
                             </button>
                           )}
+
+                          <button
+                            onClick={() => {
+                              setSeciliKulupId(kulup.id)
+                              setMateryalTekAd('')
+                              setMateryalTopluMetin('')
+                              setMateryalEklemeTipi('tek')
+                              setMateryalModalAcik(true)
+                            }}
+                            style={{
+                              padding: '0.4rem 0.6rem', fontSize: '0.75rem', background: '#FFF7ED',
+                              color: '#C2410C', border: '1px solid #FFEDD5', borderRadius: '6px',
+                              fontWeight: '600', cursor: 'pointer'
+                            }}
+                          >
+                            📦 Materyaller
+                          </button>
 
                           {adminModu && (
                             <>
@@ -1182,17 +1378,53 @@ export default function KurumKulupler() {
                               </div>
                               <h4 style={{ margin: '0 0 4px', fontSize: '0.9rem', color: '#1B3A6B', fontWeight: '700' }}>{etk.ad}</h4>
                               <p style={{ margin: 0, fontSize: '0.78rem', color: '#475569', lineHeight: '1.4' }}>{etk.aciklama}</p>
+
+                              {/* Temsilci Listesi */}
+                              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #E2E8F0' }}>
+                                <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1B3A6B' }}>
+                                  🏆 Katılacak Temsilciler:
+                                </span>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                                  {(!etk.temsilciIds || etk.temsilciIds.length === 0) ? (
+                                    <span style={{ fontSize: '0.7rem', color: '#94A3B8', fontStyle: 'italic' }}>Temsilci seçilmemiş.</span>
+                                  ) : (
+                                    ogrenciler
+                                      .filter(o => etk.temsilciIds.includes(o.id))
+                                      .map(o => (
+                                        <span key={o.id} style={{ fontSize: '0.7rem', background: '#EFF6FF', color: '#1E40AF', padding: '2px 6px', borderRadius: '4px', fontWeight: '600' }}>
+                                          👤 {o.ad} {o.soyad || ''}
+                                        </span>
+                                      ))
+                                  )}
+                                </div>
+                              </div>
                             </div>
 
-                            <button
-                              onClick={() => handleEtkinlikSil(etk.id, etk.ad)}
-                              style={{
-                                background: 'none', border: 'none', color: '#EF4444',
-                                fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer'
-                              }}
-                            >
-                              Sil
-                            </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', marginLeft: '12px' }}>
+                              <button
+                                onClick={() => {
+                                  setSeciliEtkinlikId(etk.id)
+                                  setGeciciTemsilciler(etk.temsilciIds || [])
+                                  setTemsilciModalAcik(true)
+                                }}
+                                style={{
+                                  padding: '4px 10px', fontSize: '0.72rem', background: '#EFF6FF',
+                                  color: '#1E40AF', border: '1px solid #BFDBFE', borderRadius: '6px',
+                                  fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap'
+                                }}
+                              >
+                                🏆 Temsilci Seç
+                              </button>
+                              <button
+                                onClick={() => handleEtkinlikSil(etk.id, etk.ad)}
+                                style={{
+                                  background: 'none', border: 'none', color: '#EF4444',
+                                  fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer'
+                                }}
+                              >
+                                Sil
+                              </button>
+                            </div>
                           </div>
                         ))
                     )}
@@ -1439,6 +1671,18 @@ export default function KurumKulupler() {
                   <option value="lise">🏫 Lise</option>
                   <option value="genel">🌍 Genel / Tüm Düzeyler</option>
                 </select>
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Kontenjan Sınırı (Sınırsız için boş bırakın):
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Örn: 20, 30"
+                  value={formKontenjan}
+                  onChange={e => setFormKontenjan(e.target.value)}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem' }}
+                />
               </label>
 
               {/* Öğretmen Atama (Çoklu Seçim Checkbox) */}
@@ -1814,9 +2058,19 @@ export default function KurumKulupler() {
                     <option value="">— Hedef Kulüp Seçin —</option>
                     {kulupler
                       .filter(k => k.id !== seciliKulupId)
-                      .map(k => (
-                        <option key={k.id} value={k.id}>{k.ad} ({k.okulDuzeyi ? k.okulDuzeyi.toUpperCase() : 'GENEL'})</option>
-                      ))
+                      .map(k => {
+                        const isFull = k.kontenjan && (k.ogrenciIds?.length || 0) >= k.kontenjan
+                        return (
+                          <option 
+                            key={k.id} 
+                            value={k.id} 
+                            disabled={isFull}
+                          >
+                            {k.ad} ({k.okulDuzeyi ? k.okulDuzeyi.toUpperCase() : 'GENEL'})
+                            {isFull ? ` (Kontenjan Dolu - ${k.ogrenciIds?.length || 0}/${k.kontenjan})` : ''}
+                          </option>
+                        )
+                      })
                     }
                   </select>
                 </label>
@@ -2002,6 +2256,295 @@ export default function KurumKulupler() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ── MODAL 7: MATERYAL LİSTESİ YÖNETİM MODALI ── */}
+      {materyalModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '560px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div>
+                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>📦 Kulüp Materyal Listesi Yönetimi</span>
+                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>{seciliKulup?.ad}</div>
+              </div>
+              <button
+                onClick={() => setMateryalModalAcik(false)}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Gövdesi */}
+            <div style={{ padding: '1.25rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1 }}>
+              
+              {/* Mevcut Materyaller Listesi */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#1E293B', fontWeight: '700' }}>📋 Kayıtlı Materyaller</h4>
+                  {adminModu && (seciliKulup?.materyaller || []).some(m => m.durum === 'taslak') && (
+                    <button
+                      onClick={handleTumMateryalleriOnayla}
+                      style={{ padding: '2px 8px', fontSize: '0.7rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      ✓ Tümünü Onayla (Resmileştir)
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ border: '1px solid #E2E8F0', borderRadius: '8px', maxHeight: '180px', overflowY: 'auto', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px', background: '#F8FAFC' }}>
+                  {(!seciliKulup?.materyaller || seciliKulup.materyaller.length === 0) ? (
+                    <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontStyle: 'italic', padding: '10px', textAlign: 'center' }}>
+                      Henüz kulübe ait materyal tanımlanmamıştır.
+                    </span>
+                  ) : (
+                    seciliKulup.materyaller.map(m => {
+                      const canDelete = adminModu || m.durum === 'taslak'
+                      return (
+                        <div key={m.id} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '6px 10px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '0.75rem'
+                        }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{ fontWeight: '600', color: '#1E293B' }}>{m.ad}</span>
+                            <span style={{ fontSize: '0.65rem', color: '#64748B' }}>Ekleyen: {m.ekleyenAd} ({m.tarih})</span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {m.durum === 'taslak' ? (
+                              <span style={{ padding: '2px 6px', background: '#FEF3C7', color: '#D97706', borderRadius: '4px', fontWeight: '700', fontSize: '0.65rem' }}>
+                                ⏳ Taslak
+                              </span>
+                            ) : (
+                              <span style={{ padding: '2px 6px', background: '#D1FAE5', color: '#059669', borderRadius: '4px', fontWeight: '700', fontSize: '0.65rem' }}>
+                                Resmi
+                              </span>
+                            )}
+
+                            {adminModu && m.durum === 'taslak' && (
+                              <button
+                                onClick={() => handleMateryalOnayla(m.id)}
+                                style={{ padding: '2px 6px', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer', fontSize: '0.65rem' }}
+                              >
+                                Onayla
+                              </button>
+                            )}
+
+                            {canDelete && (
+                              <button
+                                onClick={() => handleMateryalSil(m.id)}
+                                style={{ background: 'none', border: 'none', color: '#EF4444', fontWeight: '700', cursor: 'pointer', fontSize: '0.65rem' }}
+                              >
+                                Sil
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Materyal Ekleme Bölümü */}
+              <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '1rem' }}>
+                <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: '#1E293B', fontWeight: '700' }}>➕ Yeni Materyal Ekle</h4>
+                
+                {/* Seçim Sekmeleri (Tek Tek / Toplu) */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '0.75rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setMateryalEklemeTipi('tek')}
+                    style={{
+                      flex: 1, padding: '4px', fontSize: '0.75rem', fontWeight: '600', borderRadius: '6px', border: '1px solid #CBD5E1', cursor: 'pointer',
+                      background: materyalEklemeTipi === 'tek' ? '#EFF6FF' : '#fff',
+                      color: materyalEklemeTipi === 'tek' ? '#1E40AF' : '#64748B',
+                      borderColor: materyalEklemeTipi === 'tek' ? '#BFDBFE' : '#CBD5E1'
+                    }}
+                  >
+                    Tek Tek Ekle
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMateryalEklemeTipi('toplu')}
+                    style={{
+                      flex: 1, padding: '4px', fontSize: '0.75rem', fontWeight: '600', borderRadius: '6px', border: '1px solid #CBD5E1', cursor: 'pointer',
+                      background: materyalEklemeTipi === 'toplu' ? '#EFF6FF' : '#fff',
+                      color: materyalEklemeTipi === 'toplu' ? '#1E40AF' : '#64748B',
+                      borderColor: materyalEklemeTipi === 'toplu' ? '#BFDBFE' : '#CBD5E1'
+                    }}
+                  >
+                    E-Tablo ile Toplu Yapıştır
+                  </button>
+                </div>
+
+                <form onSubmit={handleMateryalEkle} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {materyalEklemeTipi === 'tek' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#475569' }}>Materyal Adı:</span>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          type="text"
+                          placeholder="Örn: Satranç Takımı, A4 Kağıdı, Arduino Seti"
+                          value={materyalTekAd}
+                          onChange={e => setMateryalTekAd(e.target.value)}
+                          style={{ flex: 1, padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }}
+                        />
+                        <button
+                          type="submit"
+                          style={{ padding: '0.4rem 1rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '700', fontSize: '0.75rem', cursor: 'pointer' }}
+                        >
+                          Ekle
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#475569' }}>E-Tablodan Satırları Yapıştır:</span>
+                      <span style={{ fontSize: '0.65rem', color: '#94A3B8', fontWeight: '400', marginBottom: '2px' }}>Excel veya Google E-Tablo'dan kopyaladığınız materyal isimlerini aşağıya yapıştırın (Her satır bir materyal oluşturur).</span>
+                      <textarea
+                        rows="4"
+                        placeholder="Satranç Takımı&#10;Yazma Defteri&#10;Tükenmez Kalem"
+                        value={materyalTopluMetin}
+                        onChange={e => setMateryalTopluMetin(e.target.value)}
+                        style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem', minHeight: '80px', fontFamily: 'monospace' }}
+                      />
+                      <button
+                        type="submit"
+                        style={{ alignSelf: 'flex-end', padding: '0.4rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '700', fontSize: '0.75rem', cursor: 'pointer', marginTop: '4px' }}
+                      >
+                        Toplu Ekle (Taslak)
+                      </button>
+                    </div>
+                  )}
+                </form>
+              </div>
+            </div>
+
+            {/* Modal Aksiyonları */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.75rem 1.25rem', borderTop: '1px solid #F1F5F9', background: '#F8FAFC' }}>
+              <button
+                onClick={() => setMateryalModalAcik(false)}
+                style={{
+                  padding: '0.5rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                  borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                }}
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 8: ETKİNLİK/TURNUVA TEMSİLCİ SEÇME MODALI ── */}
+      {temsilciModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '440px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div>
+                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>🏆 Turnuva / Etkinlik Temsilcilerini Seç</span>
+                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>{etkinlikler.find(e => e.id === seciliEtkinlikId)?.ad}</div>
+              </div>
+              <button
+                onClick={() => setTemsilciModalAcik(false)}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Öğrenci Listesi */}
+            <div style={{ maxHeight: '280px', overflowY: 'auto', padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {kulupOgrencileri.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '1rem', color: '#94A3B8', fontSize: '0.8rem' }}>Kulübe kayıtlı öğrenci bulunmuyor.</div>
+              ) : (
+                kulupOgrencileri.map(o => {
+                  const secili = geciciTemsilciler.includes(o.id)
+                  return (
+                    <label key={o.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '0.5rem 0.75rem', background: secili ? '#EFF6FF' : '#F8FAFC',
+                      border: secili ? '1px solid #BFDBFE' : '1px solid #E2E8F0',
+                      borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="checkbox"
+                          checked={secili}
+                          onChange={() => {
+                            setGeciciTemsilciler(prev =>
+                              prev.includes(o.id) ? prev.filter(x => x !== o.id) : [...prev, o.id]
+                            )
+                          }}
+                        />
+                        <div>
+                          <div style={{ fontWeight: '700', color: '#1E293B' }}>{o.ad} {o.soyad || ''}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748B' }}>No: {o.ogrenciNo || '—'} · Sınıf: {o.sinifAd || '—'}</div>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '0.65rem', padding: '2px 8px', borderRadius: '999px',
+                        background: secili ? '#1B3A6B' : '#E2E8F0', color: secili ? '#fff' : '#475569',
+                        fontWeight: '700'
+                      }}>
+                        {secili ? 'Temsilci' : 'Katılmıyor'}
+                      </span>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Modal Aksiyonları */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderTop: '1px solid #F1F5F9', background: '#F8FAFC' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1B3A6B' }}>
+                Seçilen: {geciciTemsilciler.length} Öğrenci
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setTemsilciModalAcik(false)}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', color: '#475569'
+                  }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  onClick={handleTemsilciSecmeKaydet}
+                  style={{
+                    padding: '0.5rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                  }}
+                >
+                  Temsilcileri Kaydet
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
