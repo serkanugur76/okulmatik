@@ -183,14 +183,14 @@ function PlatformSidebar() {
             <img
               src={profil.photoURL}
               alt="Profil"
-              style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.2)' }}
+              style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0 }}
             />
           ) : (
             <div style={{
               width: '40px', height: '40px', borderRadius: '50%',
               background: '#4338CA', color: '#fff',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: '700', fontSize: '0.9rem', border: '2px solid rgba(255,255,255,0.2)'
+              fontWeight: '700', fontSize: '0.9rem', border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0
             }}>
               {(() => {
                 const name = profil?.ad || profil?.email || '?';

@@ -415,14 +415,14 @@ export default function KurumKullanicilar() {
                       <img
                         src={k.photoURL}
                         alt="Avatar"
-                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #E2E8F0' }}
+                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #E2E8F0', flexShrink: 0 }}
                       />
                     ) : (
                       <div style={{
                         width: '32px', height: '32px', borderRadius: '50%',
                         background: '#E2E8F0', color: '#475569',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: '700', fontSize: '0.75rem', border: '1px solid #CBD5E1'
+                        fontWeight: '700', fontSize: '0.75rem', border: '1px solid #CBD5E1', flexShrink: 0
                       }}>
                         {(() => {
                           const name = k.ad || k.email || '?';
