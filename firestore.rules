@@ -209,5 +209,21 @@ service cloud.firestore {
       allow write: if kurumUyesi(kurumId) || platformAdmin()
                    || ogretmenKurumErisimi(kurumId);
     }
+
+    // Nöbet Noktaları Yetkileri
+    match /kurumlar/{kurumId}/nobetNoktalari/{noktaId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
+      allow write: if kurumAdmin(kurumId) || platformAdmin();
+    }
+
+    // Nöbet Takip Telemetri Yetkileri
+    match /kurumlar/{kurumId}/nobetTakip/{ogretmenId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
+      allow write: if request.auth.uid == ogretmenId
+                   || kurumAdmin(kurumId)
+                   || platformAdmin();
+    }
   }
 }
