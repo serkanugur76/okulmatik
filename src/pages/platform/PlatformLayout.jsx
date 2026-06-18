@@ -9,6 +9,7 @@ const PLATFORM_MENULER = [
   { yol: '/platform/kullanicilar', etiket: 'Kullanıcılar', ikon: '👥' },
   { yol: '/platform/rubrikler',    etiket: 'Rubrik Şablonlar', ikon: '📋' },
   { yol: '/platform/loglar',        etiket: 'İşlem Logları', ikon: '🗒️' },
+  { yol: '/platform/sistem',       etiket: 'Sistem İşlemleri', ikon: '⚙️' },
   { yol: '/platform/hakkinda',     etiket: 'Hakkında',      ikon: 'ℹ️' },
 ]
 

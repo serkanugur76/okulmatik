@@ -19,6 +19,7 @@ import Hakkinda               from './pages/Hakkinda'
 import PlatformLoglar         from './pages/platform/PlatformLoglar'
 import KurumKutuphane         from './pages/kurum/KurumKutuphane'
 import KurumOgretmenler       from './pages/kurum/KurumOgretmenler'
+import PlatformSistemIslemleri from './pages/platform/PlatformSistemIslemleri'
 
 function KorunanRoute({ izinliRoller, children }) {
   const { kullanici, profil, yukleniyor } = useAuth()
@@ -69,6 +70,7 @@ export default function App() {
             <Route path="kurum/kutuphane"        element={<KurumKutuphane />} />
             <Route path="hakkinda"               element={<Hakkinda />} />
             <Route path="loglar"                 element={<PlatformLoglar />} />
+            <Route path="sistem"                 element={<PlatformSistemIslemleri />} />
           </Route>
           <Route path="/kurum" element={
             <KorunanRoute izinliRoller={['kurum_admin', 'ogretmen']}>

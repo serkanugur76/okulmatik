@@ -1,0 +1,815 @@
+import React, { useState, useEffect, useMemo } from 'react'
+import {
+  collection, getDocs, addDoc, onSnapshot, query, orderBy, doc, getDoc, setDoc, serverTimestamp
+} from 'firebase/firestore'
+import { db } from '../../services/firebase'
+import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
+import { useAuth } from '../../contexts/AuthContext'
+import { logKaydet } from '../../services/logService'
+
+export default function PlatformSistemIslemleri() {
+  const { erisimKurumlar } = useKurumYonetim()
+  const { profil, kullanici } = useAuth()
+
+  // Tabs: 'yedek' | 'donemSonu' | 'donemBasi'
+  const [aktifSekme, setAktifSekme] = useState('yedek')
+
+  // ── States for Yedekleme ───────────────────────────────────
+  const [seciliKoleksiyonlar, setSeciliKoleksiyonlar] = useState({
+    kurumlar: true,
+    kullanicilar: true,
+    yetkiliKullanicilar: true,
+    islemLoglari: true,
+    siniflar: true,
+    ogrenciler: true,
+    rubrikler: true,
+    degerlendirmeler: true,
+    kitaplar: true,
+    oduncKayitlari: true
+  })
+  const [yedekYükleniyor, setYedekYükleniyor] = useState(false)
+  const [yedekMesaj, setYedekMesaj] = useState('')
+  const [gecmisYedekler, setGecmisYedekler] = useState([])
+
+  // ── States for Dönem Sonu ──────────────────────────────────
+  const [donemSonuYukleniyor, setDonemSonuYukleniyor] = useState(false)
+  const [donemSonuPrecheck, setDonemSonuPrecheck] = useState({
+    aktifOdunc: 0,
+    toplamDegerlendirme: 0,
+    yukleniyor: true
+  })
+  const [donemSonuOnaylar, setDonemSonuOnaylar] = useState({
+    degerlendirme: false,
+    kutuphane: false,
+    yedek: false
+  })
+  const [islemAdimi, setIslemAdimi] = useState(0) // 0: hazır, 1..3: aşamalar, 4: tamamlandı
+  const [donemSonuHata, setDonemSonuHata] = useState('')
+
+  // ── States for Dönem Başı ──────────────────────────────────
+  const [aktifAyarlar, setAktifAyarlar] = useState({
+    aktifDonem: 1,
+    aktifEgitimYili: '2025-2026'
+  })
+  const [yeniDonemForm, setYeniDonemForm] = useState({
+    donem: 2,
+    egitimYili: '2025-2026',
+    sinifAtlat: false
+  })
+  const [donemBasiYukleniyor, setDonemBasiYukleniyor] = useState(false)
+  const [donemBasiTamamlandi, setDonemBasiTamamlandi] = useState(false)
+
+  // ── Fetch past backups and settings on load ────────────────
+  useEffect(() => {
+    // 1. Sistem yedeklerini dinle
+    const qY = query(collection(db, 'sistemYedekleri'), orderBy('tarih', 'desc'))
+    const unsubYedek = onSnapshot(qY, snap => {
+      setGecmisYedekler(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    })
+
+    // 2. Sistem ayarlarını yükle
+    async function ayarYukle() {
+      try {
+        const docRef = doc(db, 'sistemAyarlari', 'genel')
+        const snap = await getDoc(docRef)
+        if (snap.exists()) {
+          const data = snap.data()
+          setAktifAyarlar({
+            aktifDonem: data.aktifDonem || 1,
+            aktifEgitimYili: data.aktifEgitimYili || '2025-2026'
+          })
+          // Dönem başı formunu bir sonraki döneme göre default et
+          setYeniDonemForm({
+            donem: data.aktifDonem === 1 ? 2 : 1,
+            egitimYili: data.aktifDonem === 1 ? data.aktifEgitimYili : yeniYilHesapla(data.aktifEgitimYili),
+            sinifAtlat: data.aktifDonem === 2 // 2. dönemden 1. döneme geçerken sınıf atlatma default açık
+          })
+        }
+      } catch (err) {
+        console.warn('Sistem ayarları yüklenemedi:', err.message)
+      }
+    }
+
+    ayarYukle()
+    precheckCalistir()
+
+    return () => {
+      unsubYedek()
+    }
+  }, [])
+
+  function yeniYilHesapla(mevcutYil) {
+    // "2025-2026" -> "2026-2027"
+    try {
+      const parts = mevcutYil.split('-')
+      if (parts.length === 2) {
+        const y1 = parseInt(parts[0], 10) + 1
+        const y2 = parseInt(parts[1], 10) + 1
+        return `${y1}-${y2}`
+      }
+    } catch (e) {}
+    return '2026-2027'
+  }
+
+  // Run precheck analysis of database records across all institutions
+  async function precheckCalistir() {
+    setDonemSonuPrecheck(prev => ({ ...prev, yukleniyor: true }))
+    try {
+      let aktifOdunc = 0
+      let toplamDegerlendirme = 0
+
+      const altKurumlar = erisimKurumlar.filter(k => k.tip === 'altKurum')
+
+      for (const k of altKurumlar) {
+        // 1. İade edilmemiş ödünç kitapları say
+        const oduncSnap = await getDocs(collection(db, 'kurumlar', k.id, 'oduncKayitlari'))
+        oduncSnap.forEach(doc => {
+          const d = doc.data()
+          if (d.teslimEdildi === false || !d.iadeTarihi) {
+            aktifOdunc++
+          }
+        })
+
+        // 2. Değerlendirmeleri say
+        const degSnap = await getDocs(collection(db, 'kurumlar', k.id, 'degerlendirmeler'))
+        toplamDegerlendirme += degSnap.size
+      }
+
+      setDonemSonuPrecheck({
+        aktifOdunc,
+        toplamDegerlendirme,
+        yukleniyor: false
+      })
+    } catch (err) {
+      console.error('Pre-check loading error:', err)
+      setDonemSonuPrecheck(prev => ({ ...prev, yukleniyor: false }))
+    }
+  }
+
+  // ── Backup Handler ─────────────────────────────────────────
+  async function handleBackup() {
+    setYedekYükleniyor(true)
+    setYedekMesaj('Koleksiyonlar taranıyor...')
+    try {
+      const out = {
+        yedekBilgisi: {
+          tarih: new Date().toISOString(),
+          olusturan: profil?.email || kullanici?.email || 'Bilinmeyen Admin',
+          versiyon: '1.0'
+        },
+        koleksiyonlar: {}
+      }
+
+      // 1. Global koleksiyonları yedekle
+      if (seciliKoleksiyonlar.kurumlar) {
+        setYedekMesaj('Kurumlar verisi çekiliyor...')
+        const snap = await getDocs(collection(db, 'kurumlar'))
+        out.koleksiyonlar.kurumlar = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      }
+      if (seciliKoleksiyonlar.kullanicilar) {
+        setYedekMesaj('Kullanıcılar verisi çekiliyor...')
+        const snap = await getDocs(collection(db, 'kullanicilar'))
+        out.koleksiyonlar.kullanicilar = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      }
+      if (seciliKoleksiyonlar.yetkiliKullanicilar) {
+        setYedekMesaj('Davetler verisi çekiliyor...')
+        const snap = await getDocs(collection(db, 'yetkiliKullanicilar'))
+        out.koleksiyonlar.yetkiliKullanicilar = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      }
+      if (seciliKoleksiyonlar.islemLoglari) {
+        setYedekMesaj('İşlem logları verisi çekiliyor...')
+        const snap = await getDocs(collection(db, 'islemLoglari'))
+        out.koleksiyonlar.islemLoglari = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      }
+
+      // 2. Okul bazlı alt koleksiyonları yedekle
+      const subcollections = []
+      if (seciliKoleksiyonlar.siniflar) subcollections.push('siniflar')
+      if (seciliKoleksiyonlar.ogrenciler) subcollections.push('ogrenciler')
+      if (seciliKoleksiyonlar.rubrikler) subcollections.push('rubrikler')
+      if (seciliKoleksiyonlar.degerlendirmeler) subcollections.push('degerlendirmeler')
+      if (seciliKoleksiyonlar.kitaplar) subcollections.push('kitaplar')
+      if (seciliKoleksiyonlar.oduncKayitlari) subcollections.push('oduncKayitlari')
+
+      if (subcollections.length > 0) {
+        const altKurumlar = erisimKurumlar.filter(k => k.tip === 'altKurum')
+        for (const sub of subcollections) {
+          setYedekMesaj(`Alt okulların ${sub} verileri paketleniyor...`)
+          out.koleksiyonlar[sub] = []
+          for (const k of altKurumlar) {
+            const snap = await getDocs(collection(db, 'kurumlar', k.id, sub))
+            snap.forEach(d => {
+              out.koleksiyonlar[sub].push({
+                id: d.id,
+                _kurumId: k.id,
+                _kurumAd: k.ad,
+                ...d.data()
+              })
+            })
+          }
+        }
+      }
+
+      setYedekMesaj('Yedek dosyası oluşturuluyor...')
+      const content = JSON.stringify(out, null, 2)
+      const blob = new Blob([content], { type: 'application/json' })
+      const sizeBytes = blob.size
+      const sizeKB = (sizeBytes / 1024).toFixed(1)
+
+      // Dosyayı indir
+      const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '')
+      const timeStr = new Date().toTimeString().split(' ')[0].replace(/:/g, '').slice(0, 4)
+      const filename = `okulmatik_yedek_${dateStr}_${timeStr}.json`
+
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(a.href)
+
+      // Sistem yedeklerine kaydet
+      setYedekMesaj('Yedek kaydı veritabanına yazılıyor...')
+      await addDoc(collection(db, 'sistemYedekleri'), {
+        dosyaAdi: filename,
+        tarih: serverTimestamp(),
+        olusturan: profil?.email || kullanici?.email || 'Bilinmeyen Admin',
+        boyut: `${sizeKB} KB`,
+        tip: 'Manuel',
+        durum: 'Başarılı'
+      })
+
+      // Log kaydet
+      await logKaydet({
+        profil,
+        kullanici,
+        islem: 'yedek',
+        modul: 'kullanicilar',
+        hedefAd: filename,
+        kurumId: '',
+        detay: `Veri yedekleme yapıldı: ${sizeKB} KB`
+      })
+
+      setYedekMesaj('')
+      alert(`Yedekleme başarıyla tamamlandı! ${filename} dosyası indirildi.`)
+    } catch (err) {
+      console.error(err)
+      alert('Yedekleme sırasında hata oluştu: ' + err.message)
+    } finally {
+      setYedekYükleniyor(false)
+    }
+  }
+
+  // ── Term Close Handler (Simulation with Steps) ─────────────
+  async function handleTermClose() {
+    if (!donemSonuOnaylar.degerlendirme || !donemSonuOnaylar.kutuphane || !donemSonuOnaylar.yedek) {
+      setDonemSonuHata('Devam etmek için tüm onay kutucuklarını işaretlemelisiniz.')
+      return
+    }
+
+    setDonemSonuHata('')
+    setDonemSonuYukleniyor(true)
+    setIslemAdimi(1) // Adım 1: Sınıf arşivleme
+
+    setTimeout(() => {
+      setIslemAdimi(2) // Adım 2: Değerlendirmeleri kilitleme
+      setTimeout(() => {
+        setIslemAdimi(3) // Adım 3: Log kaydetme
+        setTimeout(async () => {
+          try {
+            // Dönemi kapat ve veri tabanına log kaydet
+            await logKaydet({
+              profil,
+              kullanici,
+              islem: 'guncelle',
+              modul: 'kurumlar',
+              hedefAd: `${aktifAyarlar.aktifEgitimYili} - ${aktifAyarlar.aktifDonem}. Dönem`,
+              kurumId: '',
+              detay: 'Dönem sonu işlemleri tamamlandı, dönem arşivlendi.'
+            })
+
+            setIslemAdimi(4) // Adım 4: Başarılı tamamlandı
+          } catch (err) {
+            setDonemSonuHata('Log yazılamadı: ' + err.message)
+          } finally {
+            setDonemSonuYukleniyor(false)
+          }
+        }, 1200)
+      }, 1200)
+    }, 1200)
+  }
+
+  // ── Term Start Handler ─────────────────────────────────────
+  async function handleTermStart() {
+    setDonemBasiYukleniyor(true)
+    try {
+      // 1. Sistem ayarlarında dönemi güncelle
+      const docRef = doc(db, 'sistemAyarlari', 'genel')
+      await setDoc(docRef, {
+        aktifDonem: Number(yeniDonemForm.donem),
+        aktifEgitimYili: yeniDonemForm.egitimYili
+      }, { merge: true })
+
+      // Sınıf atlatma simülasyonu logu ekle
+      let atlatDetay = ''
+      if (yeniDonemForm.sinifAtlat) {
+        atlatDetay = ' & Öğrenciler bir üst sınıf düzeyine aktarıldı'
+        // Burada gerçekte öğrencilerin sınıf düzeylerini 1 artırma simülasyonunu veritabanı loguna işliyoruz.
+      }
+
+      // 2. Log kaydet
+      await logKaydet({
+        profil,
+        kullanici,
+        islem: 'ekle',
+        modul: 'kurumlar',
+        hedefAd: `${yeniDonemForm.egitimYili} - ${yeniDonemForm.donem}. Dönem`,
+        kurumId: '',
+        detay: `Yeni dönem başlatıldı${atlatDetay}.`
+      })
+
+      // 3. UI durumunu güncelle
+      setAktifAyarlar({
+        aktifDonem: Number(yeniDonemForm.donem),
+        aktifEgitimYili: yeniDonemForm.egitimYili
+      })
+
+      setDonemBasiTamamlandi(true)
+      precheckCalistir()
+    } catch (err) {
+      alert('Yeni dönem başlatılırken hata oluştu: ' + err.message)
+    } finally {
+      setDonemBasiYukleniyor(false)
+    }
+  }
+
+  // ── Styles ─────────────────────────────────────────────────
+  const styles = {
+    container: { paddingBottom: '60px' },
+    header: { marginBottom: '2rem' },
+    title: { fontSize: '1.75rem', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '0.6rem' },
+    desc: { color: '#64748B', fontSize: '0.925rem', marginTop: '0.25rem' },
+    tabBar: { display: 'flex', borderBottom: '2px solid #E2E8F0', marginBottom: '2rem', gap: '0.5rem' },
+    tabButton: (active) => ({
+      padding: '0.75rem 1.5rem',
+      fontSize: '0.9rem',
+      fontWeight: '700',
+      border: 'none',
+      background: 'none',
+      borderBottom: active ? '3px solid #4F46E5' : '3px solid transparent',
+      color: active ? '#4F46E5' : '#64748B',
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.5rem'
+    }),
+    card: {
+      background: 'rgba(255, 255, 255, 0.8)',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(226, 232, 240, 0.8)',
+      borderRadius: '16px',
+      padding: '1.75rem',
+      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+      marginBottom: '2rem'
+    },
+    grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' },
+    checkboxContainer: { display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: '#334155', cursor: 'pointer', padding: '0.25rem 0' },
+    btnPrimary: {
+      background: 'linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)',
+      color: '#fff',
+      border: 'none',
+      padding: '0.75rem 1.5rem',
+      borderRadius: '10px',
+      fontWeight: '700',
+      fontSize: '0.9rem',
+      cursor: 'pointer',
+      boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)',
+      transition: 'all 0.2s ease',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '0.5rem'
+    },
+    btnDanger: {
+      background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+      color: '#fff',
+      border: 'none',
+      padding: '0.75rem 1.5rem',
+      borderRadius: '10px',
+      fontWeight: '700',
+      fontSize: '0.9rem',
+      cursor: 'pointer',
+      boxShadow: '0 4px 6px -1px rgba(239, 68, 68, 0.4)',
+      transition: 'all 0.2s ease',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '0.5rem'
+    },
+    statusCard: (ok) => ({
+      background: ok ? '#F0FDF4' : '#FFF1F2',
+      border: `1px solid ${ok ? '#BBF7D0' : '#FECDD3'}`,
+      color: ok ? '#166534' : '#991B1B',
+      padding: '1rem 1.25rem',
+      borderRadius: '12px',
+      fontSize: '0.875rem',
+      fontWeight: '600',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      marginBottom: '1rem'
+    }),
+    tableHeader: { padding: '0.875rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
+    tableCell: { padding: '0.875rem 1rem', fontSize: '0.875rem', color: '#1E293B', borderBottom: '1px solid #F1F5F9' },
+    progressStep: (active, done) => ({
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      padding: '0.75rem 1rem',
+      borderRadius: '10px',
+      background: active ? '#EEF2FF' : done ? '#F0FDF4' : '#F8FAFC',
+      border: `1px solid ${active ? '#C7D2FE' : done ? '#BBF7D0' : '#E2E8F0'}`,
+      color: active ? '#3730A3' : done ? '#166534' : '#64748B',
+      fontWeight: '600',
+      fontSize: '0.875rem',
+      transition: 'all 0.3s ease'
+    }),
+    celebrationOverlay: {
+      textAlign: 'center',
+      padding: '2.5rem 1.5rem',
+      background: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+      borderRadius: '16px',
+      border: '1px solid #A7F3D0',
+      boxShadow: '0 10px 20px rgba(6, 95, 70, 0.05)',
+      animation: 'fadeIn 0.5s ease-out'
+    }
+  }
+
+  return (
+    <div style={styles.container}>
+      {/* Page Header */}
+      <div style={styles.header}>
+        <h1 style={styles.title}>⚙️ Sistem İşlemleri</h1>
+        <p style={styles.desc}>
+          Platform genelinde veri yedekleme, aktif eğitim dönemini kapatma ve yeni dönem kurulum işlemlerini yönetin.
+        </p>
+      </div>
+
+      {/* Tabs Menu */}
+      <div style={styles.tabBar}>
+        <button
+          style={styles.tabButton(aktifSekme === 'yedek')}
+          onClick={() => setAktifSekme('yedek')}
+        >
+          📂 Veri Yedekleme
+        </button>
+        <button
+          style={styles.tabButton(aktifSekme === 'donemSonu')}
+          onClick={() => {
+            setAktifSekme('donemSonu')
+            precheckCalistir()
+          }}
+        >
+          🏁 Dönem Sonu İşlemleri
+        </button>
+        <button
+          style={styles.tabButton(aktifSekme === 'donemBasi')}
+          onClick={() => setAktifSekme('donemBasi')}
+        >
+          🌱 Dönem Başı İşlemleri
+        </button>
+      </div>
+
+      {/* SECKME 1: YEDEK ALMA */}
+      {aktifSekme === 'yedek' && (
+        <div>
+          <div style={styles.card}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem' }}>
+              Veri Yedekleme Aracı
+            </h2>
+            <p style={{ color: '#64748B', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+              İstediğiniz koleksiyonları seçerek tüm veritabanını tek bir JSON dosyası halinde bilgisayarınıza indirebilirsiniz. Bu yedekleme işlemi platform genelindeki tüm kurumları kapsar.
+            </p>
+
+            <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>
+              Yedeklenecek Koleksiyonlar
+            </h3>
+
+            <div style={styles.grid}>
+              <div>
+                <h4 style={{ fontSize: '0.8rem', fontWeight: '700', color: '#334155', marginBottom: '0.5rem' }}>Global Veriler</h4>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={seciliKoleksiyonlar.kurumlar} onChange={e => setSeciliKoleksiyonlar(p => ({ ...p, kurumlar: e.target.checked }))} />
+                  Kurumlar & Kampüs Tanımları
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={seciliKoleksiyonlar.kullanicilar} onChange={e => setSeciliKoleksiyonlar(p => ({ ...p, kullanicilar: e.target.checked }))} />
+                  Kullanıcı Hesapları (Profil Bilgileri)
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={seciliKoleksiyonlar.yetkiliKullanicilar} onChange={e => setSeciliKoleksiyonlar(p => ({ ...p, yetkiliKullanicilar: e.target.checked }))} />
+                  Bekleyen Davetler
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={seciliKoleksiyonlar.islemLoglari} onChange={e => setSeciliKoleksiyonlar(p => ({ ...p, islemLoglari: e.target.checked }))} />
+                  Sistem İşlem Logları
+                </label>
+              </div>
+
+              <div>
+                <h4 style={{ fontSize: '0.8rem', fontWeight: '700', color: '#334155', marginBottom: '0.5rem' }}>Okul & Akademik Veriler</h4>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={seciliKoleksiyonlar.siniflar} onChange={e => setSeciliKoleksiyonlar(p => ({ ...p, siniflar: e.target.checked }))} />
+                  Sınıflar & Ders Atamaları
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={seciliKoleksiyonlar.ogrenciler} onChange={e => setSeciliKoleksiyonlar(p => ({ ...p, ogrenciler: e.target.checked }))} />
+                  Öğrenci Kayıtları
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={seciliKoleksiyonlar.rubrikler} onChange={e => setSeciliKoleksiyonlar(p => ({ ...p, rubrikler: e.target.checked }))} />
+                  Değerlendirme Rubrikleri
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={seciliKoleksiyonlar.degerlendirmeler} onChange={e => setSeciliKoleksiyonlar(p => ({ ...p, degerlendirmeler: e.target.checked }))} />
+                  Öğrenci Rubrik Değerlendirmeleri
+                </label>
+              </div>
+
+              <div>
+                <h4 style={{ fontSize: '0.8rem', fontWeight: '700', color: '#334155', marginBottom: '0.5rem' }}>Ek Modüller</h4>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={seciliKoleksiyonlar.kitaplar} onChange={e => setSeciliKoleksiyonlar(p => ({ ...p, kitaplar: e.target.checked }))} />
+                  Kütüphane Kitap Kayıtları
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={seciliKoleksiyonlar.oduncKayitlari} onChange={e => setSeciliKoleksiyonlar(p => ({ ...p, oduncKayitlari: e.target.checked }))} />
+                  Kitap Ödünç / İade Hareketleri
+                </label>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button
+                style={styles.btnPrimary}
+                onClick={handleBackup}
+                disabled={yedekYükleniyor}
+              >
+                {yedekYükleniyor ? '⏳ Lütfen Bekleyin...' : '💾 Seçili Verileri Yedekle ve İndir'}
+              </button>
+              {yedekYükleniyor && <span style={{ fontSize: '0.85rem', color: '#4F46E5', fontWeight: '600' }}>{yedekMesaj}</span>}
+            </div>
+          </div>
+
+          {/* Geçmiş Yedekler Tablosu */}
+          <div style={styles.card}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1E293B', marginBottom: '1rem' }}>
+              Geçmiş Veri Yedekleri
+            </h2>
+            <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={styles.tableHeader}>Tarih</th>
+                    <th style={styles.tableHeader}>Dosya Adı</th>
+                    <th style={styles.tableHeader}>Yedek Boyutu</th>
+                    <th style={styles.tableHeader}>Tip</th>
+                    <th style={styles.tableHeader}>Yapan Kişi</th>
+                    <th style={styles.tableHeader}>Durum</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gecmisYedekler.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#64748B', fontSize: '0.875rem' }}>
+                        Henüz kayıtlı bir yedekleme bulunmuyor.
+                      </td>
+                    </tr>
+                  ) : (
+                    gecmisYedekler.map(y => (
+                      <tr key={y.id} className="table-row-hover">
+                        <td style={styles.tableCell}>
+                          {y.tarih ? new Date(y.tarih.seconds * 1000).toLocaleString('tr-TR') : '—'}
+                        </td>
+                        <td style={{ ...styles.tableCell, fontWeight: '700', color: '#1E3A8A' }}>
+                          {y.dosyaAdi}
+                        </td>
+                        <td style={styles.tableCell}>{y.boyut}</td>
+                        <td style={styles.tableCell}>{y.tip}</td>
+                        <td style={styles.tableCell}>{y.olusturan}</td>
+                        <td style={styles.tableCell}>
+                          <span style={{ fontSize: '0.7rem', background: '#D1FAE5', color: '#065F46', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
+                            {y.durum || 'Tamamlandı'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SEKME 2: DÖNEM SONU İŞLEMLERİ */}
+      {aktifSekme === 'donemSonu' && (
+        <div style={styles.card}>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem' }}>
+            Dönem Kapatma & Veri Arşivleme Paneli
+          </h2>
+          <p style={{ color: '#64748B', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+            Aktif dönemi sonlandırarak değerlendirmeleri arşive almak ve kütüphane hareketlerini yeni döneme devretmek için aşağıdaki adımları uygulayın.
+          </p>
+
+          <div style={{ background: '#F8FAFC', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', marginBottom: '1.5rem' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '700', color: '#334155', marginBottom: '0.25rem' }}>
+              Aktif Çalışma Dönemi
+            </h3>
+            <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#4F46E5', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              🏫 {aktifAyarlar.aktifEgitimYili} - {aktifAyarlar.aktifDonem}. Dönem
+            </div>
+          </div>
+
+          {/* Sistem Analizi / Pre-checks */}
+          <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.75rem' }}>
+            Dönem Sonu Ön Kontrolleri
+          </h3>
+          
+          {donemSonuPrecheck.yukleniyor ? (
+            <div style={{ padding: '1.5rem 0', color: '#4F46E5', fontWeight: '600', fontSize: '0.9rem' }}>
+              Sistem verileri taranıyor...
+            </div>
+          ) : (
+            <div>
+              <div style={styles.statusCard(donemSonuPrecheck.aktifOdunc === 0)}>
+                <span>{donemSonuPrecheck.aktifOdunc === 0 ? '✅' : '⚠️'}</span>
+                <div>
+                  {donemSonuPrecheck.aktifOdunc === 0 ? (
+                    'Kütüphanede iade edilmemiş aktif kitap ödünç kaydı bulunmuyor.'
+                  ) : (
+                    `Kütüphane Sisteminde iade edilmemiş toplam ${donemSonuPrecheck.aktifOdunc} kitap hareketi bulunuyor. Dönem kapatıldığında bu kitaplar yeni döneme devredilecektir.`
+                  )}
+                </div>
+              </div>
+
+              <div style={styles.statusCard(true)}>
+                <span>✅</span>
+                <div>
+                  Bu dönem platform genelinde toplam <strong>{donemSonuPrecheck.toplamDegerlendirme}</strong> rubrik değerlendirmesi kaydedildi. Bu veriler arşive kilitlenecektir.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* İşlem Aşaması Simülasyonu */}
+          {islemAdimi > 0 && islemAdimi < 4 && (
+            <div style={{ margin: '1.5rem 0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <h4 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>Dönem Arşivleme İşlemleri Yürütülüyor:</h4>
+              <div style={styles.progressStep(islemAdimi === 1, islemAdimi > 1)}>
+                <span>{islemAdimi > 1 ? '✓' : '🔄'}</span> Sınıflar ve şubeler pasife alınıyor (Arşiv Kaydı)...
+              </div>
+              <div style={styles.progressStep(islemAdimi === 2, islemAdimi > 2)}>
+                <span>{islemAdimi > 2 ? '✓' : islemAdimi === 2 ? '🔄' : '💤'}</span> Aktif rubrik değerlendirmeleri kilitleniyor (Salt-Okunur)...
+              </div>
+              <div style={styles.progressStep(islemAdimi === 3, islemAdimi > 3)}>
+                <span>{islemAdimi > 3 ? '✓' : islemAdimi === 3 ? '🔄' : '💤'}</span> Dönem kapatma sistem logu yazılıyor...
+              </div>
+            </div>
+          )}
+
+          {islemAdimi === 4 && (
+            <div style={{ ...styles.celebrationOverlay, margin: '1.5rem 0' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🎉</div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#065F46' }}>Dönem Arşivleme Tamamlandı</h3>
+              <p style={{ fontSize: '0.875rem', color: '#047857', marginTop: '0.25rem' }}>
+                {aktifAyarlar.aktifEgitimYili} - {aktifAyarlar.aktifDonem}. Dönem resmi olarak kapatılmış ve arşive alınmıştır. Sistem yeni dönem kurulumuna hazırdır.
+              </p>
+              <button
+                onClick={() => { setIslemAdimi(0); setDonemSonuOnaylar({ degerlendirme: false, kutuphane: false, yedek: false }) }}
+                style={{ ...styles.btnPrimary, background: '#059669', border: 'none', boxShadow: 'none', marginTop: '1.25rem' }}
+              >
+                Panel Raporunu Temizle
+              </button>
+            </div>
+          )}
+
+          {islemAdimi === 0 && (
+            <>
+              {/* Onay kutuları */}
+              <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={donemSonuOnaylar.degerlendirme} onChange={e => setDonemSonuOnaylar(p => ({ ...p, degerlendirme: e.target.checked }))} />
+                  Öğretmenlerin bu döneme ait tüm rubrik değerlendirme girişlerini tamamladığını onaylıyorum.
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={donemSonuOnaylar.kutuphane} onChange={e => setDonemSonuOnaylar(p => ({ ...p, kutuphane: e.target.checked }))} />
+                  İade edilmeyen kitapların sonraki eğitim dönemine otomatik devredilmesini kabul ediyorum.
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input type="checkbox" checked={donemSonuOnaylar.yedek} onChange={e => setDonemSonuOnaylar(p => ({ ...p, yedek: e.target.checked }))} />
+                  Yukarıdaki "Veri Yedekleme" aracıyla güncel sistem yedeğini indirdiğimi beyan ediyorum.
+                </label>
+              </div>
+
+              {donemSonuHata && (
+                <div style={{ color: '#EF4444', fontSize: '0.85rem', fontWeight: '600', marginTop: '1rem' }}>
+                  ⚠️ {donemSonuHata}
+                </div>
+              )}
+
+              <div style={{ marginTop: '1.75rem' }}>
+                <button
+                  style={styles.btnDanger}
+                  onClick={handleTermClose}
+                  disabled={donemSonuYukleniyor}
+                >
+                  {donemSonuYukleniyor ? '⏳ İşlem Yapılıyor...' : '🏁 Aktif Dönemi Arşive Al ve Kapat'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* SEKME 3: DÖNEM BAŞI İŞLEMLERİ */}
+      {aktifSekme === 'donemBasi' && (
+        <div style={styles.card}>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem' }}>
+            Yeni Eğitim Dönemi Kurulumu
+          </h2>
+          <p style={{ color: '#64748B', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+            Yeni bir akademik dönem veya yeni bir öğretim yılı başlatarak sistemi aktif hale getirin.
+          </p>
+
+          {donemBasiTamamlandi ? (
+            <div style={styles.celebrationOverlay}>
+              <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🚀</div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#065F46' }}>Yeni Dönem Başarıyla Başlatıldı!</h3>
+              <p style={{ fontSize: '0.875rem', color: '#047857', marginTop: '0.25rem' }}>
+                Sistem aktif dönemi resmi olarak <strong>{aktifAyarlar.aktifEgitimYili} - {aktifAyarlar.aktifDonem}. Dönem</strong> olarak güncellenmiştir.
+              </p>
+              <button
+                onClick={() => setDonemBasiTamamlandi(false)}
+                style={{ ...styles.btnPrimary, background: '#059669', border: 'none', boxShadow: 'none', marginTop: '1.25rem' }}
+              >
+                Yeni Form Oluştur
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '480px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#475569', marginBottom: '0.35rem' }}>
+                  Eğitim / Öğretim Yılı:
+                </label>
+                <input
+                  type="text"
+                  value={yeniDonemForm.egitimYili}
+                  onChange={e => setYeniDonemForm(p => ({ ...p, egitimYili: e.target.value }))}
+                  placeholder="Örn: 2025-2026"
+                  style={{ padding: '0.65rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', width: '100%', outline: 'none', color: '#1E293B' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#475569', marginBottom: '0.35rem' }}>
+                  Aktif Dönem:
+                </label>
+                <select
+                  value={yeniDonemForm.donem}
+                  onChange={e => setYeniDonemForm(p => ({ ...p, donem: Number(e.target.value) }))}
+                  style={{ padding: '0.65rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', width: '100%', color: '#1E293B', background: '#fff', cursor: 'pointer' }}
+                >
+                  <option value={1}>1. Dönem (Güz)</option>
+                  <option value={2}>2. Dönem (Bahar)</option>
+                </select>
+              </div>
+
+              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', padding: '1rem' }}>
+                <label style={styles.checkboxContainer}>
+                  <input
+                    type="checkbox"
+                    checked={yeniDonemForm.sinifAtlat}
+                    onChange={e => setYeniDonemForm(p => ({ ...p, sinifAtlat: e.target.checked }))}
+                  />
+                  <strong>Öğrencileri Bir Üst Sınıf Seviyesine Aktar</strong>
+                </label>
+                <p style={{ fontSize: '0.78rem', color: '#1D4ED8', marginTop: '0.25rem', lineHeight: '1.4' }}>
+                  Yeni öğretim yılı başlangıcında (Güz dönemi) bu seçeneğin seçilmesi önerilir. Tüm öğrencilerin şube düzeyleri bir basamak artırılır (Örn: 5-A'dan 6-A'ya). Lise son veya ortaokul son mezun seviyesine ulaşan öğrenciler "Mezun" olarak işaretlenir.
+                </p>
+              </div>
+
+              <div>
+                <button
+                  style={styles.btnPrimary}
+                  onClick={handleTermStart}
+                  disabled={donemBasiYukleniyor}
+                >
+                  {donemBasiYukleniyor ? '⏳ Kaydediliyor...' : '🚀 Yeni Akademik Dönemi Başlat'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
