@@ -178,14 +178,57 @@ function PlatformSidebar() {
 
       {/* Kullanıcı + çıkış */}
       <div style={{ padding: '1rem 1.25rem', borderTop: `1px solid ${BORDER_COLOR}` }}>
-        <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginBottom: '0.5rem' }}>
-          {profil?.ad || profil?.email}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          {profil?.photoURL ? (
+            <img
+              src={profil.photoURL}
+              alt="Profil"
+              style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.2)' }}
+            />
+          ) : (
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '50%',
+              background: '#4338CA', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700', fontSize: '0.9rem', border: '2px solid rgba(255,255,255,0.2)'
+            }}>
+              {(() => {
+                const name = profil?.ad || profil?.email || '?';
+                const parts = name.split(' ');
+                if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                return name[0].toUpperCase();
+              })()}
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={profil?.ad}>
+              {profil?.ad || 'Platform Yöneticisi'}
+            </span>
+            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={profil?.email}>
+              {profil?.email}
+            </span>
+          </div>
         </div>
+
+        {/* Yetki Rozeti */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '0.75rem' }}>
+          <span style={{
+            fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.03em',
+            background: 'rgba(99,102,241,0.2)', color: '#A5B4FC',
+            border: '1px solid rgba(99,102,241,0.3)',
+            padding: '2px 8px', borderRadius: '999px', display: 'inline-block'
+          }}>
+            ⚙ Süper Admin
+          </span>
+        </div>
+
         <button onClick={handleCikis} style={{
           width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.08)',
-          color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px',
-          fontSize: '0.8rem', cursor: 'pointer',
-        }}>
+          color: '#fff', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px',
+          fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>
           Çıkış Yap
         </button>
       </div>

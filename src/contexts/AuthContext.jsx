@@ -24,8 +24,26 @@ export function AuthProvider({ children }) {
         try {
           const profilSnap = await getDoc(doc(db, 'kullanicilar', user.uid))
           if (profilSnap.exists()) {
-            setProfil(profilSnap.data())
+            const data = profilSnap.data()
+            setProfil(data)
             deleteDoc(doc(db, 'yetkiliKullanicilar', user.email)).catch(() => {})
+            
+            // Google profil fotoğrafı veya isim güncellemesi varsa senkronize et
+            const updates = {}
+            if (user.photoURL && data.photoURL !== user.photoURL) {
+              updates.photoURL = user.photoURL
+            }
+            if (user.displayName && !data.ad) {
+              updates.ad = user.displayName
+            }
+            if (Object.keys(updates).length > 0) {
+              const updatedData = { ...data, ...updates }
+              await setDoc(doc(db, 'kullanicilar', user.uid), updates, { merge: true })
+              if (data.kurumId) {
+                await setDoc(doc(db, 'kurumlar', data.kurumId, 'kullanicilar', user.uid), updates, { merge: true }).catch(() => {})
+              }
+              setProfil(updatedData)
+            }
           } else {
             // İlk giriş: yetkiliKullanicilar'da e-posta var mı?
             const yetkiSnap = await getDoc(doc(db, 'yetkiliKullanicilar', user.email))
@@ -43,6 +61,7 @@ export function AuthProvider({ children }) {
                 parentKurumIdler: yetki.parentKurumIdler || [],
                 branslar:         yetki.branslar         || [],
                 olusturmaTarihi: serverTimestamp(),
+                photoURL: user.photoURL || '',
               }
               await setDoc(doc(db, 'kullanicilar', user.uid), yeniProfil)
               if (yetki.kurumId) {

@@ -347,7 +347,32 @@ export default function PlatformKullanicilar() {
                     const toplamSinif = (k.sinifAtamalari || []).reduce((t, a) => t + (a.siniflar?.length || 0), 0)
                     return (
                       <tr key={k.id}>
-                        <td style={{ ...s.td, paddingLeft: '2rem' }}><strong>{k.ad || '—'}</strong></td>
+                        <td style={{ ...s.td, paddingLeft: '2rem', verticalAlign: 'middle' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            {k.photoURL ? (
+                              <img
+                                src={k.photoURL}
+                                alt="Avatar"
+                                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #E2E8F0' }}
+                              />
+                            ) : (
+                              <div style={{
+                                width: '32px', height: '32px', borderRadius: '50%',
+                                background: '#E2E8F0', color: '#475569',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: '700', fontSize: '0.75rem', border: '1px solid #CBD5E1'
+                              }}>
+                                {(() => {
+                                  const name = k.ad || k.email || '?';
+                                  const parts = name.split(' ');
+                                  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                                  return name[0].toUpperCase();
+                                })()}
+                              </div>
+                            )}
+                            <strong style={{ color: '#1B3A6B' }}>{k.ad || '—'}</strong>
+                          </div>
+                        </td>
                         <td style={s.td}>{k.email}</td>
                         <td style={s.td}>
                           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>

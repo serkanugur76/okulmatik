@@ -339,19 +339,89 @@ function KurumLayoutInner() {
 
         {/* Alt: kullanıcı bilgisi + çıkış */}
         <div style={{ padding: '1rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          {ogretmenModu && profil?.modulIzinler?.rubrik_olustur && (
-            <div style={{ fontSize: '0.68rem', background: 'rgba(251,191,36,0.2)', color: '#FDE68A', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '5px', padding: '2px 8px', marginBottom: '0.5rem', textAlign: 'center', fontWeight: '600' }}>
-              ⭐ Koordinatör
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            {profil?.photoURL ? (
+              <img
+                src={profil.photoURL}
+                alt="Profil"
+                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.2)' }}
+              />
+            ) : (
+              <div style={{
+                width: '40px', height: '40px', borderRadius: '50%',
+                background: '#1D4ED8', color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: '700', fontSize: '0.9rem', border: '2px solid rgba(255,255,255,0.2)'
+              }}>
+                {(() => {
+                  const name = profil?.ad || profil?.email || '?';
+                  const parts = name.split(' ');
+                  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                  return name[0].toUpperCase();
+                })()}
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={profil?.ad}>
+                {profil?.ad || 'Kullanıcı'}
+              </span>
+              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={profil?.email}>
+                {profil?.email}
+              </span>
             </div>
-          )}
-          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.5rem' }}>
-            {profil?.ad || profil?.email}
           </div>
+
+          {/* Yetki/Rol Rozetleri */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '0.75rem' }}>
+            {(() => {
+              const r = (() => {
+                if (profil?.rol === 'platform_admin') {
+                  return { etiket: '⚙ Süper Admin', bg: 'rgba(124,58,237,0.2)', renk: '#C084FC', border: '1px solid rgba(124,58,237,0.3)' }
+                }
+                if (profil?.rol === 'kurum_admin') {
+                  const tip = kullanicininKurumu?.tip
+                  if (tip === 'kampus') {
+                    return { etiket: '🏫 Kampüs Admin', bg: 'rgba(96,165,250,0.2)', renk: '#93C5FD', border: '1px solid rgba(96,165,250,0.3)' }
+                  }
+                  if (tip === 'altKurum') {
+                    return { etiket: '🏢 Okul Admin', bg: 'rgba(192,132,252,0.2)', renk: '#E9D5FF', border: '1px solid rgba(192,132,252,0.3)' }
+                  }
+                  return { etiket: '🏛 Kurum Admin', bg: 'rgba(252,211,77,0.2)', renk: '#FDE68A', border: '1px solid rgba(252,211,77,0.3)' }
+                }
+                if (profil?.rol === 'ogretmen') {
+                  return { etiket: '🧑‍🏫 Öğretmen', bg: 'rgba(52,211,153,0.2)', renk: '#A7F3D0', border: '1px solid rgba(52,211,153,0.3)' }
+                }
+                return null
+              })()
+              if (!r) return null
+              return (
+                <span style={{
+                  fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.03em',
+                  background: r.bg, color: r.renk, border: r.border,
+                  padding: '2px 8px', borderRadius: '999px', display: 'inline-block'
+                }}>
+                  {r.etiket}
+                </span>
+              )
+            })()}
+            {profil?.rol === 'ogretmen' && profil?.modulIzinler?.rubrik_olustur && (
+              <span style={{
+                fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.03em',
+                background: 'rgba(245,158,11,0.2)', color: '#FCD34D', border: '1px solid rgba(245,158,11,0.3)',
+                padding: '2px 8px', borderRadius: '999px', display: 'inline-block'
+              }}>
+                ⭐ Koordinatör
+              </span>
+            )}
+          </div>
+
           <button onClick={handleCikis} style={{
-            width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.1)',
-            color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px',
-            fontSize: '0.8rem', cursor: 'pointer',
-          }}>
+            width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.08)',
+            color: '#fff', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px',
+            fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>
             Çıkış Yap
           </button>
         </div>
