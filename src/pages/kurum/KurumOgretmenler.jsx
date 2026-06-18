@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  collection, onSnapshot, query, orderBy
+  collection, onSnapshot, query, orderBy, where
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
@@ -45,103 +45,166 @@ export default function KurumOgretmenler() {
     updateParam({ ak: null })
   }, [secilenKurumId])
 
-  // Active leaf school ID for data queries
+  // Active leaf school ID for filtering results
   const hedefKurumId = ogretmenModu
     ? (secilenKurumId || null)
     : seviye === 'altKurum' ? secilenKurumId : (secilenAltKurumId || null)
 
   // ── State variables ───────────────────────────────────────
-  const [kullanicilar, setKullanicilar] = useState([])
-  const [siniflar, setSiniflar] = useState([])
+  const [kullanicilarMap, setKullanicilarMap] = useState({}) // { kid: user[] }
+  const [siniflarMap, setSiniflarMap] = useState({}) // { kid: sinif[] }
+  const [bekleyenler, setBekleyenler] = useState([]) // yetkiliKullanicilar
   const [aramaMetni, setAramaMetni] = useState('')
   const [bransFiltre, setBransFiltre] = useState('')
   const [koordinatorFiltre, setKoordinatorFiltre] = useState('hepsi') // 'hepsi' | 'koordinator' | 'normal'
+  const [durumFiltre, setDurumFiltre] = useState('hepsi') // 'hepsi' | 'aktif' | 'bekleyen'
+
+  // Resolve all sub-institution IDs in the hierarchy
+  const activeTip = erisimKurumlar.find(k => k.id === secilenKurumId)?.tip
+  const sorguIds = useMemo(() => {
+    if (!secilenKurumId) return []
+    if (activeTip === 'altKurum') return [secilenKurumId]
+    if (activeTip === 'kampus') {
+      return [secilenKurumId, ...erisimKurumlar.filter(k => k.parentId === secilenKurumId).map(k => k.id)]
+    }
+    return [secilenKurumId, ...erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId).map(k => k.id)]
+  }, [secilenKurumId, erisimKurumlar, activeTip])
+
+  const sorguIdsKey = sorguIds.join(',')
 
   // ── Firestore Listeners ───────────────────────────────────
   useEffect(() => {
-    if (!hedefKurumId) {
-      setKullanicilar([])
-      setSiniflar([])
+    if (sorguIds.length === 0) {
+      setKullanicilarMap({})
+      setSiniflarMap({})
+      setBekleyenler([])
       return
     }
 
-    // Teachers / Users subcollection listener
-    const qKullanicilar = query(collection(db, 'kurumlar', hedefKurumId, 'kullanicilar'), orderBy('ad', 'asc'))
-    const unsubKullanicilar = onSnapshot(qKullanicilar, snap => {
-      setKullanicilar(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    }, err => {
-      console.error("Kullanıcılar dinleme hatası:", err)
+    const unsubs = []
+
+    // 1. Listen to user subcollections and class subcollections for all institutions in the hierarchy
+    sorguIds.forEach(kid => {
+      const qK = query(collection(db, 'kurumlar', kid, 'kullanicilar'), orderBy('ad', 'asc'))
+      unsubs.push(onSnapshot(qK, snap => {
+        setKullanicilarMap(prev => ({ ...prev, [kid]: snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() })) }))
+      }))
+
+      const qS = query(collection(db, 'kurumlar', kid, 'siniflar'), orderBy('ad', 'asc'))
+      unsubs.push(onSnapshot(qS, snap => {
+        setSiniflarMap(prev => ({ ...prev, [kid]: snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() })) }))
+      }))
     })
 
-    // Classes subcollection listener
-    const qSiniflar = query(collection(db, 'kurumlar', hedefKurumId, 'siniflar'), orderBy('ad', 'asc'))
-    const unsubSiniflar = onSnapshot(qSiniflar, snap => {
-      setSiniflar(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    // 2. Listen to pending invitations (yetkiliKullanicilar) in the hierarchy
+    const qBekleyen = query(
+      collection(db, 'yetkiliKullanicilar'),
+      where('rol', '==', 'ogretmen'),
+      where('kurumId', 'in', sorguIds.slice(0, 30))
+    )
+    unsubs.push(onSnapshot(qBekleyen, snap => {
+      setBekleyenler(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     }, err => {
-      console.error("Sınıflar dinleme hatası:", err)
-    })
+      console.warn("Bekleyen davetler dinlenemedi (muhtemelen yetki veya boş):", err.message)
+    }))
 
-    return () => {
-      unsubKullanicilar()
-      unsubSiniflar()
-    }
-  }, [hedefKurumId])
+    return () => unsubs.forEach(u => u())
+  }, [sorguIdsKey])
 
-  // Only teachers list
-  const ogretmenler = useMemo(() => {
-    return kullanicilar.filter(k => k.rol === 'ogretmen')
-  }, [kullanicilar])
-
-  // Classes map for quick lookup: ID -> class object
+  // Build global flat classes map: ID -> class object
   const sinifMap = useMemo(() => {
-    return new Map(siniflar.map(s => [s.id, s]))
-  }, [siniflar])
+    const map = new Map()
+    Object.values(siniflarMap).flat().forEach(s => {
+      map.set(s.id, s)
+    })
+    return map
+  }, [siniflarMap])
 
-  // Get resolved class names list for a teacher
+  // Resolve class names for a teacher
   const getOgretmenSinifAdlari = (ogretmen) => {
     const atamalar = ogretmen.sinifAtamalari || []
-    // Get class IDs for the active school
-    const activeAtama = atamalar.find(a => a.kurumId === hedefKurumId)
-    if (!activeAtama || !activeAtama.siniflar) return []
-    return activeAtama.siniflar
+    let activeAtamaList = atamalar
+    if (hedefKurumId) {
+      activeAtamaList = atamalar.filter(a => a.kurumId === hedefKurumId)
+    }
+    const classIds = activeAtamaList.flatMap(a => a.siniflar || [])
+    return classIds
       .map(cid => sinifMap.get(cid)?.ad)
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b, 'tr'))
-  };
+  }
 
-  // Distinct branches list for filter select
+  // Combined and de-duplicated list of teachers (Active + Pending)
+  const tumOgretmenler = useMemo(() => {
+    // 1. Get active teachers across subcollections, merged by UID
+    const activeUsersFlat = Object.values(kullanicilarMap).flat()
+    const activeTeachers = activeUsersFlat.filter(k => k.rol === 'ogretmen')
+
+    const activeMap = new Map()
+    activeTeachers.forEach(t => {
+      // Merge properties if teacher appears in multiple subcollections (unlikely, but safe)
+      const varolan = activeMap.get(t.id)
+      if (varolan) {
+        activeMap.set(t.id, {
+          ...varolan,
+          ...t,
+          sinifAtamalari: [...(varolan.sinifAtamalari || []), ...(t.sinifAtamalari || [])],
+          erisimKurumIdler: [...new Set([...(varolan.erisimKurumIdler || []), ...(t.erisimKurumIdler || [])])]
+        })
+      } else {
+        activeMap.set(t.id, { ...t, status: 'aktif' })
+      }
+    })
+
+    const activeList = [...activeMap.values()]
+
+    // 2. Map pending invitations to the teacher list
+    const pendingList = bekleyenler.map(b => ({
+      id: b.id,
+      ad: b.ad || b.email.split('@')[0],
+      email: b.email,
+      rol: b.rol,
+      kurumId: b.kurumId,
+      branslar: b.branslar || [],
+      sinifAtamalari: b.sinifAtamalari || [],
+      sinifIdler: b.sinifIdler || [],
+      erisimKurumIdler: b.erisimKurumIdler || [],
+      modulIzinler: b.modulIzinler || {},
+      status: 'bekleyen'
+    }))
+
+    // Avoid duplicating if an invitation has just been accepted but not cleared yet
+    const activeEmails = new Set(activeList.map(a => (a.email || '').toLowerCase()))
+    const filteredPending = pendingList.filter(p => !activeEmails.has((p.email || '').toLowerCase()))
+
+    return [...activeList, ...filteredPending].sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+  }, [kullanicilarMap, bekleyenler])
+
+  // Branch names list for subject filter dropdown
   const branslarListesi = useMemo(() => {
     const set = new Set()
-    ogretmenler.forEach(o => {
+    tumOgretmenler.forEach(o => {
       const branches = o.branslar || []
       branches.forEach(b => {
         if (b && b.trim()) set.add(b.trim())
       })
     })
     return [...set].sort((a, b) => a.localeCompare(b, 'tr'))
-  }, [ogretmenler])
+  }, [tumOgretmenler])
 
-  // ── Statistics calculation ───────────────────────────────
-  const istatistikler = useMemo(() => {
-    const toplamOgretmen = ogretmenler.length
-    const koordinatorSayisi = ogretmenler.filter(o => o.modulIzinler?.rubrik_olustur).length
-    const benzersizBransSayisi = branslarListesi.length
-    const atamasizSayisi = ogretmenler.filter(o => {
-      const activeAtama = (o.sinifAtamalari || []).find(a => a.kurumId === hedefKurumId)
-      return !activeAtama || !activeAtama.siniflar || activeAtama.siniflar.length === 0
-    }).length
-
-    return {
-      toplamOgretmen,
-      koordinatorSayisi,
-      benzersizBransSayisi,
-      atamasizSayisi
-    }
-  }, [ogretmenler, branslarListesi, hedefKurumId])
-
-  // ── Filtered Teachers ─────────────────────────────────────
+  // Filter teachers based on selected school, search text, and filter values
   const filtreliOgretmenler = useMemo(() => {
-    return ogretmenler.filter(o => {
+    return tumOgretmenler.filter(o => {
+      // 1. School level filter (if a sub-institution is active)
+      if (hedefKurumId) {
+        const primaryUyum = o.kurumId === hedefKurumId
+        const erisimUyum = (o.erisimKurumIdler || []).includes(hedefKurumId)
+        const atamaUyum = (o.sinifAtamalari || []).some(a => a.kurumId === hedefKurumId)
+        
+        if (!primaryUyum && !erisimUyum && !atamaUyum) return false
+      }
+
+      // 2. Search query filter
       const sinifAdlari = getOgretmenSinifAdlari(o)
       const matchesSearch = !aramaMetni ||
         (o.ad || '').toLowerCase().includes(aramaMetni.toLowerCase()) ||
@@ -149,8 +212,10 @@ export default function KurumOgretmenler() {
         (o.branslar || []).some(b => b.toLowerCase().includes(aramaMetni.toLowerCase())) ||
         sinifAdlari.some(sa => sa.toLowerCase().includes(aramaMetni.toLowerCase()))
 
+      // 3. Branch filter
       const matchesBranch = !bransFiltre || (o.branslar || []).includes(bransFiltre)
 
+      // 4. Coordinator filter
       let matchesKoordinator = true
       if (koordinatorFiltre === 'koordinator') {
         matchesKoordinator = !!o.modulIzinler?.rubrik_olustur
@@ -158,9 +223,44 @@ export default function KurumOgretmenler() {
         matchesKoordinator = !o.modulIzinler?.rubrik_olustur
       }
 
-      return matchesSearch && matchesBranch && matchesKoordinator
+      // 5. Status filter
+      let matchesStatus = true
+      if (durumFiltre === 'aktif') matchesStatus = o.status === 'aktif'
+      else if (durumFiltre === 'bekleyen') matchesStatus = o.status === 'bekleyen'
+
+      return matchesSearch && matchesBranch && matchesKoordinator && matchesStatus
     })
-  }, [ogretmenler, aramaMetni, bransFiltre, koordinatorFiltre, sinifMap, hedefKurumId]) // eslint-disable-line
+  }, [tumOgretmenler, hedefKurumId, aramaMetni, bransFiltre, koordinatorFiltre, durumFiltre, sinifMap]) // eslint-disable-line
+
+  // ── Statistics calculation ───────────────────────────────
+  const istatistikler = useMemo(() => {
+    // Stats apply to the current active school view (if selected) or the entire hierarchy
+    const list = tumOgretmenler.filter(o => {
+      if (!hedefKurumId) return true
+      return o.kurumId === hedefKurumId || 
+             (o.erisimKurumIdler || []).includes(hedefKurumId) ||
+             (o.sinifAtamalari || []).some(a => a.kurumId === hedefKurumId)
+    })
+
+    const toplamOgretmen = list.length
+    const aktifSayisi = list.filter(o => o.status === 'aktif').length
+    const koordinatorSayisi = list.filter(o => o.modulIzinler?.rubrik_olustur).length
+    const atamasizSayisi = list.filter(o => {
+      // Check if they have class assignments in their accessible schools
+      const atamalar = o.sinifAtamalari || []
+      const activeAtama = hedefKurumId 
+        ? atamalar.find(a => a.kurumId === hedefKurumId)
+        : atamalar.find(a => a.siniflar && a.siniflar.length > 0)
+      return !activeAtama || !activeAtama.siniflar || activeAtama.siniflar.length === 0
+    }).length
+
+    return {
+      toplamOgretmen,
+      aktifSayisi,
+      koordinatorSayisi,
+      atamasizSayisi
+    }
+  }, [tumOgretmenler, hedefKurumId])
 
   // Styles
   const styles = {
@@ -211,7 +311,7 @@ export default function KurumOgretmenler() {
             <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#3730A3' }}>🏫 Okul Seçimi:</span>
             <select value={secilenAltKurumId} onChange={e => setSecilenAltKurumId(e.target.value)}
               style={{ padding: '6px 12px', border: '1.5px solid #4F46E5', borderRadius: '8px', fontSize: '0.875rem', background: '#fff', color: '#374151', cursor: 'pointer', fontWeight: '600' }}>
-              <option value="">— Öğretmenleri listelenecek okulu seçin —</option>
+              <option value="">— Tüm Okullar —</option>
               {(() => {
                 const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
                 const kampusIdler = [...new Set(sayimKurumlar.map(k => k.parentId).filter(Boolean))]
@@ -238,143 +338,155 @@ export default function KurumOgretmenler() {
         )}
       </div>
 
-      {!hedefKurumId ? (
-        <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'rgba(255,255,255,0.6)', border: '1.5px dashed #CBD5E1', borderRadius: '16px' }}>
-          <span style={{ fontSize: '3rem' }}>🧑‍🏫</span>
-          <h3 style={{ color: '#1E293B', marginTop: '1rem', fontSize: '1.1rem', fontWeight: '700' }}>Aktif Okul Seçilmedi</h3>
-          <p style={{ color: '#64748B', fontSize: '0.9rem', marginTop: '0.5rem', maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
-            Öğretmen listesini görüntülemek ve sınıf atamalarını incelemek için lütfen yukarıdaki menüden bir okul seçin.
-          </p>
+      {/* Stats Grid */}
+      <div style={styles.statsGrid}>
+        <div style={styles.statCard}>
+          <div style={{ ...styles.statIcon, background: '#E0E7FF', color: '#4F46E5' }}>👥</div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Toplam Öğretmen</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.toplamOgretmen}</div>
+          </div>
         </div>
-      ) : (
-        <>
-          {/* Stats Grid */}
-          <div style={styles.statsGrid}>
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, background: '#E0E7FF', color: '#4F46E5' }}>👥</div>
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Toplam Öğretmen</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.toplamOgretmen}</div>
-              </div>
-            </div>
 
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, background: '#FEF3C7', color: '#D97706' }}>⭐</div>
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Koordinatör Sayısı</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.koordinatorSayisi}</div>
-              </div>
-            </div>
-
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, background: '#ECFDF5', color: '#059669' }}>📚</div>
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Farklı Branş</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.benzersizBransSayisi}</div>
-              </div>
-            </div>
-
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, background: '#FEF2F2', color: '#DC2626' }}>🎒</div>
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Atamasız Öğretmen</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.atamasizSayisi}</div>
-              </div>
-            </div>
+        <div style={styles.statCard}>
+          <div style={{ ...styles.statIcon, background: '#ECFDF5', color: '#059669' }}>✓</div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Aktif Giriş Yapmış</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.aktifSayisi}</div>
           </div>
+        </div>
 
-          {/* Filters Bar */}
-          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-            <input value={aramaMetni} onChange={e => setAramaMetni(e.target.value)}
-              placeholder="Öğretmen adı, e-posta, branş veya sınıf ara..."
-              style={{ ...styles.input, width: '300px' }} />
-
-            <select value={bransFiltre} onChange={e => setBransFiltre(e.target.value)}
-              style={{ ...styles.select, width: '180px' }}>
-              <option value="">— Tüm Branşlar —</option>
-              {branslarListesi.map(b => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-
-            <select value={koordinatorFiltre} onChange={e => setKoordinatorFiltre(e.target.value)}
-              style={{ ...styles.select, width: '180px' }}>
-              <option value="hepsi">Tüm Yetkiler</option>
-              <option value="koordinator">Sadece Koordinatörler ⭐</option>
-              <option value="normal">Normal Yetki</option>
-            </select>
-
-            {(aramaMetni || bransFiltre || koordinatorFiltre !== 'hepsi') && (
-              <button onClick={() => { setAramaMetni(''); setBransFiltre(''); setKoordinatorFiltre('hepsi') }}
-                style={{ padding: '0.55rem 1.1rem', fontSize: '0.875rem', fontWeight: '600', borderRadius: '8px', cursor: 'pointer', border: '1.5px solid #D1D5DB', background: '#fff', color: '#374151' }}>
-                Temizle
-              </button>
-            )}
+        <div style={styles.statCard}>
+          <div style={{ ...styles.statIcon, background: '#FEF3C7', color: '#D97706' }}>⭐</div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Koordinatör Sayısı</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.koordinatorSayisi}</div>
           </div>
+        </div>
 
-          {/* Table representation */}
-          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={styles.tableHeader}>Öğretmen Adı Soyadı</th>
-                  <th style={styles.tableHeader}>E-posta Adresi</th>
-                  <th style={styles.tableHeader}>Branşlar</th>
-                  <th style={styles.tableHeader}>Koordinatör mü?</th>
-                  <th style={styles.tableHeader}>Atandığı Sınıflar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtreliOgretmenler.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>
-                      Kriterlere uygun öğretmen bulunamadı.
+        <div style={styles.statCard}>
+          <div style={{ ...styles.statIcon, background: '#FEF2F2', color: '#DC2626' }}>🎒</div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Atamasız Öğretmen</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.atamasizSayisi}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters Bar */}
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+        <input value={aramaMetni} onChange={e => setAramaMetni(e.target.value)}
+          placeholder="Öğretmen adı, e-posta, branş veya sınıf ara..."
+          style={{ ...styles.input, width: '280px' }} />
+
+        <select value={bransFiltre} onChange={e => setBransFiltre(e.target.value)}
+          style={{ ...styles.select, width: '180px' }}>
+          <option value="">— Tüm Branşlar —</option>
+          {branslarListesi.map(b => (
+            <option key={b} value={b}>{b}</option>
+          ))}
+        </select>
+
+        <select value={koordinatorFiltre} onChange={e => setKoordinatorFiltre(e.target.value)}
+          style={{ ...styles.select, width: '180px' }}>
+          <option value="hepsi">Tüm Yetkiler</option>
+          <option value="koordinator">Sadece Koordinatörler ⭐</option>
+          <option value="normal">Normal Yetki</option>
+        </select>
+
+        <select value={durumFiltre} onChange={e => setDurumFiltre(e.target.value)}
+          style={{ ...styles.select, width: '180px' }}>
+          <option value="hepsi">Tüm Durumlar</option>
+          <option value="aktif">Sadece Aktif</option>
+          <option value="bekleyen">Sadece Davet Edilenler</option>
+        </select>
+
+        {(aramaMetni || bransFiltre || koordinatorFiltre !== 'hepsi' || durumFiltre !== 'hepsi') && (
+          <button onClick={() => { setAramaMetni(''); setBransFiltre(''); setKoordinatorFiltre('hepsi'); setDurumFiltre('hepsi') }}
+            style={{ padding: '0.55rem 1.1rem', fontSize: '0.875rem', fontWeight: '600', borderRadius: '8px', cursor: 'pointer', border: '1.5px solid #D1D5DB', background: '#fff', color: '#374151' }}>
+            Temizle
+          </button>
+        )}
+      </div>
+
+      {/* Table representation */}
+      <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={styles.tableHeader}>Öğretmen Adı Soyadı</th>
+              <th style={styles.tableHeader}>E-posta Adresi</th>
+              <th style={styles.tableHeader}>Durum</th>
+              <th style={styles.tableHeader}>Birincil Okulu</th>
+              <th style={styles.tableHeader}>Branşlar</th>
+              <th style={styles.tableHeader}>Koordinatör mü?</th>
+              <th style={styles.tableHeader}>Atandığı Sınıflar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtreliOgretmenler.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>
+                  Kriterlere uygun öğretmen bulunamadı.
+                </td>
+              </tr>
+            ) : (
+              filtreliOgretmenler.map(o => {
+                const siniflarList = getOgretmenSinifAdlari(o)
+                const koordinator = !!o.modulIzinler?.rubrik_olustur
+                const kObj = erisimKurumlar.find(x => x.id === o.kurumId)
+                const birincilOkulAd = kObj ? kObj.ad : '— Atanmamış'
+                
+                return (
+                  <tr key={o.id} style={styles.tableRow} className="table-row-hover">
+                    <td style={{ ...styles.tableCell, fontWeight: '700', color: '#1B3A6B' }}>{o.ad || '—'}</td>
+                    <td style={styles.tableCell}>{o.email || '—'}</td>
+                    <td style={styles.tableCell}>
+                      {o.status === 'aktif' ? (
+                        <span style={{ fontSize: '0.72rem', background: '#D1FAE5', color: '#065F46', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
+                          Aktif
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.72rem', background: '#FFEDD5', color: '#9A3412', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
+                          Davet Edildi
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ ...styles.tableCell, fontSize: '0.8rem', color: '#475569', fontWeight: '500' }}>{birincilOkulAd}</td>
+                    <td style={styles.tableCell}>
+                      {o.branslar && o.branslar.length > 0 ? (
+                        o.branslar.map(b => (
+                          <span key={b} style={{ ...styles.badge, ...styles.bransBadge }}>{b}</span>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic' }}>Tanımlanmamış</span>
+                      )}
+                    </td>
+                    <td style={styles.tableCell}>
+                      {koordinator ? (
+                        <span style={{ fontSize: '0.75rem', background: '#FEF3C7', color: '#92400E', padding: '3px 8px', borderRadius: '6px', fontWeight: '700' }}>
+                          Evet ⭐
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Hayır</span>
+                      )}
+                    </td>
+                    <td style={styles.tableCell}>
+                      {siniflarList.length > 0 ? (
+                        siniflarList.map(s => (
+                          <span key={s} style={{ ...styles.badge, ...styles.sinifBadge }}>{s}</span>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', background: '#FEE2E2', color: '#991B1B', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>Sınıf Ataması Yok</span>
+                      )}
                     </td>
                   </tr>
-                ) : (
-                  filtreliOgretmenler.map(o => {
-                    const siniflarList = getOgretmenSinifAdlari(o)
-                    const koordinator = !!o.modulIzinler?.rubrik_olustur
-                    return (
-                      <tr key={o.id} style={styles.tableRow} className="table-row-hover">
-                        <td style={{ ...styles.tableCell, fontWeight: '700', color: '#1B3A6B' }}>{o.ad || '—'}</td>
-                        <td style={styles.tableCell}>{o.email || '—'}</td>
-                        <td style={styles.tableCell}>
-                          {o.branslar && o.branslar.length > 0 ? (
-                            o.branslar.map(b => (
-                              <span key={b} style={{ ...styles.badge, ...styles.bransBadge }}>{b}</span>
-                            ))
-                          ) : (
-                            <span style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic' }}>Tanımlanmamış</span>
-                          )}
-                        </td>
-                        <td style={styles.tableCell}>
-                          {koordinator ? (
-                            <span style={{ fontSize: '0.75rem', background: '#FEF3C7', color: '#92400E', padding: '3px 8px', borderRadius: '6px', fontWeight: '700' }}>
-                              Evet ⭐ (Koordinatör)
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Hayır</span>
-                          )}
-                        </td>
-                        <td style={styles.tableCell}>
-                          {siniflarList.length > 0 ? (
-                            siniflarList.map(s => (
-                              <span key={s} style={{ ...styles.badge, ...styles.sinifBadge }}>{s}</span>
-                            ))
-                          ) : (
-                            <span style={{ fontSize: '0.75rem', background: '#FEE2E2', color: '#991B1B', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>Sınıf Ataması Yok</span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
