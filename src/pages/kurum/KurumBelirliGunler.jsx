@@ -18,6 +18,17 @@ export default function KurumBelirliGunler() {
   const [asistanModal, setAsistanModal] = useState(false)
   const [kaydediyor, setKaydediyor] = useState(false)
 
+  // Aktif akademik yılı hesapla (Örn: Eylül'de ise 2025-2026, Ocak'ta ise 2025-2026)
+  const getAktifAkademikYil = () => {
+    const bugun = new Date()
+    const y = bugun.getFullYear()
+    const m = bugun.getMonth() + 1 // 1-12
+    if (m >= 9) return `${y}-${y+1}`
+    return `${y-1}-${y}`
+  }
+
+  const [secilenAkademikYil, setSecilenAkademikYil] = useState(getAktifAkademikYil())
+
   // Rol kontrolü: Sadece platform yöneticisi düzenleme yapabilir
   const platformAdmin = profil?.rol === 'platform_admin'
 
@@ -28,7 +39,7 @@ export default function KurumBelirliGunler() {
   const [manuelTatilMi, setManuelTatilMi] = useState(false)
 
   // Asistan Form State'leri (Artık date-picker takvim girdileri olacak)
-  const [akademikYil, setAkademikYil] = useState(new Date().getFullYear())
+  const [akademikYil, setAkademikYil] = useState(Number(getAktifAkademikYil().split('-')[0]))
   const [araTatil1Bas, setAraTatil1Bas] = useState('')
   const [araTatil1Bit, setAraTatil1Bit] = useState('')
   const [somestrBas, setSomestrBas] = useState('')
@@ -335,9 +346,33 @@ export default function KurumBelirliGunler() {
           <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1B3A6B', margin: 0 }}>
             📅 Belirli Gün, Hafta & Tatiller
           </h1>
-          <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: '600' }}>
-            {platformAdmin ? 'Sistem Genel Takvim Yönetimi (Platform Admin)' : 'Sistem Resmi Tatil ve Belirli Gün Çizelgesi (Salt Okunur)'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: '600' }}>
+              {platformAdmin ? 'Sistem Genel Takvim Yönetimi (Platform Admin)' : 'Sistem Resmi Tatil ve Belirli Gün Çizelgesi (Salt Okunur)'}
+            </span>
+            <span style={{ color: '#CBD5E1' }}>|</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>
+              Eğitim Öğretim Yılı:
+              <select
+                value={secilenAkademikYil}
+                onChange={e => {
+                  setSecilenAkademikYil(e.target.value)
+                  const startYear = Number(e.target.value.split('-')[0])
+                  setAkademikYil(startYear)
+                }}
+                style={{
+                  padding: '3px 8px', border: '1px solid #CBD5E1', borderRadius: '6px',
+                  fontSize: '0.78rem', fontWeight: '700', color: '#1B3A6B', background: '#fff',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="2024-2025">2024-2025</option>
+                <option value="2025-2026">2025-2026</option>
+                <option value="2026-2027">2026-2027</option>
+                <option value="2027-2028">2027-2028</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -429,28 +464,51 @@ export default function KurumBelirliGunler() {
                 </thead>
                 <tbody>
                   {(() => {
+                    const [basYil, bitYil] = secilenAkademikYil.split('-').map(Number)
+                    const baslangicLimit = `${basYil}-09-01`
+                    const bitisLimit = `${bitYil}-08-31`
+                    
+                    const filtrelenmis = belirliGunler.filter(g => {
+                      if (!g.baslangicTarihi) return false
+                      return g.baslangicTarihi >= baslangicLimit && g.baslangicTarihi <= bitisLimit
+                    })
+
+                    if (filtrelenmis.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={platformAdmin ? 4 : 3} style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8', fontStyle: 'italic' }}>
+                            Seçilen eğitim öğretim yılına ({secilenAkademikYil}) ait kayıtlı belirli gün veya tatil bulunamadı.
+                          </td>
+                        </tr>
+                      )
+                    }
+
                     const TURKCE_AYLAR = {
                       1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran',
                       7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
                     }
-                    let sonAy = null
-                    return belirliGunler.map(g => {
-                      const ay = g.baslangicTarihi ? parseInt(g.baslangicTarihi.split('-')[1]) : 0
+                    let sonGrupKey = null // "Ay-Yıl" formatında grup anahtarı
+                    
+                    return filtrelenmis.map(g => {
+                      const parts = g.baslangicTarihi ? g.baslangicTarihi.split('-') : []
+                      const yil = parseInt(parts[0]) || 0
+                      const ay = parseInt(parts[1]) || 0
+                      const grupKey = `${ay}-${yil}`
                       const ayAdi = TURKCE_AYLAR[ay] || 'Diğer / Tanımsız'
-
-                      const ayDegisti = ay !== sonAy
-                      sonAy = ay
-
+ 
+                      const grupDegisti = grupKey !== sonGrupKey
+                      sonGrupKey = grupKey
+ 
                       const tarihMetni = g.baslangicTarihi === g.bitisTarihi
                         ? formatTarihTr(g.baslangicTarihi)
                         : `${formatTarihTr(g.baslangicTarihi)} - ${formatTarihTr(g.bitisTarihi)}`
-
+ 
                       return (
                         <React.Fragment key={g.id}>
-                          {ayDegisti && (
+                          {grupDegisti && (
                             <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #E2E8F0' }}>
                               <td colSpan={platformAdmin ? 4 : 3} style={{ padding: '8px 12px', fontWeight: '800', color: '#1B3A6B', fontSize: '0.85rem' }}>
-                                📅 {ayAdi} Ayı Tatil ve Belirli Günleri
+                                📅 {ayAdi} {yil} Tatil ve Belirli Günleri
                               </td>
                             </tr>
                           )}
