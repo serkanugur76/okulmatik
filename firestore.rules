@@ -200,14 +200,19 @@ service cloud.firestore {
     match /kurumlar/{kurumId}/kitaplar/{kitapId} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin()
                    || ogretmenKurumErisimi(kurumId);
-      allow write: if kurumAdmin(kurumId) || platformAdmin();
+      allow write: if kurumAdmin(kurumId) || platformAdmin()
+                   || (kullaniciBilgisi().rol == 'ogretmen'
+                       && kullaniciBilgisi().get('modulIzinler', {}).get('kutuphane_yonet', false)
+                       && kullaniciBilgisi().kurumId == kurumId);
     }
 
     match /kurumlar/{kurumId}/oduncKayitlari/{kayitId} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin()
                    || ogretmenKurumErisimi(kurumId);
-      allow write: if kurumUyesi(kurumId) || platformAdmin()
-                   || ogretmenKurumErisimi(kurumId);
+      allow write: if kurumAdmin(kurumId) || platformAdmin()
+                   || (kullaniciBilgisi().rol == 'ogretmen'
+                       && kullaniciBilgisi().get('modulIzinler', {}).get('kutuphane_yonet', false)
+                       && kullaniciBilgisi().kurumId == kurumId);
     }
 
     // Nöbet Noktaları Yetkileri

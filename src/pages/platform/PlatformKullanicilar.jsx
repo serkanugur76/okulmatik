@@ -212,7 +212,7 @@ export default function PlatformKullanicilar() {
         }).filter(Boolean))]
       : []
     const ogretmenEkstra = form.rol === 'ogretmen' ? {
-      modulIzinler:     { rubrik_olustur: form.rubrikOlustur || false },
+      modulIzinler:     { ...(duzenlenen?.modulIzinler || {}), rubrik_olustur: form.rubrikOlustur || false },
       sinifAtamalari:   atamalari,
       sinifIdler:       [...new Set(atamalari.flatMap(a => a.siniflar || []))],
       erisimKurumIdler: [...new Set(atamalari.map(a => a.kurumId).filter(Boolean))],

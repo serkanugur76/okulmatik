@@ -14,6 +14,11 @@ export default function KurumKutuphane() {
   const { secilenKurumId, secilenKurum, erisimKurumlar, ogretmenModu } = useKurumYonetim()
   const { profil, kullanici } = useAuth()
 
+  const kutuphaneYonetebilir = useMemo(() => {
+    if (!ogretmenModu) return true
+    return !!profil?.modulIzinler?.kutuphane_yonet
+  }, [ogretmenModu, profil])
+
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
 
@@ -288,6 +293,10 @@ export default function KurumKutuphane() {
 
   async function handleKitapKaydet(e) {
     e.preventDefault()
+    if (!kutuphaneYonetebilir) {
+      alert('Kütüphane işlemlerini yapmak için yetkiniz bulunmamaktadır.')
+      return
+    }
     if (!hedefKurumId) return
     const { barkod, ad, yazar, yayinevi, tur, konum, toplamAdet } = kitapForm
 
@@ -355,6 +364,10 @@ export default function KurumKutuphane() {
   }
 
   async function handleKitapSil(kitap) {
+    if (!kutuphaneYonetebilir) {
+      alert('Kütüphane işlemlerini yapmak için yetkiniz bulunmamaktadır.')
+      return
+    }
     if (!hedefKurumId) return
     // Check if the book has any active borrow records
     const hasActiveBorrow = oduncKayitlari.some(o => o.kitapId === kitap.id && o.durum === 'odunc')
@@ -426,6 +439,10 @@ export default function KurumKutuphane() {
 
   async function handleOduncVer(e) {
     e.preventDefault()
+    if (!kutuphaneYonetebilir) {
+      alert('Kütüphane işlemlerini yapmak için yetkiniz bulunmamaktadır.')
+      return
+    }
     if (!hedefKurumId) return
     const { kitapId, uyeTur, iadeBeklenenGun } = oduncForm
 
@@ -497,6 +514,10 @@ export default function KurumKutuphane() {
   }
 
   async function handleIadeAl(kayit) {
+    if (!kutuphaneYonetebilir) {
+      alert('Kütüphane işlemlerini yapmak için yetkiniz bulunmamaktadır.')
+      return
+    }
     if (!hedefKurumId) return
     if (kayit.durum === 'iade') return
 
@@ -532,6 +553,40 @@ export default function KurumKutuphane() {
       alert('Kitap başarıyla iade alındı.')
     } catch (err) {
       alert('İade işlemi başarısız: ' + err.message)
+    }
+  }
+
+  async function toggleKutuphaneYetkisi(uye) {
+    if (!hedefKurumId) return
+    const yeniYetki = !uye.raw?.modulIzinler?.kutuphane_yonet
+    const onay = window.confirm(
+      yeniYetki
+        ? `"${uye.ad}" kullanıcısına kütüphane yönetim yetkisi vermek istediğinize emin misiniz?`
+        : `"${uye.ad}" kullanıcısının kütüphane yönetim yetkisini kaldırmak istediğinize emin misiniz?`
+    )
+    if (!onay) return
+
+    try {
+      const batch = writeBatch(db)
+      
+      const subRef = doc(db, 'kurumlar', hedefKurumId, 'kullanicilar', uye.id)
+      const subIzinler = { ...(uye.raw?.modulIzinler || {}), kutuphane_yonet: yeniYetki }
+      batch.update(subRef, { modulIzinler: subIzinler })
+
+      const globalRef = doc(db, 'kullanicilar', uye.id)
+      batch.update(globalRef, { modulIzinler: subIzinler })
+
+      await batch.commit()
+
+      logKaydet({
+        profil, kullanici, islem: 'guncelle', modul: 'kutuphane',
+        hedefAd: `Kütüphane Yetkisi: ${uye.ad} → ${yeniYetki ? 'Yetkili' : 'Yetkisiz'}`,
+        kurumId: hedefKurumId
+      })
+
+      alert('Kütüphane yetkisi başarıyla güncellendi.')
+    } catch (err) {
+      alert('Kütüphane yetkisi güncellenirken hata oluştu: ' + err.message)
     }
   }
 
@@ -573,6 +628,10 @@ export default function KurumKutuphane() {
   }
 
   async function handleExcelYukle() {
+    if (!kutuphaneYonetebilir) {
+      alert('Kütüphane işlemlerini yapmak için yetkiniz bulunmamaktadır.')
+      return
+    }
     if (!hedefKurumId || !excelDosya) return
     setExcelYukleniyor(true)
     setExcelSonuc('')
@@ -907,31 +966,35 @@ export default function KurumKutuphane() {
 
             {/* Actions for current tab */}
             {sekme === 'kitaplar' ? (
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                {/* Excel Upload Input */}
-                <label style={{ ...styles.btn, ...styles.secondaryBtn, display: 'inline-flex', position: 'relative', overflow: 'hidden' }}>
-                  📥 Excel'den Yükle
-                  <input type="file" accept=".xlsx, .xls" onChange={handleExcelDosyaSecimi} style={{ position: 'absolute', top: 0, right: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }} />
-                </label>
+              kutuphaneYonetebilir && (
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {/* Excel Upload Input */}
+                  <label style={{ ...styles.btn, ...styles.secondaryBtn, display: 'inline-flex', position: 'relative', overflow: 'hidden' }}>
+                    📥 Excel'den Yükle
+                    <input type="file" accept=".xlsx, .xls" onChange={handleExcelDosyaSecimi} style={{ position: 'absolute', top: 0, right: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }} />
+                  </label>
 
-                {excelDosya && (
-                  <button onClick={handleExcelYukle} disabled={excelYukleniyor} style={{ ...styles.btn, background: '#10B981', color: '#fff', opacity: excelYukleniyor ? 0.7 : 1 }}>
-                    {excelYukleniyor ? 'Yükleniyor...' : `✓ ${excelDosya.name} Yükle`}
+                  {excelDosya && (
+                    <button onClick={handleExcelYukle} disabled={excelYukleniyor} style={{ ...styles.btn, background: '#10B981', color: '#fff', opacity: excelYukleniyor ? 0.7 : 1 }}>
+                      {excelYukleniyor ? 'Yükleniyor...' : `✓ ${excelDosya.name} Yükle`}
+                    </button>
+                  )}
+
+                  <button onClick={handleSablonIndir} style={{ ...styles.btn, ...styles.secondaryBtn }}>
+                    📄 Şablon İndir
                   </button>
-                )}
 
-                <button onClick={handleSablonIndir} style={{ ...styles.btn, ...styles.secondaryBtn }}>
-                  📄 Şablon İndir
-                </button>
-
-                <button onClick={() => openKitapModal(null)} style={{ ...styles.btn, ...styles.primaryBtn }}>
-                  ➕ Yeni Kitap Ekle
-                </button>
-              </div>
+                  <button onClick={() => openKitapModal(null)} style={{ ...styles.btn, ...styles.primaryBtn }}>
+                    ➕ Yeni Kitap Ekle
+                  </button>
+                </div>
+              )
             ) : (
-              <button onClick={() => openOduncModal('')} style={{ ...styles.btn, ...styles.primaryBtn }}>
-                🔄 Kitap Ödünç Ver
-              </button>
+              kutuphaneYonetebilir && (
+                <button onClick={() => openOduncModal('')} style={{ ...styles.btn, ...styles.primaryBtn }}>
+                  🔄 Kitap Ödünç Ver
+                </button>
+              )
             )}
           </div>
 
@@ -971,13 +1034,13 @@ export default function KurumKutuphane() {
                       <th style={styles.tableHeader}>Tür</th>
                       <th style={styles.tableHeader}>Konum</th>
                       <th style={{ ...styles.tableHeader, textAlign: 'center' }}>Toplam/Mevcut</th>
-                      <th style={{ ...styles.tableHeader, textAlign: 'right' }}>İşlemler</th>
+                      {kutuphaneYonetebilir && <th style={{ ...styles.tableHeader, textAlign: 'right' }}>İşlemler</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {filtreliKitaplar.length === 0 ? (
                       <tr>
-                        <td colSpan={8} style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>
+                        <td colSpan={kutuphaneYonetebilir ? 8 : 7} style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>
                           Aradığınız kriterlere uygun kitap bulunamadı.
                         </td>
                       </tr>
@@ -1005,17 +1068,19 @@ export default function KurumKutuphane() {
                             <span style={{ color: '#94A3B8', margin: '0 4px' }}>/</span>
                             <span style={{ color: '#64748B' }}>{k.toplamAdet}</span>
                           </td>
-                          <td style={{ ...styles.tableCell, textAlign: 'right' }}>
-                            <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                              {k.mevcutAdet > 0 ? (
-                                <button title="Ödünç Ver" onClick={() => openOduncModal(k.id)} style={{ ...styles.actionBtn, color: '#4F46E5' }}>🔄</button>
-                              ) : (
-                                <span title="Stokta Yok" style={{ padding: '4px', fontSize: '1rem', opacity: 0.3, cursor: 'not-allowed' }}>🔄</span>
-                              )}
-                              <button title="Düzenle" onClick={() => openKitapModal(k)} style={{ ...styles.actionBtn, color: '#0EA5E9' }}>✏️</button>
-                              <button title="Sil" onClick={() => handleKitapSil(k)} style={{ ...styles.actionBtn, color: '#EF4444' }}>🗑️</button>
-                            </div>
-                          </td>
+                          {kutuphaneYonetebilir && (
+                            <td style={{ ...styles.tableCell, textAlign: 'right' }}>
+                              <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                                {k.mevcutAdet > 0 ? (
+                                  <button title="Ödünç Ver" onClick={() => openOduncModal(k.id)} style={{ ...styles.actionBtn, color: '#4F46E5' }}>🔄</button>
+                                ) : (
+                                  <span title="Stokta Yok" style={{ padding: '4px', fontSize: '1rem', opacity: 0.3, cursor: 'not-allowed' }}>🔄</span>
+                                )}
+                                <button title="Düzenle" onClick={() => openKitapModal(k)} style={{ ...styles.actionBtn, color: '#0EA5E9' }}>✏️</button>
+                                <button title="Sil" onClick={() => handleKitapSil(k)} style={{ ...styles.actionBtn, color: '#EF4444' }}>🗑️</button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))
                     )}
@@ -1060,13 +1125,13 @@ export default function KurumKutuphane() {
                       <th style={styles.tableHeader}>Beklenen İade Tarihi</th>
                       <th style={styles.tableHeader}>İade Tarihi</th>
                       <th style={styles.tableHeader}>Durum</th>
-                      <th style={{ ...styles.tableHeader, textAlign: 'right' }}>İşlemler</th>
+                      {kutuphaneYonetebilir && <th style={{ ...styles.tableHeader, textAlign: 'right' }}>İşlemler</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {filtreliOduncKayitlari.length === 0 ? (
                       <tr>
-                        <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>
+                        <td colSpan={kutuphaneYonetebilir ? 7 : 6} style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>
                           Aradığınız kriterlere uygun ödünç/iade kaydı bulunamadı.
                         </td>
                       </tr>
@@ -1108,15 +1173,17 @@ export default function KurumKutuphane() {
                                 <span style={{ fontSize: '0.75rem', background: '#FEF3C7', color: '#92400E', padding: '2px 8px', borderRadius: '999px', fontWeight: '700' }}>🔄 Ödünçte</span>
                               )}
                             </td>
-                            <td style={{ ...styles.tableCell, textAlign: 'right' }}>
-                              {o.durum === 'odunc' ? (
-                                <button onClick={() => handleIadeAl(o)} style={{ ...styles.btn, background: '#10B981', color: '#fff', padding: '4px 10px', fontSize: '0.75rem' }}>
-                                  ✓ İade Al
-                                </button>
-                              ) : (
-                                <span style={{ color: '#94A3B8', fontSize: '0.8rem', fontStyle: 'italic' }}>İşlem bitti</span>
-                              )}
-                            </td>
+                            {kutuphaneYonetebilir && (
+                              <td style={{ ...styles.tableCell, textAlign: 'right' }}>
+                                {o.durum === 'odunc' ? (
+                                  <button onClick={() => handleIadeAl(o)} style={{ ...styles.btn, background: '#10B981', color: '#fff', padding: '4px 10px', fontSize: '0.75rem' }}>
+                                    ✓ İade Al
+                                  </button>
+                                ) : (
+                                  <span style={{ color: '#94A3B8', fontSize: '0.8rem', fontStyle: 'italic' }}>İşlem bitti</span>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         )
                       })
@@ -1161,13 +1228,13 @@ export default function KurumKutuphane() {
                       <th style={styles.tableHeader}>Sınıf / E-posta / Detay</th>
                       <th style={{ ...styles.tableHeader, textAlign: 'center' }}>Aktif Ödünçte</th>
                       <th style={{ ...styles.tableHeader, textAlign: 'center' }}>Toplam İşlem</th>
-                      <th style={{ ...styles.tableHeader, textAlign: 'right' }}>İşlemler</th>
+                      {(kutuphaneYonetebilir || !ogretmenModu) && <th style={{ ...styles.tableHeader, textAlign: 'right' }}>İşlemler</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {filtreliUyeler.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>
+                        <td colSpan={(kutuphaneYonetebilir || !ogretmenModu) ? 6 : 5} style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>
                           Aradığınız kriterlere uygun üye bulunamadı.
                         </td>
                       </tr>
@@ -1187,11 +1254,35 @@ export default function KurumKutuphane() {
                           <td style={{ ...styles.tableCell, textAlign: 'center', color: '#64748B' }}>
                             {u.totalCount}
                           </td>
-                          <td style={{ ...styles.tableCell, textAlign: 'right' }}>
-                            <button onClick={() => openOduncModalUye(u)} style={{ ...styles.btn, background: '#4F46E5', color: '#fff', padding: '4px 10px', fontSize: '0.75rem' }}>
-                              🔄 Ödünç Ver
-                            </button>
-                          </td>
+                          {(kutuphaneYonetebilir || !ogretmenModu) && (
+                            <td style={{ ...styles.tableCell, textAlign: 'right' }}>
+                              <div style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
+                                {kutuphaneYonetebilir && (
+                                  <button onClick={() => openOduncModalUye(u)} style={{ ...styles.btn, background: '#4F46E5', color: '#fff', padding: '4px 10px', fontSize: '0.75rem' }}>
+                                    🔄 Ödünç Ver
+                                  </button>
+                                )}
+                                
+                                {!ogretmenModu && u.tur === 'ogretmen' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleKutuphaneYetkisi(u)}
+                                    style={{
+                                      ...styles.btn,
+                                      background: u.raw?.modulIzinler?.kutuphane_yonet ? '#FEF2F2' : '#EFF6FF',
+                                      color: u.raw?.modulIzinler?.kutuphane_yonet ? '#991B1B' : '#1D4ED8',
+                                      border: '1px solid',
+                                      borderColor: u.raw?.modulIzinler?.kutuphane_yonet ? '#FCA5A5' : '#BFDBFE',
+                                      padding: '4px 10px',
+                                      fontSize: '0.75rem',
+                                    }}
+                                  >
+                                    {u.raw?.modulIzinler?.kutuphane_yonet ? '🚫 Yetkiyi Kaldır' : '🔑 Yetki Ver'}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))
                     )}
