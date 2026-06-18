@@ -106,7 +106,7 @@ function PlatformSidebar() {
 
   return (
     <aside style={{
-      width: '240px', minHeight: '100vh', background: SIDEBAR_BG,
+      width: '240px', height: '100vh', background: SIDEBAR_BG,
       display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0,
     }}>
       {/* Logo + badge */}

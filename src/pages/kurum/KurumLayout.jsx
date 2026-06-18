@@ -235,7 +235,7 @@ function KurumLayoutInner() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
       <aside style={{
-        width: '240px', minHeight: '100vh', background: '#1B3A6B',
+        width: '240px', height: '100vh', background: '#1B3A6B',
         display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0,
       }}>
         <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
@@ -315,7 +315,7 @@ function KurumLayoutInner() {
         </div>
 
         {/* Menü */}
-        <nav style={{ flex: 1, padding: '1rem 0' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '1rem 0' }}>
           {aktifMenuler.map(m => (
             <NavLink
               key={m.yol}
