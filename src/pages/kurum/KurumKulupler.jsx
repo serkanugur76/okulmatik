@@ -148,7 +148,7 @@ export default function KurumKulupler() {
       const unsub = onSnapshot(collection(db, 'kurumlar', kid, 'rubrikler'), (snap) => {
         rubrikParcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         const birlesik = [...new Map(Object.values(rubrikParcalar).flat().map(r => [r.id, r])).values()]
-          .sort((a, b) => (a.baslik || '').localeCompare(b.baslik || '', 'tr'))
+          .sort((a, b) => (a.ad || a.baslik || '').localeCompare(b.ad || b.baslik || '', 'tr'))
         setRubrikler(birlesik)
       })
       unsubs.push(unsub)
@@ -554,7 +554,7 @@ export default function KurumKulupler() {
                           <div style={{ fontSize: '0.75rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
                             <div><strong>🧑‍🏫 Danışman Öğretmen:</strong> {atananOgretmenIsimleri}</div>
                             <div><strong>📋 Ölçme Kriteri (Rubrik):</strong> {
-                              rubrikler.filter(r => kulup.rubrikIds && kulup.rubrikIds.includes(r.id)).map(r => r.baslik).join(', ') || 'Atanmamış'
+                              rubrikler.filter(r => kulup.rubrikIds && kulup.rubrikIds.includes(r.id)).map(r => r.ad || r.baslik).join(', ') || 'Atanmamış'
                             }</div>
                           </div>
                         </div>
@@ -1067,7 +1067,7 @@ export default function KurumKulupler() {
                             }
                           }}
                         />
-                        {rub.baslik}
+                        {rub.ad || rub.baslik}
                       </label>
                     ))
                   )}
