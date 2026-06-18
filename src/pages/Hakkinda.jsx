@@ -1,51 +1,85 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 export default function Hakkinda() {
+  const [aktifModul, setAktifModul] = useState(null)
+
   const KATEGORILER = [
     {
       baslik: '1. Kurumsal Altyapı & Yetkilendirme',
       ikon: '🔑',
-      renk: '#4F46E5', // indigo
+      renk: '#4F46E5',
       moduller: [
-        { ikon: '🏛', ad: 'Kurumlar', aciklama: 'Okul, kampüs ve kök kurum hiyerarşisinin yönetimi; kurum logosu ve temel kimlik tanımları.' },
-        { ikon: '👥', ad: 'Kullanıcılar', aciklama: 'Platform Admin, Kurum Admin ve Öğretmen rollerinin davet, yetki ve erişim sınırlarının yönetimi.' }
+        {
+          ikon: '🏛',
+          ad: 'Kurumlar',
+          aciklama: 'Okulmatik hiyerarşisinin temel taşıdır. İlkokul, ortaokul, lise gibi farklı düzeylerdeki okul ve kampüs yapılarını tek çatı altında toplar. Kurum logoları ve temel kimlik tanımları bu modülde yapılır.',
+          iliskiler: 'Bu modül tanımlandıktan sonra Kullanıcılar, Sınıflar ve Kütüphane modülleri bu kurum ID\'sine bağlanarak aktifleşir.'
+        },
+        {
+          ikon: '👥',
+          ad: 'Kullanıcılar',
+          aciklama: 'Sistemdeki rol ve yetkilendirmeleri yönetir. Platform Yöneticisi (Süper Admin), Kurum/Kampüs/Okul Yöneticileri ve Öğretmenlerin sisteme davet edilmesi, şifre süreçleri ve modül izinlerinin atanması burada yapılır.',
+          iliskiler: 'Kullanıcılar doğrudan bir Kuruma bağlanır. Öğretmenler ise kendi yetki alanlarına göre Sınıflar ve Rubrikler ile ilişkilendirilir.'
+        }
       ]
     },
     {
       baslik: '2. Eğitsel Düzen ve Yapılanma',
       ikon: '🏫',
-      renk: '#0284C7', // sky
+      renk: '#0284C7',
       moduller: [
-        { ikon: '🏫', ad: 'Sınıflar', aciklama: 'Okul bünyesindeki aktif sınıfların, şubelerin oluşturulması, düzenlenmesi ve arşivlenmesi.' },
-        { ikon: '🎒', ad: 'Öğrenciler', aciklama: 'Öğrencilerin kaydedilmesi, sınıflarla eşleştirilmesi ve Excel ile toplu öğrenci yükleme işlemleri.' }
+        {
+          ikon: '🏫',
+          ad: 'Sınıflar',
+          aciklama: 'Kurum altındaki akademik grupları (şubeleri) yönetir. Hangi okul düzeyinde hangi sınıfların aktif olduğunu ve şube detaylarını saklar.',
+          iliskiler: 'Sınıflar bir Kuruma bağlıdır. Öğrenciler bu sınıflara atanır ve Öğretmenler bu sınıflarda ders vermek üzere yetkilendirilir.'
+        },
+        {
+          ikon: '🎒',
+          ad: 'Öğrenciler',
+          aciklama: 'Öğrenci kimlik kayıtlarını ve sınıf eşleşmelerini yönetir. Excel (.xlsx, .csv) şablonları aracılığıyla yüzlerce öğrencinin tek tıkla sisteme aktarılmasını sağlar.',
+          iliskiler: 'Öğrenciler doğrudan Sınıflara atanır. Rubrik değerlendirmeleri öğrenci bazlı yapıldığı için ölçme sisteminin hedef noktasıdır.'
+        }
       ]
     },
     {
       baslik: '3. Ölçme, Değerlendirme & Raporlama',
       ikon: '📊',
-      renk: '#059669', // emerald
+      renk: '#059669',
       moduller: [
-        { ikon: '📋', ad: 'Rubrik Şablonlar', aciklama: 'Platform genelinde paylaşılan; ders, ana başlık ve alt kriter seviyelerinden oluşan rubrik havuzu.' },
-        { ikon: '📝', ad: 'Kurum Rubrikleri', aciklama: 'Kuruma veya öğretmene özel oluşturulan, şablonlardan türetilen ve sınıf seviyesine göre filtrelenen rubrikler.' },
-        { ikon: '✅', ad: 'Değerlendirmeler', aciklama: 'Öğretmenlerin rubrik kriterleri üzerinden sınıf bazlı değerlendirme yapması ve öğrenci gelişim karnelerinin raporlanması.' }
+        {
+          ikon: '📋',
+          ad: 'Rubrik Şablonlar',
+          aciklama: 'Ölçme kriterlerinin standartlaştırılmasını sağlar. Ana kazanımlar, alt kriterler ve başarı düzeylerini (puanlama) içeren genel şablon havuzudur. Platform yöneticisi tarafından tüm sistem genelinde paylaşılır.',
+          iliskiler: 'Kurum Rubrikleri modülü, bu genel şablonları kopyalayarak kendi okul düzeylerine uygun özel rubrikler türetir.'
+        },
+        {
+          ikon: '📝',
+          ad: 'Kurum Rubrikleri',
+          aciklama: 'Öğretmenlerin ve kurum yöneticilerinin ders veya kazanım bazında özelleştirdiği değerlendirme ölçekleridir. Sınıf seviyelerine ve branşlara göre filtrelenir.',
+          iliskiler: 'Rubrik Şablonlarından türetilir ve Değerlendirmeler modülünde öğrencileri puanlamak için ana şablon olarak kullanılır.'
+        },
+        {
+          ikon: '✅',
+          ad: 'Değerlendirmeler',
+          aciklama: 'Sistemdeki en aktif operasyonel modüldür. Öğretmenler seçtikleri sınıftaki öğrencileri, atanan rubrik kriterlerine göre puanlar. Sonuçlar anlık olarak analiz edilerek karne çıktısı veya dijital rapor olarak sunulur.',
+          iliskiler: 'Doğrudan Öğrenciler, Sınıflar ve Kurum Rubrikleri modülleriyle tam entegre çalışarak ölçme-değerlendirme akışını tamamlar.'
+        }
       ]
     },
     {
       baslik: '4. Yardımcı & Destekleyici Sistemler',
       ikon: '📚',
-      renk: '#D97706', // amber
+      renk: '#D97706',
       moduller: [
-        { ikon: '📚', ad: 'Kütüphane', aciklama: 'Okul kütüphanesindeki kitapların Excel ile toplu yüklenmesi, barkodlu ödünç ve iade süreçlerinin takibi.' }
+        {
+          ikon: '📚',
+          ad: 'Kütüphane',
+          aciklama: 'Okulun kitap envanterini ve kütüphane işlemlerini yönetir. Excel tablosu üzerinden binlerce kitap tek seferde yüklenebilir. Barkodlu arama ile saniyeler içinde kitap ödünç verme ve iade alma işlemleri gerçekleştirilir.',
+          iliskiler: 'Kitap ödünç alan kullanıcıları bulmak için Öğrenciler ve Kullanıcılar (Öğretmenler) veritabanıyla ilişkili çalışır.'
+        }
       ]
     }
-  ]
-
-  const REHBER_ETIKETLERI = [
-    'Serkan Hoca Bilişim 🧑‍🏫',
-    'Serkan Uğur Gelecek Koleji 🏫',
-    'Yazılımcı Serkan 💻',
-    'Bilişim Serkan Hoca ⚙️',
-    'Sosyal Teknolog 🌐'
   ]
 
   return (
@@ -74,20 +108,20 @@ export default function Hakkinda() {
           borderRadius: '50%', background: 'rgba(255, 255, 255, 0.05)', pointerEvents: 'none'
         }} />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div>
             <div style={{
               display: 'inline-block', fontSize: '0.68rem', fontWeight: '800', letterSpacing: '0.1em',
               textTransform: 'uppercase', color: '#93C5FD', background: 'rgba(147,197,253,0.15)',
-              padding: '3px 10px', borderRadius: '999px', marginBottom: '0.75rem'
+              padding: '3px 10px', borderRadius: '999px', marginBottom: '0.5rem'
             }}>
               Geliştirici &amp; Bilişim Teknolojileri Öğretmeni
             </div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#fff', margin: 0 }}>
               Serkan Uğur
             </h2>
-            <p style={{ fontSize: '0.9rem', color: '#93C5FD', fontWeight: '600', margin: '0.25rem 0 0' }}>
-              Mersin Gelecek Koleji BT &amp; Yazılım Öğretmeni · Sosyal Teknolog · Yazılım Geliştirici
+            <p style={{ fontSize: '0.9rem', color: '#93C5FD', fontWeight: '600', margin: '0.2rem 0 0' }}>
+              Mersin Gelecek Koleji BT &amp; Yazılım Öğretmeni · Yazılım Geliştirici &amp; Sosyal Teknolog
             </p>
           </div>
 
@@ -95,35 +129,19 @@ export default function Hakkinda() {
             Eğitim teknolojileri, robotik kodlama, STEM, Arduino, TÜBİTAK ve Teknofest projeleriyle öğrencileri geleceğe hazırlayan bir bilişim eğitimcisidir.
             Okulmatik sisteminin analizi, mimari altyapısı, veritabanı tasarımı, arayüz geliştirmeleri ve tüm modülleri kendisi tarafından özgün olarak kodlanmıştır.
           </p>
-
-          {/* Getcontact Etiketleri Bölümü */}
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: '1rem', marginTop: '0.5rem' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#93C5FD', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-              Rehber &amp; Getcontact Dijital Etiketleri
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {REHBER_ETIKETLERI.map((etiket, i) => (
-                <span key={i} style={{
-                  fontSize: '0.72rem', fontWeight: '600', color: '#fff',
-                  background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255,255,255,0.15)',
-                  padding: '3px 10px', borderRadius: '6px', cursor: 'default',
-                  transition: 'background 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
-                  {etiket}
-                </span>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* İlişkisel Modül Yapısı (Akış Şeması şeklinde) */}
+      {/* İlişkisel Modül Yapısı */}
       <div style={{ marginBottom: '2.5rem' }}>
-        <h2 style={{ fontSize: '1.125rem', fontWeight: '800', color: '#1E293B', marginBottom: '1.25rem' }}>
-          Uygulama Modülleri ve İlişkisel Veri Akışı
-        </h2>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.125rem', fontWeight: '800', color: '#1E293B', margin: '0 0 0.25rem' }}>
+            Uygulama Modülleri ve İlişkisel Yapı
+          </h2>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', margin: 0 }}>
+            Modüllerin üzerine tıklayarak ne işe yaradıklarını ve diğer modüllerle olan ilişkilerini detaylı olarak görebilirsiniz.
+          </p>
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative' }}>
           {KATEGORILER.map((kat, idx) => (
@@ -153,38 +171,42 @@ export default function Hakkinda() {
                   </h3>
                 </div>
 
-                {/* Kategori İçindeki Modüller */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+                {/* Tıklanabilir Buton Grupları */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
                   {kat.moduller.map((m, mIdx) => (
-                    <div key={mIdx} style={{
-                      background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px',
-                      padding: '0.875rem 1rem', display: 'flex', gap: '0.75rem', alignItems: 'flex-start',
-                      transition: 'transform 0.15s, border-color 0.15s', cursor: 'default'
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.borderColor = kat.renk + '40';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.transform = 'none';
-                      e.currentTarget.style.borderColor = '#E2E8F0';
-                    }}>
+                    <button
+                      key={mIdx}
+                      onClick={() => setAktifModul({ ...m, kategori: kat.baslik, renk: kat.renk })}
+                      style={{
+                        background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '10px',
+                        padding: '0.625rem 1rem', display: 'flex', gap: '0.625rem', alignItems: 'center',
+                        cursor: 'pointer', transition: 'all 0.15s ease', outline: 'none'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = kat.renk;
+                        e.currentTarget.style.background = '#fff';
+                        e.currentTarget.style.boxShadow = `0 4px 12px ${kat.renk}15`;
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'none';
+                        e.currentTarget.style.borderColor = '#E2E8F0';
+                        e.currentTarget.style.background = '#F8FAFC';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                    >
                       <span style={{
-                        fontSize: '1.25rem', width: '36px', height: '36px', borderRadius: '8px',
+                        fontSize: '1.1rem', width: '28px', height: '28px', borderRadius: '6px',
                         background: '#fff', border: '1px solid #E2E8F0', display: 'flex',
                         alignItems: 'center', justifyContent: 'center', flexShrink: 0
                       }}>
                         {m.ikon}
                       </span>
-                      <div>
-                        <div style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1E293B', marginBottom: '0.15rem' }}>
-                          {m.ad}
-                        </div>
-                        <div style={{ fontSize: '0.78rem', color: '#64748B', lineHeight: '1.45' }}>
-                          {m.aciklama}
-                        </div>
-                      </div>
-                    </div>
+                      <span style={{ fontWeight: '700', fontSize: '0.85rem', color: '#1E293B' }}>
+                        {m.ad}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: '0.25rem' }}>➔</span>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -217,6 +239,108 @@ export default function Hakkinda() {
           ))}
         </div>
       </div>
+
+      {/* MODAL (AÇILIR PENCERE) */}
+      {aktifModul && (
+        <div 
+          onClick={e => e.target === e.currentTarget && setAktifModul(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)',
+            backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', zIndex: 1000, padding: '1rem'
+          }}
+        >
+          <div style={{
+            background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '480px',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: '1px solid #E2E8F0',
+            overflow: 'hidden', animation: 'scaleUp 0.2s ease-out'
+          }}>
+            {/* Modal Üst Renk Bandı */}
+            <div style={{ height: '6px', background: aktifModul.renk }} />
+
+            {/* Modal İçerik */}
+            <div style={{ padding: '2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{
+                    fontSize: '1.5rem', width: '48px', height: '48px', borderRadius: '12px',
+                    background: '#F8FAFC', border: '1.5px solid #E2E8F0', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    {aktifModul.ikon}
+                  </span>
+                  <div>
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>
+                      {aktifModul.ad} Modülü
+                    </h3>
+                    <span style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      {aktifModul.kategori.split('. ')[1]}
+                    </span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setAktifModul(null)}
+                  style={{
+                    background: 'none', border: 'none', fontSize: '1.5rem', color: '#94A3B8',
+                    cursor: 'pointer', outline: 'none', padding: '4px', display: 'flex'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modül Açıklaması */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div>
+                  <h4 style={{ fontSize: '0.8rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>
+                    Modül Amacı ve Fonksiyonu
+                  </h4>
+                  <p style={{ fontSize: '0.875rem', color: '#334155', lineHeight: '1.6', margin: 0 }}>
+                    {aktifModul.aciklama}
+                  </p>
+                </div>
+
+                {/* Modüller Arası İlişki */}
+                <div style={{
+                  background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px',
+                  padding: '1rem', borderLeft: `3px solid ${aktifModul.renk}`
+                }}>
+                  <h4 style={{ fontSize: '0.78rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    🔗 İlişkili Olduğu Modüller
+                  </h4>
+                  <p style={{ fontSize: '0.8rem', color: '#475569', lineHeight: '1.5', margin: 0 }}>
+                    {aktifModul.iliskiler}
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Kapat Butonu */}
+              <div style={{ marginTop: '1.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setAktifModul(null)}
+                  style={{
+                    padding: '0.55rem 1.5rem', background: '#1E293B', color: '#fff',
+                    border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600',
+                    cursor: 'pointer', transition: 'background 0.15s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#0F172A'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#1E293B'}
+                >
+                  Kapat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Animasyon CSS */}
+      <style>{`
+        @keyframes scaleUp {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }
