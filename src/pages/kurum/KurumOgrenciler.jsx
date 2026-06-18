@@ -24,10 +24,10 @@ export default function KurumOgrenciler() {
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
 
   const sayimKurumlar = useMemo(() => {
-    if (seviye === 'root') return erisimKurumlar.filter(k => { if (!k.parentId) return false; const u = erisimKurumlar.find(x => x.id === k.parentId); return !!u?.parentId })
-    if (seviye === 'kampus') return erisimKurumlar.filter(k => k.parentId === secilenKurumId)
+    if (seviye === 'root') return erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId && k.tip === 'altKurum')
+    if (seviye === 'kampus') return erisimKurumlar.filter(k => k.parentId === secilenKurumId && k.tip === 'altKurum')
     return secilenKurum ? [secilenKurum] : []
-  }, [seviye, secilenKurumId, erisimKurumlar]) // eslint-disable-line
+  }, [seviye, secilenKurumId, erisimKurumlar, secilenKurum]) // eslint-disable-line
 
   const listKurumId = seviye === 'altKurum' ? secilenKurumId : null
   const secilebilir = erisimKurumlar.filter(k => { if (!k.parentId) return false; const u = erisimKurumlar.find(x => x.id === k.parentId); return !!u?.parentId })

@@ -54,12 +54,11 @@ export default function KurumMentor() {
   const { profil, kullanici } = useAuth()
   const { secilenKurumId, ogretmenModu, erisimKurumlar } = useKurumYonetim()
 
-  // ── Veri ──────────────────────────────────────────────────
-  const [atamalar,    setAtamalar]    = useState([])
-  const [raporlar,    setRaporlar]    = useState([])
-  const [ogretmenler, setOgretmenler] = useState([])
-  const [ogrenciler,  setOgrenciler]  = useState([])
-  const [siniflar,    setSiniflar]    = useState([])
+  // ── Veri Maps (Hiyerarşi için) ──────────────────────────────
+  const [atamalarMap,    setAtamalarMap]    = useState({})
+  const [raporlarMap,    setRaporlarMap]    = useState({})
+  const [ogrencilerMap,  setOgrencilerMap]  = useState({})
+  const [siniflarMap,    setSiniflarMap]    = useState({})
 
   // ── UI ────────────────────────────────────────────────────
   const [sekme,      setSekme]      = useState('atamalar')
@@ -81,24 +80,91 @@ export default function KurumMentor() {
 
   const hedefKurumId = secilenKurumId
 
+  // Seçili kurum seviyesi ve sayım kurumları
+  const secilenKurum = erisimKurumlar.find(k => k.id === secilenKurumId)
+  const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
+  const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
+
+  const sayimKurumlar = useMemo(() => {
+    if (seviye === 'root') return erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId && k.tip === 'altKurum')
+    if (seviye === 'kampus') return erisimKurumlar.filter(k => k.parentId === secilenKurumId && k.tip === 'altKurum')
+    return secilenKurum ? [secilenKurum] : []
+  }, [seviye, secilenKurumId, erisimKurumlar, secilenKurum])
+
+  // Veri Arrays (Düzleştirilmiş)
+  const atamalar = useMemo(() => Object.values(atamalarMap).flat(), [atamalarMap])
+  const raporlar = useMemo(() => Object.values(raporlarMap).flat(), [raporlarMap])
+  const ogrenciler = useMemo(() => Object.values(ogrencilerMap).flat(), [ogrencilerMap])
+  const siniflar = useMemo(() => Object.values(siniflarMap).flat(), [siniflarMap])
+
   useEffect(() => {
-    if (!hedefKurumId) return
-    const unsubs = [
-      onSnapshot(collection(db, 'kurumlar', hedefKurumId, 'mentorAtamalari'),
-        snap => setAtamalar(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(collection(db, 'kurumlar', hedefKurumId, 'mentorRaporlari'),
-        snap => setRaporlar(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, 'kurumlar', hedefKurumId, 'ogrenciler'), orderBy('soyad')),
-        snap => setOgrenciler(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(collection(db, 'kurumlar', hedefKurumId, 'siniflar'),
-        snap => setSiniflar(snap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (Number(a.seviye)||0) - (Number(b.seviye)||0) || (a.sube||'').localeCompare(b.sube||'', 'tr')))),
-    ]
+    if (sayimKurumlar.length === 0) {
+      setAtamalarMap({})
+      setRaporlarMap({})
+      setOgrencilerMap({})
+      setSiniflarMap({})
+      return
+    }
+
+    const unsubs = []
+
+    sayimKurumlar.forEach(k => {
+      const kampus = erisimKurumlar.find(x => x.id === k.parentId)
+      const tamAd = kampus ? `${kampus.ad} · ${k.ad}` : k.ad
+
+      // 1. Atamalar
+      unsubs.push(onSnapshot(collection(db, 'kurumlar', k.id, 'mentorAtamalari'), snap => {
+        setAtamalarMap(prev => ({
+          ...prev,
+          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
+        }))
+      }))
+
+      // 2. Raporlar
+      unsubs.push(onSnapshot(collection(db, 'kurumlar', k.id, 'mentorRaporlari'), snap => {
+        setRaporlarMap(prev => ({
+          ...prev,
+          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
+        }))
+      }))
+
+      // 3. Öğrenciler
+      unsubs.push(onSnapshot(query(collection(db, 'kurumlar', k.id, 'ogrenciler'), orderBy('soyad')), snap => {
+        setOgrencilerMap(prev => ({
+          ...prev,
+          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
+        }))
+      }))
+
+      // 4. Sınıflar
+      unsubs.push(onSnapshot(collection(db, 'kurumlar', k.id, 'siniflar'), snap => {
+        setSiniflarMap(prev => ({
+          ...prev,
+          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, _kurumAd: tamAd, ...d.data() }))
+            .sort((a, b) => (Number(a.seviye)||0) - (Number(b.seviye)||0) || (a.sube||'').localeCompare(b.sube||'', 'tr'))
+        }))
+      }))
+    })
+
+    const validIds = new Set(sayimKurumlar.map(k => k.id))
+    const filterMap = (prev) => {
+      const next = {}
+      Object.keys(prev).forEach(id => {
+        if (validIds.has(id)) next[id] = prev[id]
+      })
+      return next
+    }
+    setAtamalarMap(filterMap)
+    setRaporlarMap(filterMap)
+    setOgrencilerMap(filterMap)
+    setSiniflarMap(filterMap)
+
     return () => unsubs.forEach(u => u())
-  }, [hedefKurumId])
+  }, [sayimKurumlar, erisimKurumlar])
 
   // Öğretmenler: hiyerarşideki tüm kurumlardan yükle (root/kampüs/altKurum)
   // Çünkü öğretmenin kurumId'si farklı bir seviyede olabilir
+  const [ogretmenler, setOgretmenler] = useState([])
   useEffect(() => {
     if (!erisimKurumlar.length) return
     const allIds = erisimKurumlar.map(k => k.id)
@@ -117,13 +183,24 @@ export default function KurumMentor() {
   }, [erisimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
 
   // ── Türetilmiş ────────────────────────────────────────────
+  // Seçili kurum hiyerarşisindeki tüm ID'ler
+  const seciliScopeIds = useMemo(() => {
+    const ids = [secilenKurumId]
+    erisimKurumlar.forEach(k => {
+      if (k.parentId === secilenKurumId || k.rootKurumId === secilenKurumId) {
+        ids.push(k.id)
+      }
+    })
+    return [...new Set(ids)]
+  }, [secilenKurumId, erisimKurumlar])
+
   // Seçili kuruma bağlı öğretmenler: kurumId eşleşen veya erisimKurumIdler içinde olan
   const kurumOgretmenleri = useMemo(() =>
     ogretmenler.filter(o =>
-      o.kurumId === hedefKurumId ||
-      (o.erisimKurumIdler || []).includes(hedefKurumId)
+      seciliScopeIds.includes(o.kurumId) ||
+      (o.erisimKurumIdler || []).some(id => seciliScopeIds.includes(id))
     ),
-  [ogretmenler, hedefKurumId])
+  [ogretmenler, seciliScopeIds])
 
   const benimAtamam      = ogretmenModu ? atamalar.find(a => a.ogretmenId === kullanici?.uid) : null
   const benimOgrencilerim = benimAtamam?.ogrenciler || []
@@ -169,15 +246,41 @@ export default function KurumMentor() {
           id: o.id, ad: o.ad || '', soyad: o.soyad || '',
           sinifId: o.sinifId || '',
           sinifAd: siniflar.find(s => s.id === o.sinifId)?.ad || '',
+          _kurumId: o._kurumId,
         }))
-      await setDoc(doc(db, 'kurumlar', hedefKurumId, 'mentorAtamalari', atamaForm.ogretmenId), {
-        ogretmenId: atamaForm.ogretmenId,
-        ogretmenAd: ogretmen?.ad || '',
-        ogrenciler: secilenOgr,
-        kurumId: hedefKurumId,
-        guncellenmeTarihi: serverTimestamp(),
+
+      // Group students by their altKurum ID
+      const ogrencilerByKurum = {}
+      secilenOgr.forEach(o => {
+        const kid = o._kurumId
+        if (!ogrencilerByKurum[kid]) ogrencilerByKurum[kid] = []
+        ogrencilerByKurum[kid].push(o)
       })
-      logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'mentor', hedefAd: ogretmen?.ad || '', kurumId: hedefKurumId, detay: `${secilenOgr.length} öğrenci atandı` })
+
+      // Get all altKurum IDs where this teacher currently has assignments
+      const eskiKurumIds = atamalar
+        .filter(a => a.ogretmenId === atamaForm.ogretmenId)
+        .map(a => a._kurumId)
+        .filter(Boolean)
+
+      const allKurumIds = [...new Set([...eskiKurumIds, ...Object.keys(ogrencilerByKurum)])]
+
+      for (const kid of allKurumIds) {
+        const ogrList = ogrencilerByKurum[kid] || []
+        if (ogrList.length > 0) {
+          await setDoc(doc(db, 'kurumlar', kid, 'mentorAtamalari', atamaForm.ogretmenId), {
+            ogretmenId: atamaForm.ogretmenId,
+            ogretmenAd: ogretmen?.ad || '',
+            ogrenciler: ogrList.map(({ _kurumId, ...o }) => o),
+            kurumId: kid,
+            guncellenmeTarihi: serverTimestamp(),
+          })
+        } else {
+          await deleteDoc(doc(db, 'kurumlar', kid, 'mentorAtamalari', atamaForm.ogretmenId))
+        }
+      }
+
+      logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'mentor', hedefAd: ogretmen?.ad || '', detay: `${secilenOgr.length} öğrenci atandı` })
       setAtamaModal(false)
     } catch (err) { setAtamaHata(err.message) }
     finally { setAtamaKayded(false) }
@@ -185,17 +288,29 @@ export default function KurumMentor() {
 
   async function atamaKaldir(ogretmenId, ogretmenAd) {
     if (!confirm(`${ogretmenAd} öğretmeninin tüm mentor atamalarını kaldırmak istediğinize emin misiniz?`)) return
-    await deleteDoc(doc(db, 'kurumlar', hedefKurumId, 'mentorAtamalari', ogretmenId))
-    logKaydet({ profil, kullanici, islem: 'sil', modul: 'mentor', hedefAd: ogretmenAd, kurumId: hedefKurumId, detay: 'atama silindi' })
+    try {
+      const kIds = atamalar
+        .filter(a => a.ogretmenId === ogretmenId)
+        .map(a => a._kurumId)
+        .filter(Boolean)
+
+      for (const kid of kIds) {
+        await deleteDoc(doc(db, 'kurumlar', kid, 'mentorAtamalari', ogretmenId))
+      }
+      logKaydet({ profil, kullanici, islem: 'sil', modul: 'mentor', hedefAd: ogretmenAd, detay: 'atama silindi' })
+    } catch (err) {
+      alert('Hata: ' + err.message)
+    }
   }
 
   // ── Değerlendirme İşlemleri ───────────────────────────────
   function degModalAc(ogrenci) {
-    const mevcutRapor = raporIndex[`${ogrenci.id}_d${donem}`]
+    const tamOgrenci = ogrenciler.find(o => o.id === ogrenci.id) || ogrenci
+    const mevcutRapor = raporIndex[`${tamOgrenci.id}_d${donem}`]
     const form = { yorum: mevcutRapor?.yorum || '' }
     KRITERLER.forEach(k => { form[k.id] = mevcutRapor?.[k.id] || null })
     setDegForm(form)
-    setDegModal(ogrenci)
+    setDegModal(tamOgrenci)
     setDegHata('')
   }
 
@@ -206,6 +321,7 @@ export default function KurumMentor() {
     setDegKayded(true)
     try {
       const o = degModal
+      const kid = o._kurumId
       const sinif = siniflar.find(s => s.id === o.sinifId)
       const veri = {
         ogrenciId: o.id, ogrenciAd: o.ad || '', ogrenciSoyad: o.soyad || '',
@@ -217,8 +333,8 @@ export default function KurumMentor() {
         guncellenmeTarihi: serverTimestamp(),
       }
       KRITERLER.forEach(k => { veri[k.id] = degForm[k.id] })
-      await setDoc(doc(db, 'kurumlar', hedefKurumId, 'mentorRaporlari', `${o.id}_d${donem}`), veri)
-      logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'mentor', hedefAd: `${o.ad} ${o.soyad}`, kurumId: hedefKurumId, detay: `Dönem ${donem} raporu` })
+      await setDoc(doc(db, 'kurumlar', kid, 'mentorRaporlari', `${o.id}_d${donem}`), veri)
+      logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'mentor', hedefAd: `${o.ad} ${o.soyad}`, kurumId: kid, detay: `Dönem ${donem} raporu` })
       setDegModal(null)
     } catch (err) { setDegHata(err.message) }
     finally { setDegKayded(false) }

@@ -72,13 +72,32 @@ export default function KurumKullanicilar() {
     return 4
   }
 
+  const secilenKurum = erisimKurumlar.find(k => k.id === kurumId)
+  const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
+  const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
+
   // Kurum hiyerarşisi — kampüsler alfabetik, altKurumlar okul seviyesine göre
-  const rootKurumlar   = erisimKurumlar.filter(k => !k.parentId)
+  const rootKurumlar   = erisimKurumlar.filter(k => {
+    if (!kurumId) return false
+    if (seviye === 'root') return k.id === kurumId
+    if (seviye === 'kampus') return k.id === secilenKurum?.parentId
+    return k.id === ust?.parentId
+  })
   const kampusKurumlar = erisimKurumlar
-    .filter(k => k.parentId && !erisimKurumlar.find(x => x.id === k.parentId)?.parentId)
+    .filter(k => {
+      if (!kurumId) return false
+      if (seviye === 'root') return k.parentId === kurumId && k.tip === 'kampus'
+      if (seviye === 'kampus') return k.id === kurumId
+      return k.id === secilenKurum?.parentId
+    })
     .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
   const altKurumlar    = erisimKurumlar
-    .filter(k => { if (!k.parentId) return false; const u = erisimKurumlar.find(x => x.id === k.parentId); return !!u?.parentId })
+    .filter(k => {
+      if (!kurumId) return false
+      if (seviye === 'root') return k.rootKurumId === kurumId && k.tip === 'altKurum'
+      if (seviye === 'kampus') return k.parentId === kurumId && k.tip === 'altKurum'
+      return k.id === kurumId
+    })
     .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
 
   // Kullanıcının kendi seviyesi → hangi rolleri atayabilir
@@ -116,14 +135,11 @@ export default function KurumKullanicilar() {
 
     const secilenTip = erisimKurumlar.find(k => k.id === kurumId)?.tip
 
-    // Platform admin → tüm kurumlar
-    // Kurum admin → kendi kurumu + child kurumlar (parentId filtresi + seçili kurum)
-    // AltKurum → sadece kendisi
     const sorguIds = secilenTip === 'altKurum'
       ? [kurumId]
-      : platformAdmin
-        ? erisimKurumlar.map(k => k.id)
-        : [...new Set([kurumId, ...erisimKurumlar.filter(k => !!k.parentId).map(k => k.id)])]
+      : secilenTip === 'kampus'
+        ? [kurumId, ...erisimKurumlar.filter(k => k.parentId === kurumId).map(k => k.id)]
+        : [kurumId, ...erisimKurumlar.filter(k => k.rootKurumId === kurumId).map(k => k.id)]
 
     // Her altKurum'un kullanicilar subcollection'ını ayrı dinle → merge
     const parcalar = {}

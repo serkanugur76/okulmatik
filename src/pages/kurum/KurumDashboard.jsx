@@ -40,16 +40,10 @@ export default function KurumDashboard() {
   // Sayım yapılacak kurum listesi
   const sayimKurumlar = (() => {
     if (seviye === 'root') {
-      // Tüm alt kurumlar (2. seviye)
-      return erisimKurumlar.filter(k => {
-        if (!k.parentId) return false
-        const u = erisimKurumlar.find(x => x.id === k.parentId)
-        return !!u?.parentId
-      })
+      return erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId && k.tip === 'altKurum')
     }
     if (seviye === 'kampus') {
-      // Seçili kampüsün alt kurumları
-      return erisimKurumlar.filter(k => k.parentId === secilenKurumId)
+      return erisimKurumlar.filter(k => k.parentId === secilenKurumId && k.tip === 'altKurum')
     }
     // Alt kurum: sadece kendisi
     return secilenKurum ? [secilenKurum] : []
@@ -57,11 +51,7 @@ export default function KurumDashboard() {
 
   // Özet metinler
   const rootKurum = erisimKurumlar.find(k => !k.parentId)
-  const kampusSayisi = erisimKurumlar.filter(k => {
-    if (!k.parentId) return false
-    const u = erisimKurumlar.find(x => x.id === k.parentId)
-    return !u?.parentId
-  }).length
+  const kampusSayisi = erisimKurumlar.filter(k => k.parentId === secilenKurumId && k.tip === 'kampus').length
 
   const baslik = seviye === 'root'
     ? rootKurum?.ad || 'Dashboard'
