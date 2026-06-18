@@ -19,7 +19,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
 const yeniAltKriter = () => ({ id: 'ak' + uid(), ad: '', seviyeler: VARSAYILAN_SEVİYELER.map(s => ({ ...s })) })
 const yeniAnaKriter = () => { const ak = yeniAltKriter(); return { id: 'k' + uid(), ad: '', altKriterler: [ak] } }
 
-const BOŞ_FORM = { ad: '', ders: '', aciklama: '', kriterler: [], hedefSeviyeler: [] }
+const BOŞ_FORM = { ad: '', ders: '', aciklama: '', kriterler: [], hedefSeviyeler: [], isKulup: false }
 
 const DERS_LİSTESİ = [
   'Türkçe', 'Matematik', 'Fen Bilimleri', 'Sosyal Bilgiler', 'İngilizce',
@@ -103,6 +103,7 @@ export default function KurumRubrikler() {
       setForm({
         ad: rubrik.ad, ders: rubrik.ders || '', aciklama: rubrik.aciklama || '',
         hedefSeviyeler: rubrik.hedefSeviyeler || [],
+        isKulup: rubrik.isKulup || false,
         kriterler: (rubrik.kriterler || []).map(k => ({
           ...k,
           altKriterler: (k.altKriterler || []).map(ak => ({
@@ -113,7 +114,7 @@ export default function KurumRubrikler() {
       const a = {}; rubrik.kriterler?.forEach(k => { a[k.id] = false }); setAcikAna(a)
     } else {
       const ilk = yeniAnaKriter()
-      setForm({ ...BOŞ_FORM, kriterler: [ilk] })
+      setForm({ ...BOŞ_FORM, isKulup: false, kriterler: [ilk] })
       setAcikAna({ [ilk.id]: true })
       setAcikAlt({ [ilk.altKriterler[0].id]: true })
     }
@@ -246,7 +247,7 @@ export default function KurumRubrikler() {
     // Düzenleme: rubriğin kendi kurumuna yaz; yeni kayıt: seçili kuruma
     const saveKurumId = duzenlenen?._kurumId || hedefKurumId
     try {
-      const veri = { ad: form.ad.trim(), ders: form.ders.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler, hedefSeviyeler: form.hedefSeviyeler }
+      const veri = { ad: form.ad.trim(), ders: form.ders.trim(), aciklama: form.aciklama.trim(), kriterler: form.kriterler, hedefSeviyeler: form.hedefSeviyeler, isKulup: form.isKulup || false }
       if (duzenlenen) {
         await updateDoc(doc(db, 'kurumlar', saveKurumId, 'rubrikler', duzenlenen.id), veri)
         logKaydet({ profil, kullanici, islem: 'guncelle', modul: 'rubrikler', hedefAd: veri.ad, kurumId: saveKurumId, detay: veri.ders })
@@ -439,6 +440,11 @@ export default function KurumRubrikler() {
                           <td style={s.td}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                               <span style={{ fontWeight: '600', color: '#1E293B' }}>{r.ad}</span>
+                              {r.isKulup && (
+                                <span style={{ fontSize: '0.68rem', background: '#FEF3C7', color: '#D97706', border: '1px solid #FCD34D', borderRadius: '999px', padding: '1px 7px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  🏆 Kulüp Rubriği
+                                </span>
+                              )}
                               {!yazabilir(r) && (() => {
                                 const k = erisimKurumlar.find(x => x.id === r._kurumId)
                                 return (
@@ -567,6 +573,19 @@ export default function KurumRubrikler() {
                       onChange={e => setForm(f => ({ ...f, aciklama: e.target.value }))}
                       placeholder="Kısa açıklama (isteğe bağlı)" />
                   </div>
+                </div>
+
+                <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    id="isKulup"
+                    checked={form.isKulup || false}
+                    onChange={e => setForm(f => ({ ...f, isKulup: e.target.checked }))}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="isKulup" style={{ fontSize: '0.825rem', fontWeight: '600', color: '#475569', cursor: 'pointer' }}>
+                    Bu bir Kulüp Rubriği'dir (Sınıflar düzeyinde listelenmez, sadece kulüplerde görünür)
+                  </label>
                 </div>
 
                 {/* Sınıf Seviyeleri — 1-12 sabit liste */}

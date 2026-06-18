@@ -1738,7 +1738,10 @@ export default function KurumKulupler() {
                             }
                           }}
                         />
-                        {rub.ad || rub.baslik}
+                        <span>
+                          {rub.ad || rub.baslik}
+                          {rub.isKulup && <span style={{ color: '#D97706', fontWeight: '700', marginLeft: '4px' }}> (🏆 Kulüp Rubriği)</span>}
+                        </span>
                       </label>
                     ))
                   )}

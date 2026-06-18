@@ -123,11 +123,12 @@ export default function KurumDegerlendirmeler() {
       return onSnapshot(q, snap => {
         parcalar[kid] = snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() }))
         const hepsi = [...new Map(allIds.flatMap(id => parcalar[id] || []).map(r => [r.id, r])).values()]
-        setRubrikler(hepsi)
+        const normalRubrikler = hepsi.filter(r => !r.isKulup)
+        setRubrikler(normalRubrikler)
         // URL'deki rubrikId hâlâ geçerliyse koru; değilse ilkini seç
         const currentRubrikId = searchParams.get('r')
-        if (!currentRubrikId || !hepsi.find(r => r.id === currentRubrikId)) {
-          updateParam({ r: hepsi[0]?.id || null })
+        if (!currentRubrikId || !normalRubrikler.find(r => r.id === currentRubrikId)) {
+          updateParam({ r: normalRubrikler[0]?.id || null })
         }
       })
     })

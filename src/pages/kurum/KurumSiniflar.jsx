@@ -147,7 +147,7 @@ export default function KurumSiniflar() {
       ...(k?.parentId                   ? (rubriklerMap[k.parentId]      || []) : []),
       ...(kampus?.parentId              ? (rubriklerMap[kampus.parentId] || []) : []),
     ]
-    return [...new Map(all.map(r => [r.id, r])).values()]
+    return [...new Map(all.map(r => [r.id, r])).values()].filter(r => !r.isKulup)
   }
 
   // ── Sınıf CRUD ──────────────────────────────────────────
