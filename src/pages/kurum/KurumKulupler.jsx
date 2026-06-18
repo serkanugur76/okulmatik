@@ -75,16 +75,34 @@ export default function KurumKulupler() {
       setYukleniyor(false)
     })
 
-    // 2. Öğretmenleri (Kullanıcıları) Dinle
-    const unsubOgretmenler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'kullanicilar'), (snap) => {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.rol === 'ogretmen')
-      setOgretmenler(list)
+    // Hiyerarşik kurum listesini çıkar (Öğretmenler ve Öğrenciler için)
+    const secilenTip = erisimKurumlar.find(k => k.id === secilenKurumId)?.tip
+    const sorguIds = secilenTip === 'altKurum'
+      ? [secilenKurumId]
+      : secilenTip === 'kampus'
+        ? [secilenKurumId, ...erisimKurumlar.filter(k => k.parentId === secilenKurumId).map(k => k.id)]
+        : [secilenKurumId, ...erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId).map(k => k.id)]
+
+    // 2. Öğretmenleri (Kullanıcıları) Dinle (Tüm ilgili kurumlardan)
+    const ogrParcalar = {}
+    const unsubOgretmenlerList = sorguIds.map(kid => {
+      return onSnapshot(collection(db, 'kurumlar', kid, 'kullanicilar'), (snap) => {
+        ogrParcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.rol === 'ogretmen')
+        const birlesik = [...new Map(Object.values(ogrParcalar).flat().map(o => [o.id, o])).values()]
+          .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+        setOgretmenler(birlesik)
+      })
     })
 
-    // 3. Öğrencileri Dinle
-    const unsubOgrenciler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'ogrenciler'), (snap) => {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setOgrenciler(list)
+    // 3. Öğrencileri Dinle (Tüm ilgili kurumlardan)
+    const ogrnParcalar = {}
+    const unsubOgrencilerList = sorguIds.map(kid => {
+      return onSnapshot(collection(db, 'kurumlar', kid, 'ogrenciler'), (snap) => {
+        ogrnParcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        const birlesik = [...new Map(Object.values(ogrnParcalar).flat().map(o => [o.id, o])).values()]
+          .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+        setOgrenciler(birlesik)
+      })
     })
 
     // 4. Rubrikleri Dinle
@@ -107,13 +125,13 @@ export default function KurumKulupler() {
 
     return () => {
       unsubKulupler()
-      unsubOgretmenler()
-      unsubOgrenciler()
+      unsubOgretmenlerList.forEach(u => u())
+      unsubOgrencilerList.forEach(u => u())
       unsubRubrikler()
       unsubYoklamalar()
       unsubEtkinlikler()
     }
-  }, [secilenKurumId])
+  }, [secilenKurumId, erisimKurumlar.map(k => k.id).join(',')])
 
   // Öğretmenin sorumlu olduğu kulüpler
   const goruntulenenKulupler = useMemo(() => {
