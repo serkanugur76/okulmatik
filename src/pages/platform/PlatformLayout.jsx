@@ -31,6 +31,7 @@ const KURUM_MENULER = [
   { yol: '/platform/kurum/mentor',          etiket: 'Mentor',           ikon: '🎓' },
   { yol: '/platform/kurum/nobet',           etiket: 'Nöbet Yönetimi',   ikon: '🛡️' },
   { yol: '/platform/kurum/kulupler',        etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
+  { yol: '/platform/kurum/belirli-gunler',   etiket: 'Belirli Gün & Tatiller', ikon: '📅' },
   { yol: '/platform/kurum/kutuphane',       etiket: 'Kütüphane',        ikon: '📚' },
 ]
 

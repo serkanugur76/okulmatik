@@ -268,5 +268,11 @@ service cloud.firestore {
       allow write:  if kurumAdmin(kurumId) || platformAdmin()
                     || ogretmenKurumErisimi(kurumId);
     }
+
+    match /kurumlar/{kurumId}/belirliGunler/{belirliGunId} {
+      allow read:   if kurumUyesi(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
+      allow write:  if kurumAdmin(kurumId) || platformAdmin();
+    }
   }
 }

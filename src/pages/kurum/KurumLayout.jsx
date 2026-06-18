@@ -21,6 +21,7 @@ const ADMIN_MENULER = [
   { yol: '/kurum/mentor',            etiket: 'Mentor',           ikon: '🎓' },
   { yol: '/kurum/nobet',             etiket: 'Nöbet Yönetimi',   ikon: '🛡️' },
   { yol: '/kurum/kulupler',          etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
+  { yol: '/kurum/belirli-gunler',    etiket: 'Belirli Gün & Tatiller', ikon: '📅' },
   { yol: '/kurum/kutuphane',         etiket: 'Kütüphane',        ikon: '📚' },
   { yol: '/kurum/hakkinda',          etiket: 'Hakkında',         ikon: 'ℹ️' },
 ]

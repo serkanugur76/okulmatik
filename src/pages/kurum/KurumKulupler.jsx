@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, query, orderBy, writeBatch
 } from 'firebase/firestore'
@@ -26,6 +26,7 @@ function hesaplaOrt(puanlar, rubrik) {
 export default function KurumKulupler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
   const { profil, kullanici } = useAuth()
+  const planFileInputRef = useRef()
 
   // Rol kontrolü: admin mi öğretmen mi?
   const adminModu = useMemo(() => {
@@ -39,6 +40,7 @@ export default function KurumKulupler() {
   const [rubrikler, setRubrikler] = useState([])
   const [yoklamalar, setYoklamalar] = useState([])
   const [etkinlikler, setEtkinlikler] = useState([])
+  const [belirliGunler, setBelirliGunler] = useState([])
   const [yukleniyor, setYukleniyor] = useState(true)
 
   // Seçili Kulüp (Yoklama, Ders Planı ve Etkinlikler sekmesi için)
@@ -75,6 +77,19 @@ export default function KurumKulupler() {
   const [mevcutDegerlendirmeler, setMevcutDegerlendirmeler] = useState({})
   const [degerlendirmePuanlari, setDegerlendirmePuanlari] = useState({})
   const [degerlendirmeKaydediyor, setDegerlendirmeKaydediyor] = useState(false)
+
+  // Ders Planı Excel Tarih Seçici State'leri
+  const [planTarihModalAcik, setPlanTarihModalAcik] = useState(false)
+  const [planBaslangicTarihi, setPlanBaslangicTarihi] = useState(() => {
+    const d = new Date()
+    const y = d.getFullYear()
+    return `${y}-09-14`
+  })
+  const [planBitisTarihi, setPlanBitisTarihi] = useState(() => {
+    const d = new Date()
+    const y = d.getFullYear() + 1
+    return `${y}-06-18`
+  })
 
   // Öğrenci Arama & Atama State'leri
   const [ogrenciArama, setOgrenciArama] = useState('')
@@ -232,6 +247,12 @@ export default function KurumKulupler() {
       setTalepler(list)
     })
     unsubs.push(unsubTalepler)
+
+    // 8. Belirli Günleri Dinle
+    const unsubBelirliGunler = onSnapshot(collection(db, 'kurumlar', secilenKurumId, 'belirliGunler'), (snap) => {
+      setBelirliGunler(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    })
+    unsubs.push(unsubBelirliGunler)
 
     return () => {
       unsubKulupler()
@@ -886,6 +907,154 @@ export default function KurumKulupler() {
     }
   }
 
+  // Ders Planı Akademik Takvim Haftalarını Hesapla
+  function getPlanHaftalari(baslangicStr, bitisStr) {
+    const baslangic = new Date(baslangicStr)
+    const bitis = new Date(bitisStr)
+
+    // Başlangıç tarihini ilk Pazartesi gününe yuvarla
+    const baslangicDay = baslangic.getDay()
+    if (baslangicDay !== 1) {
+      const diff = baslangicDay === 0 ? 1 : 1 - baslangicDay
+      baslangic.setDate(baslangic.getDate() + diff)
+    }
+
+    const haftalar = []
+    let current = new Date(baslangic)
+    let haftaNo = 1
+
+    while (current <= bitis && haftaNo <= 42) {
+      const pzt = new Date(current)
+      const cuma = new Date(current)
+      cuma.setDate(cuma.getDate() + 4)
+
+      const pztGunStr = String(pzt.getDate()).padStart(2, '0')
+      const pztAyStr = String(pzt.getMonth() + 1).padStart(2, '0')
+      const cumaGunStr = String(cuma.getDate()).padStart(2, '0')
+      const cumaAyStr = String(cuma.getMonth() + 1).padStart(2, '0')
+
+      const tarihMetni = `${pztGunStr}.${pztAyStr}.${pzt.getFullYear()} - ${cumaGunStr}.${cumaAyStr}.${cuma.getFullYear()}`
+
+      let tatilNedeni = ''
+      let tatilMi = false
+
+      for (const bg of belirliGunler) {
+        if (!bg.tatilMi) continue
+
+        const aralik = bg.tarihAraligi || ''
+        if (aralik.includes('-')) {
+          const [basPart, bitPart] = aralik.split('-').map(x => x.trim())
+          const [basG, basA] = basPart.split('.').map(Number)
+          const [bitG, bitA] = bitPart.split('.').map(Number)
+
+          const tatilYil = pzt.getFullYear()
+          const tatilBas = new Date(tatilYil, basA - 1, basG)
+          const tatilBit = new Date(tatilYil, bitA - 1, bitG)
+
+          if (pzt <= tatilBit && cuma >= tatilBas) {
+            tatilMi = true
+            tatilNedeni = bg.baslik
+            break
+          }
+        } else {
+          const [g, a] = aralik.split('.').map(Number)
+          const tatilYil = pzt.getFullYear()
+          const tatilGun = new Date(tatilYil, a - 1, g)
+
+          if (tatilGun >= pzt && tatilGun <= cuma) {
+            tatilMi = true
+            tatilNedeni = bg.baslik
+            break
+          }
+        }
+      }
+
+      haftalar.push({
+        hafta: haftaNo,
+        tarihAraligi: tarihMetni,
+        pztTarih: pzt,
+        cumaTarih: cuma,
+        tatilMi,
+        tatilNedeni
+      })
+
+      current.setDate(current.getDate() + 7)
+      haftaNo++
+    }
+
+    return haftalar
+  }
+
+  // Ders Planı Şablonunu Excel Olarak İndir
+  function handleDersPlaniSablonIndir() {
+    if (!planBaslangicTarihi || !planBitisTarihi) return
+    const haftalar = getPlanHaftalari(planBaslangicTarihi, planBitisTarihi)
+
+    const data = haftalar.map(h => ({
+      'Hafta': `Hafta ${h.hafta}`,
+      'Tarih Aralığı': h.tarihAraligi,
+      'Ders Konusu / Kazanım': h.tatilMi ? `TATİL - ${h.tatilNedeni}` : ''
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(data)
+    ws['!cols'] = [
+      { wch: 10 },
+      { wch: 28 },
+      { wch: 45 }
+    ]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Ders Planı Şablonu')
+    XLSX.writeFile(wb, `${seciliKulup?.ad || 'Kulup'}_Ders_Plani_Sablonu.xlsx`)
+    setPlanTarihModalAcik(false)
+  }
+
+  // Excel'den Ders Planı Oku ve Kaydet
+  function handlePlanExcelOku(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = async (evt) => {
+      try {
+        const data = evt.target.result
+        const workbook = XLSX.read(data, { type: 'binary' })
+        const sheetName = workbook.SheetNames[0]
+        const sheet = workbook.Sheets[sheetName]
+        const rows = XLSX.utils.sheet_to_json(sheet)
+
+        if (rows.length === 0) {
+          alert('Excel dosyasında veri bulunamadı.')
+          return
+        }
+
+        const yeniPlan = rows.map(r => {
+          const haftaStr = String(r['Hafta'] || '')
+          const haftaNo = parseInt(haftaStr.replace('Hafta', '').trim()) || 1
+          const konu = String(r['Ders Konusu / Kazanım'] || '').trim()
+
+          return {
+            hafta: haftaNo,
+            konu: konu || 'Konu Tanımlanmamış',
+            tamamlandi: konu.toUpperCase().startsWith('TATİL')
+          }
+        }).sort((a, b) => a.hafta - b.hafta)
+
+        if (!window.confirm(`Ders planına ${yeniPlan.length} hafta yüklemek istiyor musunuz? Mevcut ders planı silinecektir.`)) return
+
+        await updateDoc(doc(db, 'kurumlar', secilenKurumId, 'kulupler', seciliKulupId), {
+          dersPlani: yeniPlan
+        })
+        logKaydet({ profil, kullanici, islem: 'olustur', modul: 'kulupler', hedefAd: `${seciliKulup.ad} Ders Planı Yüklendi`, kurumId: secilenKurumId })
+        alert('Ders planı başarıyla Excel\'den yüklendi!')
+      } catch (err) {
+        alert('Excel okuma hatası: ' + err.message)
+      } finally {
+        planFileInputRef.current.value = ''
+      }
+    }
+    reader.readAsBinaryString(file)
+  }
+
   // Etkinlik Kaydet
   async function handleEtkinlikKaydet(e) {
     e.preventDefault()
@@ -1345,9 +1514,40 @@ export default function KurumKulupler() {
               
               {/* Sol Kolon: Kazanım Plan Listesi */}
               <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
-                <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#1E293B', fontWeight: '700' }}>
-                  📖 Yıllık Ders & Kazanım Planı
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem', color: '#1E293B', fontWeight: '700' }}>
+                    📖 Yıllık Ders & Kazanım Planı
+                  </h3>
+                  {seciliKulupId && (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        onClick={() => setPlanTarihModalAcik(true)}
+                        style={{
+                          padding: '4px 10px', background: '#4F46E5', color: '#fff', border: 'none',
+                          borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer'
+                        }}
+                      >
+                        📥 Şablon İndir
+                      </button>
+                      <button
+                        onClick={() => planFileInputRef.current.click()}
+                        style={{
+                          padding: '4px 10px', background: '#1B3A6B', color: '#fff', border: 'none',
+                          borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer'
+                        }}
+                      >
+                        📤 Excel'den Yükle
+                      </button>
+                      <input
+                        type="file"
+                        ref={planFileInputRef}
+                        onChange={handlePlanExcelOku}
+                        accept=".xlsx, .xls"
+                        style={{ display: 'none' }}
+                      />
+                    </div>
+                  )}
+                </div>
 
                 {!seciliKulupId ? (
                   <div style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8', fontSize: '0.85rem' }}>
@@ -1359,46 +1559,53 @@ export default function KurumKulupler() {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {seciliKulup.dersPlani.map((ders, index) => (
-                      <div key={index} style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '0.75rem', background: ders.tamamlandi ? '#F0FDF4' : '#F8FAFC',
-                        border: ders.tamamlandi ? '1px solid #BBF7D0' : '1px solid #E2E8F0', borderRadius: '8px'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{
-                            fontSize: '0.75rem', fontWeight: '800', background: '#1B3A6B',
-                            color: '#fff', padding: '2px 8px', borderRadius: '4px'
-                          }}>
-                            Hafta {ders.hafta}
-                          </span>
-                          <span style={{
-                            fontSize: '0.85rem', color: '#1E293B',
-                            textDecoration: ders.tamamlandi ? 'line-through' : 'none',
-                            fontWeight: ders.tamamlandi ? '400' : '600'
-                          }}>
-                            {ders.konu}
-                          </span>
-                        </div>
+                    {seciliKulup.dersPlani.map((ders, index) => {
+                      const isTatil = (ders.konu || '').toUpperCase().startsWith('TATİL')
+                      return (
+                        <div key={index} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '0.75rem', background: isTatil ? '#FEF2F2' : (ders.tamamlandi ? '#F0FDF4' : '#F8FAFC'),
+                          border: isTatil ? '1px solid #FCA5A5' : (ders.tamamlandi ? '1px solid #BBF7D0' : '1px solid #E2E8F0'),
+                          borderRadius: '8px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{
+                              fontSize: '0.75rem', fontWeight: '800', background: isTatil ? '#EF4444' : '#1B3A6B',
+                              color: '#fff', padding: '2px 8px', borderRadius: '4px'
+                            }}>
+                              Hafta {ders.hafta}
+                            </span>
+                            <span style={{
+                              fontSize: '0.85rem', color: isTatil ? '#991B1B' : '#1E293B',
+                              textDecoration: ders.tamamlandi && !isTatil ? 'line-through' : 'none',
+                              fontWeight: isTatil ? '700' : (ders.tamamlandi ? '400' : '600')
+                            }}>
+                              {ders.konu}
+                            </span>
+                          </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer', color: '#475569' }}>
-                            <input
-                              type="checkbox"
-                              checked={ders.tamamlandi}
-                              onChange={() => handleDersPlaniTamamlaToggle(index)}
-                            />
-                            Tamamlandı
-                          </label>
-                          <button
-                            onClick={() => handleDersPlaniSil(index)}
-                            style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
-                          >
-                            Sil
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: isTatil ? 'not-allowed' : 'pointer', color: isTatil ? '#991B1B' : '#475569' }}>
+                              <input
+                                type="checkbox"
+                                checked={isTatil ? true : ders.tamamlandi}
+                                disabled={isTatil}
+                                onChange={() => handleDersPlaniTamamlaToggle(index)}
+                              />
+                              {isTatil ? 'Tatil' : 'Tamamlandı'}
+                            </label>
+                            {!isTatil && (
+                              <button
+                                onClick={() => handleDersPlaniSil(index)}
+                                style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
+                              >
+                                Sil
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -1797,6 +2004,13 @@ export default function KurumKulupler() {
               ) : !seciliHafta ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8', fontSize: '0.85rem' }}>
                   Lütfen üst kısımdan değerlendirilecek haftayı seçin. Ders planınız yoksa önce "Ders Planı" sekmesinden plan ekleyin.
+                </div>
+              ) : (seciliKulup.dersPlani?.find(h => h.hafta === Number(seciliHafta))?.konu || '').toUpperCase().startsWith('TATİL') ? (
+                <div style={{
+                  textAlign: 'center', padding: '3rem', color: '#B91C1C', fontSize: '0.9rem', fontWeight: '700',
+                  background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '12px', margin: '1rem 0'
+                }}>
+                  🚫 Seçilen hafta resmi tatil ({seciliKulup.dersPlani?.find(h => h.hafta === Number(seciliHafta))?.konu}) olduğu için ders planı dışındadır ve rubrik değerlendirmesi yapılamaz.
                 </div>
               ) : !seciliDegerlendirmeRubrikId ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8', fontSize: '0.85rem' }}>
@@ -2870,6 +3084,83 @@ export default function KurumKulupler() {
                   Temsilcileri Kaydet
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 9: DERS PLANI TARİH ARALIĞI SEÇME MODALI ── */}
+      {planTarihModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '400px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>🗓️ Ders Planı Tarih Aralığı Seç</span>
+              <button
+                onClick={() => setPlanTarihModalAcik(false)}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Tarih Seçiciler */}
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <p style={{ fontSize: '0.78rem', color: '#64748B', margin: 0 }}>
+                Lütfen akademik takvime uygun ders başlangıç ve bitiş tarihlerini seçin. Sistem bu aralıktaki tatilleri otomatik bloke edecektir.
+              </p>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Eğitim Başlangıç Tarihi:
+                <input
+                  type="date"
+                  value={planBaslangicTarihi}
+                  onChange={e => setPlanBaslangicTarihi(e.target.value)}
+                  style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }}
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                Eğitim Bitiş Tarihi:
+                <input
+                  type="date"
+                  value={planBitisTarihi}
+                  onChange={e => setPlanBitisTarihi(e.target.value)}
+                  style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }}
+                />
+              </label>
+            </div>
+
+            {/* Modal Aksiyonları */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '1rem 1.25rem', borderTop: '1px solid #F1F5F9', background: '#F8FAFC' }}>
+              <button
+                onClick={() => setPlanTarihModalAcik(false)}
+                style={{
+                  padding: '0.5rem 1rem', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                  borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', color: '#475569'
+                }}
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={handleDersPlaniSablonIndir}
+                style={{
+                  padding: '0.5rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none',
+                  borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                }}
+              >
+                Şablonu İndir
+              </button>
             </div>
           </div>
         </div>
