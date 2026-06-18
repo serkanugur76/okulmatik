@@ -196,5 +196,18 @@ service cloud.firestore {
                    // İlk giriş: kullanıcı kendi kurumunun subcollection'ına kendini yazabilir
                    || (request.auth.uid == uid && kullaniciBilgisi().kurumId == kurumId);
     }
+
+    match /kurumlar/{kurumId}/kitaplar/{kitapId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
+      allow write: if kurumAdmin(kurumId) || platformAdmin();
+    }
+
+    match /kurumlar/{kurumId}/oduncKayitlari/{kayitId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
+      allow write: if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
+    }
   }
 }

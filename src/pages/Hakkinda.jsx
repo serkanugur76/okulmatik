@@ -7,6 +7,7 @@ export default function Hakkinda() {
     { ikon: '📋', ad: 'Rubrik Şablonlar',  aciklama: 'Platform genelinde paylaşılan; ana başlık, alt kriter ve puanlama seviyelerinden oluşan değerlendirme şablonları.' },
     { ikon: '📝', ad: 'Rubrikler',         aciklama: 'Kurum ve öğretmen düzeyinde oluşturulan; şablondan türetilebilen, sınıf seviyesine göre filtrelenen rubrikler.' },
     { ikon: '✅', ad: 'Değerlendirmeler',  aciklama: 'Öğrencilerin rubrik kriterleri üzerinden sınıf bazlı değerlendirilmesi ve sonuçların raporlanması.' },
+    { ikon: '📚', ad: 'Kütüphane',         aciklama: 'Kurum kütüphanesindeki kitapların kaydı, Excel ile toplu kitap yükleme ve ödünç/iade takip işlemleri.' },
   ]
 
   return (
