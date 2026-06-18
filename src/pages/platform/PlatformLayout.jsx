@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { KurumYonetimProvider, useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
@@ -17,11 +18,17 @@ const PLATFORM_MENULER = [
 const KURUM_MENULER = [
   { yol: '/platform/kurum/siniflar',         etiket: 'Sınıflar',         ikon: '🏫' },
   { yol: '/platform/kurum/ogrenciler',       etiket: 'Öğrenciler',       ikon: '🎒' },
-  { yol: '/platform/kurum/kullanicilar',     etiket: 'Kurum Kullanıcılar', ikon: '👤' },
+  {
+    etiket: 'Kullanıcılar',
+    ikon: '👥',
+    altMenuler: [
+      { yol: '/platform/kurum/kullanicilar', etiket: 'Kurum Kullanıcıları', ikon: '👤' },
+      { yol: '/platform/kurum/ogretmenler',  etiket: 'Öğretmenler',        ikon: '🧑‍🏫' },
+    ]
+  },
   { yol: '/platform/kurum/rubrikler',        etiket: 'Kurum Rubrikler',  ikon: '📝' },
   { yol: '/platform/kurum/degerlendirmeler', etiket: 'Değerlendirmeler', ikon: '✅' },
   { yol: '/platform/kurum/mentor',          etiket: 'Mentor',           ikon: '🎓' },
-  { yol: '/platform/kurum/ogretmenler',     etiket: 'Öğretmenler',      ikon: '🧑‍🏫' },
   { yol: '/platform/kurum/kutuphane',       etiket: 'Kütüphane',        ikon: '📚' },
 ]
 
@@ -54,6 +61,17 @@ function PlatformSidebar() {
   const { profil, cikisYap } = useAuth()
   const { erisimKurumlar, secilenKurumId, secilenKurum, setSecilenKurumId } = useKurumYonetim()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const [kullaniciMenuAcik, setKullaniciMenuAcik] = useState(() => {
+    return location.pathname.startsWith('/platform/kurum/kullanicilar') || location.pathname.startsWith('/platform/kurum/ogretmenler')
+  })
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/platform/kurum/kullanicilar') || location.pathname.startsWith('/platform/kurum/ogretmenler')) {
+      setKullaniciMenuAcik(true)
+    }
+  }, [location.pathname])
 
   // Okul seviyesi sıralama: ilkokul → ortaokul → lise
   function okulSira(ad = '') {
@@ -171,9 +189,63 @@ function PlatformSidebar() {
           </select>
         </div>
 
-        {KURUM_MENULER.map(m => (
-          <MenuLink key={m.yol} {...m} />
-        ))}
+        {KURUM_MENULER.map(m => {
+          if (m.altMenuler) {
+            const isAnyChildActive = m.altMenuler.some(sub => location.pathname.startsWith(sub.yol))
+            return (
+              <div key={m.etiket}>
+                <button
+                  onClick={() => setKullaniciMenuAcik(!kullaniciMenuAcik)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0.65rem 1.25rem', background: 'transparent', border: 'none',
+                    color: isAnyChildActive ? '#fff' : 'rgba(255,255,255,0.65)', cursor: 'pointer', fontSize: '0.875rem',
+                    transition: 'all 0.15s', outline: 'none'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+                  onMouseLeave={e => {
+                    if (!isAnyChildActive) e.currentTarget.style.color = 'rgba(255,255,255,0.65)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span>{m.ikon}</span>
+                    <span>{m.etiket}</span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', opacity: 0.7, transform: kullaniciMenuAcik ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                    ▼
+                  </span>
+                </button>
+
+                {kullaniciMenuAcik && (
+                  <div style={{ background: 'rgba(0,0,0,0.15)', paddingLeft: '0.5rem' }}>
+                    {m.altMenuler.map(sub => (
+                      <NavLink
+                        key={sub.yol}
+                        to={sub.yol}
+                        style={({ isActive }) => ({
+                          display: 'flex', alignItems: 'center', gap: '0.75rem',
+                          padding: '0.6rem 1.25rem', textDecoration: 'none',
+                          color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
+                          background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          borderLeft: isActive ? '3px solid #818CF8' : '3px solid transparent',
+                          fontSize: '0.85rem', fontWeight: isActive ? '600' : '400',
+                          transition: 'all 0.15s',
+                        })}
+                      >
+                        <span>{sub.ikon}</span>
+                        <span>{sub.etiket}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          return (
+            <MenuLink key={m.yol} {...m} />
+          )
+        })}
       </nav>
 
       {/* Kullanıcı + çıkış */}

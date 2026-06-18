@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { KurumYonetimProvider, useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
@@ -7,11 +8,17 @@ const ADMIN_MENULER = [
   { yol: '/kurum',                   etiket: 'Dashboard',        ikon: '📊' },
   { yol: '/kurum/siniflar',          etiket: 'Sınıflar',         ikon: '🏫' },
   { yol: '/kurum/ogrenciler',        etiket: 'Öğrenciler',       ikon: '🎒' },
-  { yol: '/kurum/kullanicilar',      etiket: 'Kullanıcılar',     ikon: '👥' },
+  {
+    etiket: 'Kullanıcılar',
+    ikon: '👥',
+    altMenuler: [
+      { yol: '/kurum/kullanicilar', etiket: 'Kurum Kullanıcıları', ikon: '👤' },
+      { yol: '/kurum/ogretmenler',  etiket: 'Öğretmenler',        ikon: '🧑‍🏫' },
+    ]
+  },
   { yol: '/kurum/rubrikler',         etiket: 'Rubrikler',        ikon: '📋' },
   { yol: '/kurum/degerlendirmeler',  etiket: 'Değerlendirmeler', ikon: '📝' },
   { yol: '/kurum/mentor',            etiket: 'Mentor',           ikon: '🎓' },
-  { yol: '/kurum/ogretmenler',       etiket: 'Öğretmenler',      ikon: '🧑‍🏫' },
   { yol: '/kurum/kutuphane',         etiket: 'Kütüphane',        ikon: '📚' },
   { yol: '/kurum/hakkinda',          etiket: 'Hakkında',         ikon: 'ℹ️' },
 ]
@@ -144,6 +151,17 @@ function KurumLayoutInner() {
     ogretmenModu, ogretmenSinifIdleri,
   } = useKurumYonetim()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const [kullaniciMenuAcik, setKullaniciMenuAcik] = useState(() => {
+    return location.pathname.startsWith('/kurum/kullanicilar') || location.pathname.startsWith('/kurum/ogretmenler')
+  })
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/kurum/kullanicilar') || location.pathname.startsWith('/kurum/ogretmenler')) {
+      setKullaniciMenuAcik(true)
+    }
+  }, [location.pathname])
 
   async function handleCikis() { await cikisYap(); navigate('/giris') }
 
@@ -317,24 +335,78 @@ function KurumLayoutInner() {
 
         {/* Menü */}
         <nav style={{ flex: 1, overflowY: 'auto', padding: '1rem 0' }}>
-          {aktifMenuler.map(m => (
-            <NavLink
-              key={m.yol}
-              to={m.yol}
-              end={m.yol === '/kurum'}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                padding: '0.75rem 1.25rem', textDecoration: 'none',
-                color: isActive ? '#fff' : 'rgba(255,255,255,0.65)',
-                background: isActive ? 'rgba(255,255,255,0.12)' : 'transparent',
-                borderLeft: isActive ? '3px solid #60A5FA' : '3px solid transparent',
-                fontSize: '0.9rem', fontWeight: isActive ? '600' : '400',
-                transition: 'all 0.15s',
-              })}>
-              <span>{m.ikon}</span>
-              <span>{m.etiket}</span>
-            </NavLink>
-          ))}
+          {aktifMenuler.map(m => {
+            if (m.altMenuler) {
+              const isAnyChildActive = m.altMenuler.some(sub => location.pathname.startsWith(sub.yol))
+              return (
+                <div key={m.etiket}>
+                  <button
+                    onClick={() => setKullaniciMenuAcik(!kullaniciMenuAcik)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '0.75rem 1.25rem', background: 'transparent', border: 'none',
+                      color: isAnyChildActive ? '#fff' : 'rgba(255,255,255,0.65)', cursor: 'pointer', fontSize: '0.9rem',
+                      transition: 'all 0.15s', outline: 'none'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+                    onMouseLeave={e => {
+                      if (!isAnyChildActive) e.currentTarget.style.color = 'rgba(255,255,255,0.65)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span>{m.ikon}</span>
+                      <span>{m.etiket}</span>
+                    </div>
+                    <span style={{ fontSize: '0.7rem', opacity: 0.7, transform: kullaniciMenuAcik ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                      ▼
+                    </span>
+                  </button>
+
+                  {kullaniciMenuAcik && (
+                    <div style={{ background: 'rgba(0,0,0,0.15)', paddingLeft: '0.5rem' }}>
+                      {m.altMenuler.map(sub => (
+                        <NavLink
+                          key={sub.yol}
+                          to={sub.yol}
+                          style={({ isActive }) => ({
+                            display: 'flex', alignItems: 'center', gap: '0.75rem',
+                            padding: '0.65rem 1.25rem', textDecoration: 'none',
+                            color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
+                            background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+                            borderLeft: isActive ? '3px solid #60A5FA' : '3px solid transparent',
+                            fontSize: '0.85rem', fontWeight: isActive ? '600' : '400',
+                            transition: 'all 0.15s',
+                          })}
+                        >
+                          <span>{sub.ikon}</span>
+                          <span>{sub.etiket}</span>
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
+            return (
+              <NavLink
+                key={m.yol}
+                to={m.yol}
+                end={m.yol === '/kurum'}
+                style={({ isActive }) => ({
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.75rem 1.25rem', textDecoration: 'none',
+                  color: isActive ? '#fff' : 'rgba(255,255,255,0.65)',
+                  background: isActive ? 'rgba(255,255,255,0.12)' : 'transparent',
+                  borderLeft: isActive ? '3px solid #60A5FA' : '3px solid transparent',
+                  fontSize: '0.9rem', fontWeight: isActive ? '600' : '400',
+                  transition: 'all 0.15s',
+                })}>
+                <span>{m.ikon}</span>
+                <span>{m.etiket}</span>
+              </NavLink>
+            )
+          })}
         </nav>
 
         {/* Alt: kullanıcı bilgisi + çıkış */}
