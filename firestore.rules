@@ -272,7 +272,8 @@ service cloud.firestore {
     match /kurumlar/{kurumId}/belirliGunler/{belirliGunId} {
       allow read:   if kurumUyesi(kurumId) || platformAdmin()
                     || ogretmenKurumErisimi(kurumId);
-      allow write:  if kurumAdmin(kurumId) || platformAdmin();
+      allow write:  if kurumAdmin(kurumId) || platformAdmin()
+                    || ogretmenKurumErisimi(kurumId);
     }
   }
 }
