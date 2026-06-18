@@ -59,11 +59,13 @@ export default function KurumKutuphane() {
   const [ogrenciler, setOgrenciler] = useState([])
   const [kullanicilar, setKullanicilar] = useState([])
 
-  const [sekme, setSekme] = useState('kitaplar') // 'kitaplar' | 'odunc'
+  const [sekme, setSekme] = useState('kitaplar') // 'kitaplar' | 'odunc' | 'uyeler'
   const [kitapArama, setKitapArama] = useState('')
   const [kitapTurFiltre, setKitapTurFiltre] = useState('')
   const [oduncArama, setOduncArama] = useState('')
   const [oduncFiltre, setOduncFiltre] = useState('hepsi') // 'hepsi' | 'odunc' | 'iade' | 'geciken'
+  const [uyeArama, setUyeArama] = useState('')
+  const [uyeTurFiltre, setUyeTurFiltre] = useState('hepsi') // 'hepsi' | 'ogrenci' | 'ogretmen' | 'aktif_odunc'
 
   // Modals
   const [kitapModal, setKitapModal] = useState(false)
@@ -215,6 +217,53 @@ export default function KurumKutuphane() {
     })
   }, [oduncKayitlari, oduncArama, oduncFiltre])
 
+  const birlesikUyeler = useMemo(() => {
+    const listOgr = ogrenciler.map(o => {
+      const activeCount = oduncKayitlari.filter(x => x.uyeId === o.id && x.durum === 'odunc').length
+      const totalCount = oduncKayitlari.filter(x => x.uyeId === o.id).length
+      return {
+        id: o.id,
+        ad: `${o.ad} ${o.soyad || ''}`.trim(),
+        detay: `Sınıf: ${o.sinifAd || '—'} (No: ${o.ogrenciNo || '—'})`,
+        tur: 'ogrenci',
+        activeCount,
+        totalCount,
+        raw: o
+      }
+    })
+
+    const listKul = kullanicilar.map(k => {
+      const activeCount = oduncKayitlari.filter(x => x.uyeId === k.id && x.durum === 'odunc').length
+      const totalCount = oduncKayitlari.filter(x => x.uyeId === k.id).length
+      return {
+        id: k.id,
+        ad: k.ad || k.email,
+        detay: `E-posta: ${k.email || '—'}`,
+        tur: 'ogretmen',
+        activeCount,
+        totalCount,
+        raw: k
+      }
+    })
+
+    return [...listOgr, ...listKul].sort((a, b) => a.ad.localeCompare(b.ad, 'tr'))
+  }, [ogrenciler, kullanicilar, oduncKayitlari])
+
+  const filtreliUyeler = useMemo(() => {
+    return birlesikUyeler.filter(u => {
+      const aramaUyum = !uyeArama ||
+        u.ad.toLowerCase().includes(uyeArama.toLowerCase()) ||
+        u.detay.toLowerCase().includes(uyeArama.toLowerCase())
+
+      let turUyum = true
+      if (uyeTurFiltre === 'ogrenci') turUyum = u.tur === 'ogrenci'
+      else if (uyeTurFiltre === 'ogretmen') turUyum = u.tur === 'ogretmen'
+      else if (uyeTurFiltre === 'aktif_odunc') turUyum = u.activeCount > 0
+
+      return aramaUyum && turUyum
+    })
+  }, [birlesikUyeler, uyeArama, uyeTurFiltre])
+
   // ── Book CRUD Handlers ────────────────────────────────────
   function openKitapModal(kitap = null) {
     setHata('')
@@ -338,6 +387,20 @@ export default function KurumKutuphane() {
       kitapId,
       uyeTur: 'ogrenci',
       uyeId: '',
+      iadeBeklenenGun: 15
+    })
+    setOduncModal(true)
+  }
+
+  function openOduncModalUye(uye) {
+    setHata('')
+    setBasari('')
+    setOduncUyeArama('')
+    setSecilenUyeObj(uye.raw)
+    setOduncForm({
+      kitapId: '',
+      uyeTur: uye.tur,
+      uyeId: uye.id,
       iadeBeklenenGun: 15
     })
     setOduncModal(true)
@@ -831,6 +894,15 @@ export default function KurumKutuphane() {
               }}>
                 🔄 Ödünç & İade Takibi
               </button>
+
+              <button onClick={() => setSekme('uyeler')} style={{
+                background: 'none', border: 'none', padding: '0.75rem 0.5rem', fontSize: '0.95rem', fontWeight: '700', cursor: 'pointer',
+                color: sekme === 'uyeler' ? '#4F46E5' : '#64748B',
+                borderBottom: sekme === 'uyeler' ? '3px solid #4F46E5' : '3px solid transparent',
+                transition: 'all 0.15s ease'
+              }}>
+                👥 Üye Listesi ({birlesikUyeler.length})
+              </button>
             </div>
 
             {/* Actions for current tab */}
@@ -1048,6 +1120,80 @@ export default function KurumKutuphane() {
                           </tr>
                         )
                       })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB CONTENT 3: MEMBERS */}
+          {sekme === 'uyeler' && (
+            <div>
+              {/* Filters */}
+              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                <input value={uyeArama} onChange={e => setUyeArama(e.target.value)}
+                  placeholder="Üye adı, sınıf, numara veya e-posta ara..."
+                  style={{ ...styles.input, width: '300px' }} />
+
+                <select value={uyeTurFiltre} onChange={e => setUyeTurFiltre(e.target.value)}
+                  style={{ ...styles.select, width: '180px' }}>
+                  <option value="hepsi">Tüm Üyeler</option>
+                  <option value="ogrenci">Sadece Öğrenciler</option>
+                  <option value="ogretmen">Sadece Öğretmenler</option>
+                  <option value="aktif_odunc">Aktif Ödünç Alanlar</option>
+                </select>
+
+                {(uyeArama || uyeTurFiltre !== 'hepsi') && (
+                  <button onClick={() => { setUyeArama(''); setUyeTurFiltre('hepsi') }} style={{ ...styles.btn, ...styles.secondaryBtn, padding: '0.5rem 0.8rem' }}>
+                    Temizle
+                  </button>
+                )}
+              </div>
+
+              {/* Table */}
+              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={styles.tableHeader}>Üye Adı Soyadı</th>
+                      <th style={styles.tableHeader}>Üye Türü</th>
+                      <th style={styles.tableHeader}>Sınıf / E-posta / Detay</th>
+                      <th style={{ ...styles.tableHeader, textAlign: 'center' }}>Aktif Ödünçte</th>
+                      <th style={{ ...styles.tableHeader, textAlign: 'center' }}>Toplam İşlem</th>
+                      <th style={{ ...styles.tableHeader, textAlign: 'right' }}>İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtreliUyeler.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>
+                          Aradığınız kriterlere uygun üye bulunamadı.
+                        </td>
+                      </tr>
+                    ) : (
+                      filtreliUyeler.map(u => (
+                        <tr key={u.id} style={styles.tableRow} className="table-row-hover">
+                          <td style={{ ...styles.tableCell, fontWeight: '700', color: '#1B3A6B' }}>{u.ad}</td>
+                          <td style={styles.tableCell}>
+                            <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', background: u.tur === 'ogrenci' ? '#E0F2FE' : '#D1FAE5', color: u.tur === 'ogrenci' ? '#0369A1' : '#065F46' }}>
+                              {u.tur === 'ogrenci' ? 'Öğrenci' : 'Öğretmen / Personel'}
+                            </span>
+                          </td>
+                          <td style={styles.tableCell}>{u.detay}</td>
+                          <td style={{ ...styles.tableCell, textAlign: 'center', fontWeight: 'bold', color: u.activeCount > 0 ? '#EF4444' : '#64748B' }}>
+                            {u.activeCount}
+                          </td>
+                          <td style={{ ...styles.tableCell, textAlign: 'center', color: '#64748B' }}>
+                            {u.totalCount}
+                          </td>
+                          <td style={{ ...styles.tableCell, textAlign: 'right' }}>
+                            <button onClick={() => openOduncModalUye(u)} style={{ ...styles.btn, background: '#4F46E5', color: '#fff', padding: '4px 10px', fontSize: '0.75rem' }}>
+                              🔄 Ödünç Ver
+                            </button>
+                          </td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
