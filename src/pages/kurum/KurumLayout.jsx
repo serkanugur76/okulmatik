@@ -16,8 +16,14 @@ const ADMIN_MENULER = [
       { yol: '/kurum/ogretmenler',  etiket: 'Öğretmenler',        ikon: '🧑‍🏫' },
     ]
   },
-  { yol: '/kurum/rubrikler',         etiket: 'Rubrikler',        ikon: '📋' },
-  { yol: '/kurum/degerlendirmeler',  etiket: 'Değerlendirmeler', ikon: '📝' },
+  {
+    etiket: 'Rubrik Yönetimi',
+    ikon: '📝',
+    altMenuler: [
+      { yol: '/kurum/rubrikler',         etiket: 'Rubrikler',        ikon: '📋' },
+      { yol: '/kurum/degerlendirmeler',  etiket: 'Değerlendirmeler', ikon: '📝' },
+    ]
+  },
   { yol: '/kurum/mentor',            etiket: 'Mentor',           ikon: '🎓' },
   { yol: '/kurum/nobet',             etiket: 'Nöbet Yönetimi',   ikon: '🛡️' },
   { yol: '/kurum/kulupler',          etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
@@ -29,8 +35,14 @@ const ADMIN_MENULER = [
 // Öğretmen sadece bu menüleri görür
 const OGRETMEN_MENULER = [
   { yol: '/kurum',                   etiket: 'Dashboard',        ikon: '📊' },
-  { yol: '/kurum/rubrikler',         etiket: 'Rubrikler',        ikon: '📋' },
-  { yol: '/kurum/degerlendirmeler',  etiket: 'Değerlendirmeler', ikon: '📝' },
+  {
+    etiket: 'Rubrik Yönetimi',
+    ikon: '📝',
+    altMenuler: [
+      { yol: '/kurum/rubrikler',         etiket: 'Rubrikler',        ikon: '📋' },
+      { yol: '/kurum/degerlendirmeler',  etiket: 'Değerlendirmeler', ikon: '📝' },
+    ]
+  },
   { yol: '/kurum/mentor',            etiket: 'Mentor',           ikon: '🎓' },
   { yol: '/kurum/kulupler',          etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
   { yol: '/kurum/kutuphane',         etiket: 'Kütüphane',        ikon: '📚' },
@@ -504,14 +516,21 @@ function KurumLayoutInner() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [kullaniciMenuAcik, setKullaniciMenuAcik] = useState(() => {
-    return location.pathname.startsWith('/kurum/kullanicilar') || location.pathname.startsWith('/kurum/ogretmenler')
+  const [acikSubMenuler, setAcikSubMenuler] = useState(() => {
+    return {
+      'Kullanıcılar': location.pathname.startsWith('/kurum/kullanicilar') || location.pathname.startsWith('/kurum/ogretmenler'),
+      'Rubrik Yönetimi': location.pathname.startsWith('/kurum/rubrikler') || location.pathname.startsWith('/kurum/degerlendirmeler')
+    }
   })
 
   useEffect(() => {
-    if (location.pathname.startsWith('/kurum/kullanicilar') || location.pathname.startsWith('/kurum/ogretmenler')) {
-      setKullaniciMenuAcik(true)
-    }
+    const isKullaniciActive = location.pathname.startsWith('/kurum/kullanicilar') || location.pathname.startsWith('/kurum/ogretmenler')
+    const isRubrikActive = location.pathname.startsWith('/kurum/rubrikler') || location.pathname.startsWith('/kurum/degerlendirmeler')
+    setAcikSubMenuler(prev => ({
+      ...prev,
+      'Kullanıcılar': isKullaniciActive ? true : prev['Kullanıcılar'],
+      'Rubrik Yönetimi': isRubrikActive ? true : prev['Rubrik Yönetimi']
+    }))
   }, [location.pathname])
 
   async function handleCikis() { await cikisYap(); navigate('/giris') }
@@ -709,12 +728,13 @@ function KurumLayoutInner() {
           {aktifMenuler.map(m => {
             if (m.altMenuler) {
               const isAnyChildActive = m.altMenuler.some(sub => location.pathname.startsWith(sub.yol))
+              const isMenuOpen = !!acikSubMenuler[m.etiket]
               return (
                 <div key={m.etiket} style={{ opacity: secilenKurumId ? 1 : 0.4 }}>
                   <button
                     onClick={() => {
                       if (secilenKurumId) {
-                        setKullaniciMenuAcik(!kullaniciMenuAcik)
+                        setAcikSubMenuler(prev => ({ ...prev, [m.etiket]: !prev[m.etiket] }))
                       }
                     }}
                     style={{
@@ -735,12 +755,12 @@ function KurumLayoutInner() {
                       <span>{m.ikon}</span>
                       <span>{m.etiket}</span>
                     </div>
-                    <span style={{ fontSize: '0.7rem', opacity: 0.7, transform: kullaniciMenuAcik ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                    <span style={{ fontSize: '0.7rem', opacity: 0.7, transform: isMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
                       ▼
                     </span>
                   </button>
 
-                  {kullaniciMenuAcik && secilenKurumId && (
+                  {isMenuOpen && secilenKurumId && (
                     <div style={{ background: 'rgba(0,0,0,0.15)', paddingLeft: '0.5rem' }}>
                       {m.altMenuler.map(sub => (
                         <NavLink
