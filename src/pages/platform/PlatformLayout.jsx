@@ -28,8 +28,14 @@ const KURUM_MENULER = [
       { yol: '/platform/kurum/ogretmenler',  etiket: 'Öğretmenler',        ikon: '🧑‍🏫' },
     ]
   },
-  { yol: '/platform/kurum/rubrikler',        etiket: 'Kurum Rubrikler',  ikon: '📝' },
-  { yol: '/platform/kurum/degerlendirmeler', etiket: 'Değerlendirmeler', ikon: '✅' },
+  {
+    etiket: 'Rubrik Yönetimi',
+    ikon: '📝',
+    altMenuler: [
+      { yol: '/platform/kurum/rubrikler',        etiket: 'Kurum Rubrikler',  ikon: '📋' },
+      { yol: '/platform/kurum/degerlendirmeler', etiket: 'Değerlendirmeler', ikon: '✅' },
+    ]
+  },
   { yol: '/platform/kurum/mentor',          etiket: 'Mentor',           ikon: '🎓' },
   { yol: '/platform/kurum/nobet',           etiket: 'Nöbet Yönetimi',   ikon: '🛡️' },
   { yol: '/platform/kurum/kulupler',        etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
@@ -67,14 +73,21 @@ function PlatformSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [kullaniciMenuAcik, setKullaniciMenuAcik] = useState(() => {
-    return location.pathname.startsWith('/platform/kurum/kullanicilar') || location.pathname.startsWith('/platform/kurum/ogretmenler')
+  const [acikSubMenuler, setAcikSubMenuler] = useState(() => {
+    return {
+      'Kullanıcılar': location.pathname.startsWith('/platform/kurum/kullanicilar') || location.pathname.startsWith('/platform/kurum/ogretmenler'),
+      'Rubrik Yönetimi': location.pathname.startsWith('/platform/kurum/rubrikler') || location.pathname.startsWith('/platform/kurum/degerlendirmeler')
+    }
   })
 
   useEffect(() => {
-    if (location.pathname.startsWith('/platform/kurum/kullanicilar') || location.pathname.startsWith('/platform/kurum/ogretmenler')) {
-      setKullaniciMenuAcik(true)
-    }
+    const isKullaniciActive = location.pathname.startsWith('/platform/kurum/kullanicilar') || location.pathname.startsWith('/platform/kurum/ogretmenler')
+    const isRubrikActive = location.pathname.startsWith('/platform/kurum/rubrikler') || location.pathname.startsWith('/platform/kurum/degerlendirmeler')
+    setAcikSubMenuler(prev => ({
+      ...prev,
+      'Kullanıcılar': isKullaniciActive ? true : prev['Kullanıcılar'],
+      'Rubrik Yönetimi': isRubrikActive ? true : prev['Rubrik Yönetimi']
+    }))
   }, [location.pathname])
 
   // Okul seviyesi sıralama: ilkokul → ortaokul → lise
@@ -196,10 +209,11 @@ function PlatformSidebar() {
         {KURUM_MENULER.map(m => {
           if (m.altMenuler) {
             const isAnyChildActive = m.altMenuler.some(sub => location.pathname.startsWith(sub.yol))
+            const isMenuOpen = !!acikSubMenuler[m.etiket]
             return (
               <div key={m.etiket}>
                 <button
-                  onClick={() => setKullaniciMenuAcik(!kullaniciMenuAcik)}
+                  onClick={() => setAcikSubMenuler(prev => ({ ...prev, [m.etiket]: !prev[m.etiket] }))}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '0.65rem 1.25rem', background: 'transparent', border: 'none',
@@ -215,12 +229,12 @@ function PlatformSidebar() {
                     <span>{m.ikon}</span>
                     <span>{m.etiket}</span>
                   </div>
-                  <span style={{ fontSize: '0.7rem', opacity: 0.7, transform: kullaniciMenuAcik ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                  <span style={{ fontSize: '0.7rem', opacity: 0.7, transform: isMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
                     ▼
                   </span>
                 </button>
 
-                {kullaniciMenuAcik && (
+                {isMenuOpen && (
                   <div style={{ background: 'rgba(0,0,0,0.15)', paddingLeft: '0.5rem' }}>
                     {m.altMenuler.map(sub => (
                       <NavLink
