@@ -461,15 +461,15 @@ export default function KurumKulupler() {
 
   // Auto-select first club
   useEffect(() => {
-    if (kulupler.length > 0) {
-      const exists = kulupler.some(k => k.id === seciliKulupId)
+    if (goruntulenenKulupler.length > 0) {
+      const exists = goruntulenenKulupler.some(k => k.id === seciliKulupId)
       if (!seciliKulupId || !exists) {
-        setSeciliKulupId(kulupler[0].id)
+        setSeciliKulupId(goruntulenenKulupler[0].id)
       }
     } else {
       setSeciliKulupId('')
     }
-  }, [kulupler, seciliKulupId])
+  }, [goruntulenenKulupler, seciliKulupId])
 
   // Reset week and rubric selections when active club or institution changes
   useEffect(() => {
@@ -1790,9 +1790,21 @@ export default function KurumKulupler() {
               {/* Sol Kolon: Kazanım Plan Listesi */}
               <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
-                  <h3 style={{ margin: 0, fontSize: '1rem', color: '#1E293B', fontWeight: '700' }}>
-                    📖 Yıllık Ders & Kazanım Planı
-                  </h3>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: '#1E293B', fontWeight: '700' }}>
+                      📖 Yıllık Ders & Kazanım Planı
+                    </h3>
+                    <select
+                      value={seciliKulupId}
+                      onChange={e => setSeciliKulupId(e.target.value)}
+                      style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
+                    >
+                      <option value="">— Kulüp Seçin —</option>
+                      {goruntulenenKulupler.map(k => (
+                        <option key={k.id} value={k.id}>{k.ad}</option>
+                      ))}
+                    </select>
+                  </div>
                   {seciliKulupId && (
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button
@@ -1943,10 +1955,22 @@ export default function KurumKulupler() {
               
               {/* Sol Kolon: Etkinlikler Listesi */}
               <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1rem', color: '#1E293B', fontWeight: '700' }}>
-                    🏆 Kulüp Etkinlikleri, Turnuva ve Yarışmalar
-                  </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: '#1E293B', fontWeight: '700' }}>
+                      🏆 Kulüp Etkinlikleri, Turnuva ve Yarışmalar
+                    </h3>
+                    <select
+                      value={seciliKulupId}
+                      onChange={e => setSeciliKulupId(e.target.value)}
+                      style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
+                    >
+                      <option value="">— Kulüp Seçin —</option>
+                      {goruntulenenKulupler.map(k => (
+                        <option key={k.id} value={k.id}>{k.ad}</option>
+                      ))}
+                    </select>
+                  </div>
                   {seciliKulupId && (
                     <button onClick={() => setEtkinlikModalAcik(true)}
                       style={{
