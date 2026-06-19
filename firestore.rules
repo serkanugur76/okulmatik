@@ -117,11 +117,9 @@ service cloud.firestore {
     }
 
     match /kurumlar/{kurumId}/ogrenciler/{ogrenciId} {
-      // Öğretmen: atandığı sınıftaki öğrencileri görebilir
+      // Öğretmen: atandığı okulun tüm öğrencilerini okuyabilir (kulüp, nöbet vb. işlemler için gerekli)
       allow read:  if kurumUyesi(kurumId) || platformAdmin()
-                   || (kullaniciBilgisi().rol == 'ogretmen'
-                       && kurumId in kullaniciBilgisi().get('erisimKurumIdler', [])
-                       && resource.data.sinifId in kullaniciBilgisi().get('sinifIdler', []));
+                   || ogretmenKurumErisimi(kurumId);
       allow write: if kurumAdmin(kurumId) || platformAdmin();
     }
 
