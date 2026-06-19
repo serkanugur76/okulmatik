@@ -187,17 +187,19 @@ export default function KurumKulupler() {
   }, [seviye, secilenKurumId, erisimKurumlar, secilenKurum])
 
   const kulupSorguIds = useMemo(() => {
+    if (!adminModu) return secilenKurumId ? [secilenKurumId] : []
     const ids = sayimKurumlar.map(k => k.id)
     if (secilenKurumId && !ids.includes(secilenKurumId)) {
       ids.push(secilenKurumId)
     }
     return ids
-  }, [sayimKurumlar, secilenKurumId])
+  }, [sayimKurumlar, secilenKurumId, adminModu])
 
   const kulupSorguIdsKey = kulupSorguIds.join(',')
 
   const sorguIds = useMemo(() => {
     if (!secilenKurumId) return []
+    if (!adminModu) return [secilenKurumId]
     
     // 1. Alt kurumları (descendants) bul
     let descendants = []
