@@ -525,18 +525,18 @@ function KurumLayoutInner() {
     )
   }
 
-  // ── Kurum seçilmediyse: Genel Kurum Seçici ──────────────────────────────
-  if (!secilenKurumId) {
-    return (
-      <GenelKurumSecici
-        erisimKurumlar={erisimKurumlar}
-        onSec={setSecilenKurumId}
-        profil={profil}
-        onCikis={handleCikis}
-        platformAdmin={platformAdmin}
-        ogretmenModu={ogretmenModu}
-      />
-    )
+  const isSelectable = (k) => {
+    if (platformAdmin) return true
+    if (ogretmenModu) return (profil?.erisimKurumIdler || []).includes(k.id)
+    if (profil?.rol === 'kurum_admin') {
+      const adminKurumId = profil.kurumId
+      if (k.id === adminKurumId) return true
+      if (k.parentId === adminKurumId) return true
+      if (k.rootKurumId === adminKurumId) return true
+      const parent = erisimKurumlar.find(item => item.id === k.parentId)
+      if (parent && (parent.id === adminKurumId || parent.parentId === adminKurumId)) return true
+    }
+    return false
   }
 
   // Menü: öğretmene özel mi, yoksa tam menü mü?
@@ -596,30 +596,110 @@ function KurumLayoutInner() {
           
           <div style={{ marginTop: '0.75rem' }}>
             <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Aktif Kurum / Okul
+              Kurum / Kampüs Seçimi
             </div>
-            <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#fff', marginBottom: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={secilenKurum?.ad}>
-              {secilenKurum?.ad || '—'}
-            </div>
-            {ogretmenModu && (
-              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', marginBottom: '0.5rem' }}>
+            
+            {(() => {
+              const rootlar = erisimKurumlar.filter(k => !k.parentId)
+              const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
+                .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+              const altlar = erisimKurumlar.filter(k => k.tip === 'altKurum')
+
+              function okulSira(ad = '') {
+                const s = ad.toLocaleLowerCase('tr')
+                if (s.includes('ilkokul'))  return 1
+                if (s.includes('ortaokul')) return 2
+                if (s.includes('lise'))     return 3
+                return 4
+              }
+
+              return (
+                <select
+                  value={secilenKurumId || ''}
+                  onChange={e => setSecilenKurumId(e.target.value || null)}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.12)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '8px',
+                    padding: '0.5rem',
+                    fontSize: '0.8rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    transition: 'all 0.2s',
+                    marginTop: '0.25rem'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                >
+                  <option value="" style={{ background: '#1B3A6B', color: '#fff' }}>— Seçiniz —</option>
+                  
+                  {rootlar.map(root => {
+                    const kampusAltlar = kampusler.filter(k => k.parentId === root.id)
+                    const directOkullar = altlar.filter(k => k.parentId === root.id)
+                      .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+
+                    const options = []
+                    
+                    if (isSelectable(root)) {
+                      options.push(
+                        <option key={root.id} value={root.id} style={{ background: '#1B3A6B', color: '#fff' }}>
+                          🏛 {root.ad}
+                        </option>
+                      )
+                    }
+
+                    kampusAltlar.forEach(kp => {
+                      if (isSelectable(kp)) {
+                        options.push(
+                          <option key={kp.id} value={kp.id} style={{ background: '#1B3A6B', color: '#fff' }}>
+                            &nbsp;&nbsp;🏫 {kp.ad}
+                          </option>
+                        )
+                      }
+                      
+                      const kpOkullar = altlar.filter(k => k.parentId === kp.id)
+                        .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+                      
+                      kpOkullar.forEach(okul => {
+                        if (isSelectable(okul)) {
+                          options.push(
+                            <option key={okul.id} value={okul.id} style={{ background: '#1B3A6B', color: '#fff' }}>
+                              &nbsp;&nbsp;&nbsp;&nbsp;└ {okul.ad}
+                            </option>
+                          )
+                        }
+                      })
+                    })
+
+                    directOkullar.forEach(okul => {
+                      if (isSelectable(okul)) {
+                        options.push(
+                          <option key={okul.id} value={okul.id} style={{ background: '#1B3A6B', color: '#fff' }}>
+                            &nbsp;&nbsp;&nbsp;&nbsp;└ {okul.ad}
+                          </option>
+                        )
+                      }
+                    })
+
+                    if (options.length === 0) return null
+
+                    return (
+                      <optgroup key={root.id} label={root.ad.toUpperCase()} style={{ background: '#1B3A6B', color: '#93C5FD', fontWeight: 'bold' }}>
+                        {options}
+                      </optgroup>
+                    )
+                  })}
+                </select>
+              )
+            })()}
+
+            {ogretmenModu && secilenKurumId && (
+              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.5rem' }}>
                 {ogretmenSinifIdleri.length} sınıf atanmış
               </div>
-            )}
-            {/* Sadece 1'den fazla kurum/okul varsa değiştir butonunu göster */}
-            {erisimKurumlar.length > 1 && (
-              <button onClick={() => setSecilenKurumId(null)}
-                style={{
-                  fontSize: '0.72rem', color: 'rgba(255,255,255,0.85)',
-                  background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: '5px', padding: '4px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                  marginTop: '0.25rem', transition: 'background 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-              >
-                <span>⇄</span> <span>Kurum Değiştir</span>
-              </button>
             )}
           </div>
         </div>
@@ -630,18 +710,25 @@ function KurumLayoutInner() {
             if (m.altMenuler) {
               const isAnyChildActive = m.altMenuler.some(sub => location.pathname.startsWith(sub.yol))
               return (
-                <div key={m.etiket}>
+                <div key={m.etiket} style={{ opacity: secilenKurumId ? 1 : 0.4 }}>
                   <button
-                    onClick={() => setKullaniciMenuAcik(!kullaniciMenuAcik)}
+                    onClick={() => {
+                      if (secilenKurumId) {
+                        setKullaniciMenuAcik(!kullaniciMenuAcik)
+                      }
+                    }}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '0.75rem 1.25rem', background: 'transparent', border: 'none',
-                      color: isAnyChildActive ? '#fff' : 'rgba(255,255,255,0.65)', cursor: 'pointer', fontSize: '0.9rem',
-                      transition: 'all 0.15s', outline: 'none'
+                      color: isAnyChildActive && secilenKurumId ? '#fff' : 'rgba(255,255,255,0.65)',
+                      cursor: secilenKurumId ? 'pointer' : 'not-allowed',
+                      fontSize: '0.9rem',
+                      transition: 'all 0.15s', outline: 'none',
+                      pointerEvents: secilenKurumId ? 'auto' : 'none'
                     }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+                    onMouseEnter={e => { if (secilenKurumId) e.currentTarget.style.color = '#fff' }}
                     onMouseLeave={e => {
-                      if (!isAnyChildActive) e.currentTarget.style.color = 'rgba(255,255,255,0.65)'
+                      if (!isAnyChildActive && secilenKurumId) e.currentTarget.style.color = 'rgba(255,255,255,0.65)'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -653,7 +740,7 @@ function KurumLayoutInner() {
                     </span>
                   </button>
 
-                  {kullaniciMenuAcik && (
+                  {kullaniciMenuAcik && secilenKurumId && (
                     <div style={{ background: 'rgba(0,0,0,0.15)', paddingLeft: '0.5rem' }}>
                       {m.altMenuler.map(sub => (
                         <NavLink
@@ -684,14 +771,22 @@ function KurumLayoutInner() {
                 key={m.yol}
                 to={m.yol}
                 end={m.yol === '/kurum'}
+                onClick={e => {
+                  if (!secilenKurumId) {
+                    e.preventDefault()
+                  }
+                }}
                 style={({ isActive }) => ({
                   display: 'flex', alignItems: 'center', gap: '0.75rem',
                   padding: '0.75rem 1.25rem', textDecoration: 'none',
-                  color: isActive ? '#fff' : 'rgba(255,255,255,0.65)',
-                  background: isActive ? 'rgba(255,255,255,0.12)' : 'transparent',
-                  borderLeft: isActive ? '3px solid #60A5FA' : '3px solid transparent',
-                  fontSize: '0.9rem', fontWeight: isActive ? '600' : '400',
+                  color: isActive && secilenKurumId ? '#fff' : 'rgba(255,255,255,0.65)',
+                  background: isActive && secilenKurumId ? 'rgba(255,255,255,0.12)' : 'transparent',
+                  borderLeft: isActive && secilenKurumId ? '3px solid #60A5FA' : '3px solid transparent',
+                  fontSize: '0.9rem', fontWeight: isActive && secilenKurumId ? '600' : '400',
                   transition: 'all 0.15s',
+                  opacity: secilenKurumId ? 1 : 0.4,
+                  cursor: secilenKurumId ? 'pointer' : 'not-allowed',
+                  pointerEvents: secilenKurumId ? 'auto' : 'none'
                 })}>
                 <span>{m.ikon}</span>
                 <span>{m.etiket}</span>
@@ -790,9 +885,9 @@ function KurumLayoutInner() {
         </div>
       </aside>
 
-      <main style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
+      <main style={{ marginLeft: '240px', flex: 1, padding: '2rem', position: 'relative' }}>
         {/* Breadcrumb + Logo satırı */}
-        {(() => {
+        {secilenKurumId && (() => {
           const logo = secilenKurum?.logoUrl
             || (secilenKurum?.rootKurumId ? erisimKurumlar.find(k => k.id === secilenKurum.rootKurumId)?.logoUrl : null)
             || rootKurum?.logoUrl
@@ -821,7 +916,74 @@ function KurumLayoutInner() {
             </div>
           )
         })()}
-        <Outlet />
+
+        {secilenKurumId ? (
+          <Outlet />
+        ) : (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '75vh',
+            textAlign: 'center',
+            padding: '2rem',
+          }}>
+            {/* Floating Arrow Animation pointing to sidebar select */}
+            <style dangerouslySetInnerHTML={{ __html: `
+              @keyframes float-arrow {
+                0% { transform: translate(0, 0) rotate(45deg); }
+                50% { transform: translate(-8px, -8px) rotate(45deg); }
+                100% { transform: translate(0, 0) rotate(45deg); }
+              }
+              .pointing-arrow {
+                animation: float-arrow 2s infinite ease-in-out;
+                font-size: 2.5rem;
+                color: #1B3A6B;
+                position: absolute;
+                top: 40px;
+                left: 40px;
+              }
+            `}} />
+            <div className="pointing-arrow">↖</div>
+
+            <div style={{
+              maxWidth: '500px',
+              background: 'rgba(255, 255, 255, 0.8)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.5)',
+              borderRadius: '24px',
+              padding: '3rem 2.5rem',
+              boxShadow: '0 20px 40px rgba(15, 23, 42, 0.04)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '1.25rem'
+            }}>
+              <div style={{ fontSize: '3.5rem', filter: 'drop-shadow(0 10px 10px rgba(0,0,0,0.05))' }}>🏫</div>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>
+                Aktif Okul / Kampüs Seçin
+              </h2>
+              <p style={{ fontSize: '0.925rem', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
+                Uygulama modüllerini ve verileri görüntülemek için lütfen <strong>sol menünün üst kısmında</strong> yer alan seçiciden işlem yapacağınız okulu belirleyin.
+              </p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                background: 'rgba(27, 58, 107, 0.05)',
+                color: '#1B3A6B',
+                borderRadius: '999px',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                marginTop: '0.5rem'
+              }}>
+                <span>💡</span> <span>Sol üst köşedeki dropdown menüyü kullanabilirsiniz.</span>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

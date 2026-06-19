@@ -327,15 +327,70 @@ function PlatformMain() {
 
   if (isKurumRoute && !secilenKurumId) {
     return (
-      <main style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
-        <GenelKurumSecici
-          erisimKurumlar={erisimKurumlar}
-          onSec={setSecilenKurumId}
-          profil={profil}
-          onCikis={handleCikis}
-          platformAdmin={true}
-          ogretmenModu={false}
-        />
+      <main style={{ marginLeft: '240px', flex: 1, padding: '2rem', position: 'relative' }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '75vh',
+          textAlign: 'center',
+          padding: '2rem',
+        }}>
+          {/* Floating Arrow Animation pointing to sidebar select */}
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes float-arrow {
+              0% { transform: translate(0, 0) rotate(45deg); }
+              50% { transform: translate(-8px, -8px) rotate(45deg); }
+              100% { transform: translate(0, 0) rotate(45deg); }
+            }
+            .pointing-arrow {
+              animation: float-arrow 2s infinite ease-in-out;
+              font-size: 2.5rem;
+              color: #4338CA;
+              position: absolute;
+              top: 130px;
+              left: 40px;
+            }
+          `}} />
+          <div className="pointing-arrow">↖</div>
+
+          <div style={{
+            maxWidth: '500px',
+            background: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.5)',
+            borderRadius: '24px',
+            padding: '3rem 2.5rem',
+            boxShadow: '0 20px 40px rgba(15, 23, 42, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '1.25rem'
+          }}>
+            <div style={{ fontSize: '3.5rem', filter: 'drop-shadow(0 10px 10px rgba(0,0,0,0.05))' }}>🏫</div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>
+              İşlem Yapılacak Kurumu Seçin
+            </h2>
+            <p style={{ fontSize: '0.925rem', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
+              Kurum operasyonlarını yönetmek için lütfen <strong>sol menüdeki Kurum Operasyonları seçicisinden</strong> bir okul veya kampüs seçin.
+            </p>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              background: 'rgba(67, 56, 202, 0.05)',
+              color: '#4338CA',
+              borderRadius: '999px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              marginTop: '0.5rem'
+            }}>
+              <span>💡</span> <span>Sol menüde yer alan dropdown listeden seçim yapabilirsiniz.</span>
+            </div>
+          </div>
+        </div>
       </main>
     )
   }
