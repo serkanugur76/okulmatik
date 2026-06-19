@@ -38,109 +38,456 @@ const OGRETMEN_MENULER = [
 ]
 
 // ── Öğretmen kurum seçici ekranı ─────────────────────────────────────────────
-function OgretmenKurumSecici({ erisimKurumlar, atananKurumIds, onSec, profil, onCikis }) {
-  if (erisimKurumlar.length === 0) {
+// ── Genel kurum seçici ekranı (Tüm roller için) ─────────────────────────────────
+export function GenelKurumSecici({ erisimKurumlar, onSec, profil, onCikis, platformAdmin, ogretmenModu }) {
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const isSelectable = (k) => {
+    if (platformAdmin) return true
+    if (ogretmenModu) return (profil?.erisimKurumIdler || []).includes(k.id)
+    if (profil?.rol === 'kurum_admin') {
+      const adminKurumId = profil.kurumId
+      if (k.id === adminKurumId) return true
+      if (k.parentId === adminKurumId) return true
+      if (k.rootKurumId === adminKurumId) return true
+      const parent = erisimKurumlar.find(item => item.id === k.parentId)
+      if (parent && (parent.id === adminKurumId || parent.parentId === adminKurumId)) return true
+    }
+    return false
+  }
+
+  const getBadgeStyle = (k) => {
+    if (k.tip === 'kurum') return { bg: '#EEF2FF', color: '#4F46E5', label: '🏛 Ana Kurum' }
+    if (k.tip === 'kampus') return { bg: '#E0F2FE', color: '#0369A1', label: '🏫 Kampüs' }
+    const nameLower = (k.ad || '').toLowerCase()
+    if (nameLower.includes('ilkokul')) return { bg: '#ECFDF5', color: '#047857', label: '🎒 İlkokul' }
+    if (nameLower.includes('ortaokul')) return { bg: '#FFFBEB', color: '#B45309', label: '🏫 Ortaokul' }
+    if (nameLower.includes('lise')) return { bg: '#FFF1F2', color: '#BE123C', label: '🎓 Lise' }
+    return { bg: '#F1F5F9', color: '#475569', label: '🏢 Okul' }
+  }
+
+  // Magnifying Glass SVG Icon
+  const SearchIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#94A3B8' }}>
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+  )
+
+  const RootHeader = ({ k }) => {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9' }}>
-        <div style={{ textAlign: 'center', maxWidth: '400px', padding: '2rem' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏫</div>
-          <h2 style={{ color: '#1E293B', marginBottom: '0.5rem' }}>Sınıf Ataması Yok</h2>
-          <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-            Henüz hiçbir sınıfa atanmamışsınız. Kurum yöneticinizle iletişime geçin.
-          </p>
-          <button onClick={onCikis}
-            style={{ padding: '0.6rem 1.5rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}>
-            Çıkış Yap
+      <div style={{
+        padding: '1.25rem 1.5rem',
+        background: 'linear-gradient(135deg, #1E3A8B 0%, #3B82F6 100%)',
+        borderRadius: '16px',
+        color: '#FFFFFF',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '1rem',
+        boxShadow: '0 4px 12px rgba(30, 58, 138, 0.15)'
+      }}>
+        <div>
+          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#93C5FD', fontWeight: '600', marginBottom: '0.15rem' }}>
+            Ana Kurum
+          </div>
+          <div style={{ fontSize: '1.2rem', fontWeight: '800' }}>
+            {k.ad}
+          </div>
+        </div>
+        {isSelectable(k) ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onSec(k.id); }}
+            style={{
+              padding: '0.5rem 1.25rem',
+              backgroundColor: '#FFFFFF',
+              color: '#1E3A8B',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: '700',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              transition: 'all 0.15s'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+          >
+            Seç
           </button>
+        ) : null}
+      </div>
+    )
+  }
+
+  const KampusContainer = ({ k, children }) => {
+    return (
+      <div style={{
+        background: '#F8FAFC',
+        border: '1.5px solid #E2E8F0',
+        borderRadius: '18px',
+        padding: '1.25rem',
+        marginBottom: '1.5rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1rem',
+          borderBottom: '1px solid #E2E8F0',
+          paddingBottom: '0.75rem'
+        }}>
+          <div>
+            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748B', fontWeight: '600', marginBottom: '0.15rem' }}>
+              Kampüs / Şube
+            </div>
+            <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#1E293B' }}>
+              {k.ad}
+            </div>
+          </div>
+          {isSelectable(k) ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSec(k.id); }}
+              style={{
+                padding: '0.4rem 1rem',
+                backgroundColor: '#1B3A6B',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: '600',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.backgroundColor = '#2563EB'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.backgroundColor = '#1B3A6B'; }}
+            >
+              Kampüsü Seç
+            </button>
+          ) : null}
+        </div>
+        {children}
+      </div>
+    )
+  }
+
+  const SelectableCard = ({ k, showParentContext = false }) => {
+    const badge = getBadgeStyle(k)
+    let parentText = ''
+    if (showParentContext && k.parentId) {
+      const parent = erisimKurumlar.find(item => item.id === k.parentId)
+      if (parent) {
+        parentText = parent.ad
+        if (parent.parentId) {
+          const grandParent = erisimKurumlar.find(item => item.id === parent.parentId)
+          if (grandParent) {
+            parentText = `${grandParent.ad} › ${parentText}`
+          }
+        }
+      }
+    }
+
+    return (
+      <div
+        className="secici-card"
+        onClick={() => onSec(k.id)}
+        style={{
+          background: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: '16px',
+          padding: '1.25rem',
+          cursor: 'pointer',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          gap: '0.75rem',
+          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div>
+          {parentText && (
+            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: '500', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              {parentText}
+            </div>
+          )}
+          <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1E293B', lineHeight: '1.4', marginBottom: '0.25rem' }}>
+            {k.ad}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+          <span style={{
+            fontSize: '0.72rem',
+            fontWeight: '600',
+            backgroundColor: badge.bg,
+            color: badge.color,
+            padding: '4px 10px',
+            borderRadius: '999px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.25rem'
+          }}>
+            {badge.label}
+          </span>
+          <span style={{ fontSize: '0.8rem', color: '#1B3A6B', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '2px' }}>
+            Seç ➔
+          </span>
         </div>
       </div>
     )
   }
 
-  // Kampüsler (parentKurumIdler'den yüklenenler — sadece başlık/gruplandırma için)
-  const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
-  // Seçilebilir kurumlar: sadece öğretmene atanan kurumlar (root/kampüs dışlar)
-  const secilebilir = erisimKurumlar.filter(k => atananKurumIds.includes(k.id))
+  // Flat filtering for search
+  const filteredSelectable = erisimKurumlar.filter(k => {
+    const isNameMatch = (k.ad || '').toLocaleLowerCase('tr').includes(searchQuery.toLocaleLowerCase('tr'))
+    return isNameMatch && isSelectable(k)
+  })
 
-  // Kampüs altında gruplanmış okul listesi
-  const gruplar = kampusler
-    .map(kp => ({
-      kampus: kp,
-      okullar: secilebilir.filter(k => k.parentId === kp.id),
-    }))
-    .filter(g => g.okullar.length > 0)
+  // Group all schools by their parents for the hierarchy view
+  const renderHierarchy = () => {
+    // Top-level nodes: no parentId OR the parent is not in erisimKurumlar
+    const topLevelNodes = erisimKurumlar.filter(
+      k => !k.parentId || !erisimKurumlar.some(parent => parent.id === k.parentId)
+    )
 
-  // Hiçbir kampüse bağlı olmayan direkt kurumlar
-  const kampussuz = secilebilir.filter(k => !kampusler.find(kp => kp.id === k.parentId))
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#F1F5F9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-      {/* Başlık */}
-      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>
-          📚 Okulmatik
+    if (topLevelNodes.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: '3rem 1.5rem', background: '#FFFFFF', borderRadius: '16px', border: '1px dashed #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏫</div>
+          <h3 style={{ color: '#1E293B', margin: '0 0 0.5rem 0', fontWeight: '700' }}>Yetkili Olduğunuz Kurum Bulunamadı</h3>
+          <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '0 0 1.5rem 0', lineHeight: '1.5' }}>
+            Henüz hiçbir kuruma veya okula atanmamışsınız. Lütfen yöneticinizle iletişime geçin.
+          </p>
+          <button onClick={onCikis} className="secici-btn-cikis"
+            style={{ padding: '0.6rem 1.5rem', background: 'transparent', color: '#EF4444', border: '1.5px solid #FEE2E2', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}>
+            Çıkış Yap
+          </button>
         </div>
-        <div style={{ fontSize: '1rem', color: '#64748B' }}>
-          Merhaba <strong>{profil?.ad || profil?.email}</strong>, hangi okulda çalışacaksınız?
-        </div>
-      </div>
+      )
+    }
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', width: '100%', maxWidth: '840px' }}>
+    return topLevelNodes.map(topNode => {
+      // Find direct children
+      const level2Nodes = erisimKurumlar.filter(k => k.parentId === topNode.id)
 
-        {/* Kampüs kartları — içinde okullar listelenir */}
-        {gruplar.map(({ kampus, okullar }) => (
-          <div key={kampus.id} style={{
-            background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: '14px',
-            overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-          }}>
-            {/* Kampüs başlığı */}
-            <div style={{ padding: '1rem 1.25rem', background: '#F8FAFC', borderBottom: '1px solid #F1F5F9' }}>
-              <div style={{ fontSize: '1.25rem', marginBottom: '0.3rem' }}>🏫</div>
-              <div style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1E293B' }}>{kampus.ad}</div>
-              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '0.15rem' }}>
-                {okullar.length} okul
+      if (topNode.tip === 'kurum' || !topNode.parentId) {
+        const kampusesUnderRoot = level2Nodes.filter(k => k.tip === 'kampus')
+        const altsDirectUnderRoot = level2Nodes.filter(k => k.tip === 'altKurum')
+
+        return (
+          <div key={topNode.id} style={{ marginBottom: '2rem' }}>
+            <RootHeader k={topNode} />
+            
+            {/* Kampuses under this Root */}
+            {kampusesUnderRoot.map(kampus => {
+              const altsUnderKampus = erisimKurumlar.filter(k => k.parentId === kampus.id && k.tip === 'altKurum')
+              return (
+                <KampusContainer key={kampus.id} k={kampus}>
+                  {altsUnderKampus.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                      {altsUnderKampus.map(okul => (
+                        <SelectableCard key={okul.id} k={okul} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.85rem', color: '#94A3B8', fontStyle: 'italic' }}>
+                      Bu kampüse bağlı alt okul bulunmamaktadır.
+                    </div>
+                  )}
+                </KampusContainer>
+              )
+            })}
+
+            {/* Direct Alt Okullar under this Root (no kampüs) */}
+            {altsDirectUnderRoot.length > 0 && (
+              <div style={{ background: '#F8FAFC', border: '1px dashed #CBD5E1', borderRadius: '18px', padding: '1.25rem', marginTop: '1rem' }}>
+                <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748B', fontWeight: '600', marginBottom: '0.75rem' }}>
+                  Doğrudan Bağlı Okullar
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                  {altsDirectUnderRoot.map(okul => (
+                    <SelectableCard key={okul.id} k={okul} />
+                  ))}
+                </div>
               </div>
-            </div>
-            {/* Okul butonları */}
-            <div style={{ padding: '0.5rem' }}>
-              {okullar.map(okul => (
-                <button key={okul.id} onClick={() => onSec(okul.id)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem',
-                    padding: '0.75rem 0.875rem', background: 'none', border: 'none',
-                    borderRadius: '8px', cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#EFF6FF' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
-                  <span style={{ fontSize: '1.2rem' }}>🏢</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1E293B' }}>{okul.ad}</span>
-                </button>
-              ))}
+            )}
+          </div>
+        )
+      } else if (topNode.tip === 'kampus') {
+        const altsUnderKampus = level2Nodes.filter(k => k.tip === 'altKurum')
+        return (
+          <KampusContainer key={topNode.id} k={topNode}>
+            {altsUnderKampus.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                {altsUnderKampus.map(okul => (
+                  <SelectableCard key={okul.id} k={okul} />
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.85rem', color: '#94A3B8', fontStyle: 'italic' }}>
+                Bu kampüse bağlı alt okul bulunmamaktadır.
+              </div>
+            )}
+          </KampusContainer>
+        )
+      } else {
+        return (
+          <div key={topNode.id} style={{ marginBottom: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+              <SelectableCard k={topNode} showParentContext={true} />
             </div>
           </div>
-        ))}
+        )
+      }
+    })
+  }
 
-        {/* Kampüssüz direkt kurumlar (kampüs hiyerarşisi yoksa) */}
-        {kampussuz.map(k => (
-          <button key={k.id} onClick={() => onSec(k.id)}
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #EEF2F6 0%, #E2E8F0 100%)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2rem 1rem',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {/* Dynamic styles */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes float {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+          100% { transform: translateY(0px); }
+        }
+        .secici-card {
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .secici-card:hover {
+          transform: translateY(-3px) scale(1.01);
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+          border-color: #1B3A6B !important;
+        }
+        .secici-card:active {
+          transform: translateY(-1px) scale(1.0);
+        }
+        .secici-btn-cikis {
+          transition: all 0.2s;
+        }
+        .secici-btn-cikis:hover {
+          background-color: #EF4444 !important;
+          color: #fff !important;
+          border-color: #EF4444 !important;
+        }
+        .secici-search-input:focus {
+          outline: none;
+          border-color: #1B3A6B !important;
+          box-shadow: 0 0 0 3px rgba(27, 58, 107, 0.15) !important;
+        }
+      `}} />
+
+      {/* Decorative background glows */}
+      <div style={{ position: 'absolute', width: '400px', height: '400px', background: 'rgba(59, 130, 246, 0.05)', filter: 'blur(100px)', borderRadius: '50%', top: '-100px', left: '-100px', zIndex: 0 }} />
+      <div style={{ position: 'absolute', width: '400px', height: '400px', background: 'rgba(139, 92, 246, 0.05)', filter: 'blur(100px)', borderRadius: '50%', bottom: '-100px', right: '-100px', zIndex: 0 }} />
+
+      <div style={{
+        width: '100%',
+        maxWidth: '860px',
+        background: 'rgba(255, 255, 255, 0.8)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.6)',
+        borderRadius: '24px',
+        padding: '2.5rem',
+        boxShadow: '0 20px 40px rgba(15, 23, 42, 0.06)',
+        zIndex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2rem'
+      }}>
+        {/* Header Section */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+              📚 Okulmatik
+            </div>
+            <div style={{ fontSize: '0.95rem', color: '#64748B' }}>
+              Hoş geldiniz, <strong>{profil?.ad || profil?.email}</strong>. Lütfen devam etmek için bir okul veya kurum seçin.
+            </div>
+          </div>
+          <button onClick={onCikis} className="secici-btn-cikis"
             style={{
-              background: '#fff', border: '2px solid #E2E8F0', borderRadius: '14px',
-              padding: '1.5rem 1.25rem', cursor: 'pointer', textAlign: 'left',
-              transition: 'all 0.15s', boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = '#1B3A6B'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(27,58,107,0.12)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🏢</div>
-            <div style={{ fontWeight: '700', fontSize: '1rem', color: '#1E293B' }}>{k.ad}</div>
+              padding: '0.5rem 1.25rem',
+              background: '#FFFFFF',
+              color: '#64748B',
+              border: '1px solid #E2E8F0',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+            <span>🚪</span> <span>Oturumu Kapat</span>
           </button>
-        ))}
+        </div>
 
+        {/* Search bar */}
+        {erisimKurumlar.length > 3 && (
+          <div style={{ position: 'relative', width: '100%' }}>
+            <div style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
+              <SearchIcon />
+            </div>
+            <input
+              type="text"
+              className="secici-search-input"
+              placeholder="Kurum veya okul adı ile ara..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.85rem 1rem 0.85rem 2.75rem',
+                fontSize: '0.95rem',
+                border: '1px solid #CBD5E1',
+                borderRadius: '12px',
+                background: '#FFFFFF',
+                color: '#1E293B',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.01)',
+                transition: 'all 0.15s'
+              }}
+            />
+          </div>
+        )}
+
+        {/* Content Area */}
+        <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+          {searchQuery.trim() ? (
+            /* Search results */
+            filteredSelectable.length > 0 ? (
+              <div>
+                <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748B', fontWeight: '600', marginBottom: '1rem' }}>
+                  Arama Sonuçları ({filteredSelectable.length})
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                  {filteredSelectable.map(k => (
+                    <SelectableCard key={k.id} k={k} showParentContext={true} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#94A3B8' }}>
+                Aramanızla eşleşen seçilebilir bir kurum bulunamadı.
+              </div>
+            )
+          ) : (
+            /* Structured Hierarchy */
+            renderHierarchy()
+          )}
+        </div>
       </div>
-
-      <button onClick={onCikis}
-        style={{ marginTop: '2rem', padding: '0.5rem 1.25rem', background: 'none', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.8rem', color: '#64748B', cursor: 'pointer' }}>
-        Çıkış Yap
-      </button>
     </div>
   )
 }
@@ -178,15 +525,16 @@ function KurumLayoutInner() {
     )
   }
 
-  // ── Öğretmen: çoklu kurum seçici ──────────────────────────────────────────
-  if (ogretmenModu && !secilenKurumId) {
+  // ── Kurum seçilmediyse: Genel Kurum Seçici ──────────────────────────────
+  if (!secilenKurumId) {
     return (
-      <OgretmenKurumSecici
+      <GenelKurumSecici
         erisimKurumlar={erisimKurumlar}
-        atananKurumIds={profil?.erisimKurumIdler || []}
         onSec={setSecilenKurumId}
         profil={profil}
         onCikis={handleCikis}
+        platformAdmin={platformAdmin}
+        ogretmenModu={ogretmenModu}
       />
     )
   }
@@ -196,20 +544,6 @@ function KurumLayoutInner() {
 
   // Root kurum (parentId yok)
   const rootKurum = erisimKurumlar.find(k => !k.parentId)
-
-  // Admin için kurum seçici — hiyerarşi yapısı
-  const secilebilir = platformAdmin
-    ? erisimKurumlar
-    : erisimKurumlar.filter(k => k.parentId)
-
-  // Okul seviyesi sıralama: ilkokul → ortaokul → lise
-  function okulSira(ad = '') {
-    const s = ad.toLocaleLowerCase('tr')   // 'İ' → 'i' (Türkçe)
-    if (s.includes('ilkokul'))  return 1
-    if (s.includes('ortaokul')) return 2
-    if (s.includes('lise'))     return 3
-    return 4
-  }
 
   // Seçili kurum için breadcrumb: root → kampüs → altKurum
   function buildBreadcrumb(kurum) {
@@ -224,23 +558,6 @@ function KurumLayoutInner() {
     }
     return parts
   }
-
-  // optgroup yapısı: root → [ { kampus, altlar[] } ]
-  const rootlar   = erisimKurumlar.filter(k => !k.parentId)
-  const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
-    .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
-  const altlar    = erisimKurumlar.filter(k => k.tip === 'altKurum')
-  const kurumGruplari = rootlar.map(root => ({
-    root,
-    kampusGruplari: kampusler
-      .filter(k => k.parentId === root.id)
-      .map(kp => ({
-        kampus: kp,
-        altKurumlar: altlar
-          .filter(k => k.parentId === kp.id)
-          .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr')),
-      })),
-  }))
 
   // ── Rol rozeti ────────────────────────────────────────────
   const kullanicininKurumu = erisimKurumlar.find(k => k.id === profil?.kurumId)
@@ -276,65 +593,35 @@ function KurumLayoutInner() {
               </span>
             )}
           </div>
-
-          {/* ── Öğretmen modu: okul bilgisi + değiştir butonu ── */}
-          {ogretmenModu ? (
-            <div style={{ marginTop: '0.75rem' }}>
-              <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Aktif Okul
-              </div>
-              <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#fff', marginBottom: '0.25rem' }}>
-                {secilenKurum?.ad || '—'}
-              </div>
+          
+          <div style={{ marginTop: '0.75rem' }}>
+            <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Aktif Kurum / Okul
+            </div>
+            <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#fff', marginBottom: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={secilenKurum?.ad}>
+              {secilenKurum?.ad || '—'}
+            </div>
+            {ogretmenModu && (
               <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', marginBottom: '0.5rem' }}>
                 {ogretmenSinifIdleri.length} sınıf atanmış
               </div>
-              {erisimKurumlar.length > 1 && (
-                <button onClick={() => setSecilenKurumId(null)}
-                  style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.7)', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '5px', padding: '3px 10px', cursor: 'pointer' }}>
-                  ⇄ Okul Değiştir
-                </button>
-              )}
-            </div>
-          ) : (
-            <>
-              {/* Admin modu: dropdown + breadcrumb */}
-              {secilebilir.length > 0 && (
-                <select
-                  value={secilenKurumId || ''}
-                  onChange={e => setSecilenKurumId(e.target.value || rootKurum?.id)}
-                  style={{
-                    marginTop: '0.5rem', width: '100%',
-                    background: 'rgba(255,255,255,0.12)', color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px',
-                    padding: '0.375rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer',
-                  }}>
-                  {!platformAdmin && (
-                    <option value="" style={{ background: '#1B3A6B' }}>— Kurum seçin —</option>
-                  )}
-                  {kurumGruplari.flatMap(({ root, kampusGruplari }) => [
-                    /* Root seviyesi */
-                    platformAdmin && (
-                      <optgroup key={`root-${root.id}`} label={`🏛 ${root.ad.toUpperCase()}`}>
-                        <option value={root.id} style={{ background: '#1B3A6B' }}>🏛 {root.ad}</option>
-                      </optgroup>
-                    ),
-                    /* Kampüs ve altKurumlar */
-                    ...kampusGruplari.map(({ kampus, altKurumlar }) => (
-                      <optgroup key={kampus.id} label={`  🏫 ${kampus.ad}`}>
-                        <option value={kampus.id} style={{ background: '#1B3A6B' }}>🏫 {kampus.ad}</option>
-                        {altKurumlar.map(ak => (
-                          <option key={ak.id} value={ak.id} style={{ background: '#1B3A6B' }}>
-                            {'  '}└ {ak.ad}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )),
-                  ].filter(Boolean))}
-                </select>
-              )}
-            </>
-          )}
+            )}
+            {/* Sadece 1'den fazla kurum/okul varsa değiştir butonunu göster */}
+            {erisimKurumlar.length > 1 && (
+              <button onClick={() => setSecilenKurumId(null)}
+                style={{
+                  fontSize: '0.72rem', color: 'rgba(255,255,255,0.85)',
+                  background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '5px', padding: '4px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                  marginTop: '0.25rem', transition: 'background 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+              >
+                <span>⇄</span> <span>Kurum Değiştir</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Menü */}

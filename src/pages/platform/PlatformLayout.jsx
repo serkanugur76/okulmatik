@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { KurumYonetimProvider, useKurumYonetim } from '../../contexts/KurumYonetimContext'
+import { GenelKurumSecici } from '../kurum/KurumLayout'
 
 // ── Platform yönetim menüsü (kurumdan bağımsız) ───────────────────────────────
 const PLATFORM_MENULER = [
@@ -312,12 +313,37 @@ function PlatformSidebar() {
 }
 
 function PlatformMain() {
-  const { erisimKurumlar, secilenKurum } = useKurumYonetim()
+  const { profil, cikisYap } = useAuth()
+  const { erisimKurumlar, secilenKurumId, secilenKurum, setSecilenKurumId } = useKurumYonetim()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  async function handleCikis() {
+    await cikisYap()
+    navigate('/giris')
+  }
+
+  const isKurumRoute = location.pathname.includes('/platform/kurum/') || location.pathname === '/platform/kurum'
+
+  if (isKurumRoute && !secilenKurumId) {
+    return (
+      <main style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
+        <GenelKurumSecici
+          erisimKurumlar={erisimKurumlar}
+          onSec={setSecilenKurumId}
+          profil={profil}
+          onCikis={handleCikis}
+          platformAdmin={true}
+          ogretmenModu={false}
+        />
+      </main>
+    )
+  }
 
   function buildBreadcrumb(kurum) {
     if (!kurum) return []
     const parts = [kurum.ad]
-    let current = kurum
+    let current = { ...kurum }
     while (current.parentId) {
       const parent = erisimKurumlar.find(k => k.id === current.parentId)
       if (!parent) break

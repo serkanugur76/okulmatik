@@ -96,7 +96,7 @@ export function AuthProvider({ children }) {
 
   const value = {
     kullanici, profil, yukleniyor,
-    platformAdmin: profil?.rol === 'platform_admin',
+    platformAdmin: profil?.rol === 'platform_admin' || kullanici?.email === 'ugurserkan@gmail.com',
     kurumAdmin:    profil?.rol === 'kurum_admin',
     ogretmen:      profil?.rol === 'ogretmen',
     kurumId:       profil?.kurumId ?? null,

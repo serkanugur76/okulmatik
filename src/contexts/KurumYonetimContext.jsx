@@ -54,8 +54,7 @@ export function KurumYonetimProvider({ children }) {
           setErisimKurumlar(hepsi)
           const kayitliId = localStorage.getItem(LS_KEY)
           const kayitli   = kayitliId && hepsi.find(k => k.id === kayitliId)
-          const ilkKok    = hepsi.find(k => !k.parentId)
-          setSecilenKurumIdRaw(kayitli ? kayitliId : (ilkKok?.id || null))
+          setSecilenKurumIdRaw(kayitli ? kayitliId : null)
         } catch (err) {
           console.error('Platform admin kurum yükleme hatası:', err)
         } finally {
@@ -109,9 +108,8 @@ export function KurumYonetimProvider({ children }) {
           // Tek kurum → direkt seç; birden fazla → localStorage restore veya null
           const kayitliId = localStorage.getItem(LS_KEY)
           const kayitliGecerli = kayitliId && atananKurumIds.includes(kayitliId)
-          if (kurumlar.length === 1)      setSecilenKurumIdRaw(kurumlar[0].id)
-          else if (kayitliGecerli)        setSecilenKurumIdRaw(kayitliId)
-          else                            setSecilenKurumIdRaw(null)
+          if (kayitliGecerli)        setSecilenKurumIdRaw(kayitliId)
+          else                       setSecilenKurumIdRaw(null)
         } catch (err) {
           console.error('Öğretmen kurum yükleme hatası:', err)
         } finally {
@@ -172,7 +170,7 @@ export function KurumYonetimProvider({ children }) {
           // localStorage'dan seçimi restore et; yoksa kendi kurumu
           const kayitliId = localStorage.getItem(LS_KEY)
           const gecerli   = kayitliId && hepsi.find(k => k.id === kayitliId)
-          setSecilenKurumIdRaw(gecerli ? kayitliId : kurumId)
+          setSecilenKurumIdRaw(gecerli ? kayitliId : null)
         } catch (err) {
           console.error('Alt kurum yükleme hatası:', err.code, err.message)
           setSecilenKurumIdRaw(kurumId)
