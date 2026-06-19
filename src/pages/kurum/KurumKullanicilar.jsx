@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { davetEt, davetIptal } from '../../services/davetEt'
 import { logKaydet } from '../../services/logService'
+import { getDescendants } from '../../utils/hierarchy'
 
 const ROL_ETİKET = {
   platform_admin: { etiket: 'Platform Admin', renk: '#7C3AED', bg: '#EDE9FE' },
@@ -135,11 +136,8 @@ export default function KurumKullanicilar() {
 
     const secilenTip = erisimKurumlar.find(k => k.id === kurumId)?.tip
 
-    const sorguIds = secilenTip === 'altKurum'
-      ? [kurumId]
-      : secilenTip === 'kampus'
-        ? [kurumId, ...erisimKurumlar.filter(k => k.parentId === kurumId).map(k => k.id)]
-        : [kurumId, ...erisimKurumlar.filter(k => k.rootKurumId === kurumId).map(k => k.id)]
+    const descendants = getDescendants(kurumId, erisimKurumlar).map(k => k.id)
+    const sorguIds = [...new Set([kurumId, ...descendants])]
 
     // Her altKurum'un kullanicilar subcollection'ını ayrı dinle → merge
     const parcalar = {}

@@ -7,6 +7,7 @@ import { db } from '../../services/firebase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { logKaydet } from '../../services/logService'
+import { getDescendants } from '../../utils/hierarchy'
 
 // ── Likert Kriterleri ─────────────────────────────────────────────────────────
 const KRITERLER = [
@@ -86,10 +87,15 @@ export default function KurumMentor() {
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
 
   const sayimKurumlar = useMemo(() => {
-    if (seviye === 'root') return erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId && k.tip === 'altKurum')
-    if (seviye === 'kampus') return erisimKurumlar.filter(k => k.parentId === secilenKurumId && k.tip === 'altKurum')
-    return secilenKurum ? [secilenKurum] : []
-  }, [seviye, secilenKurumId, erisimKurumlar, secilenKurum])
+    if (!secilenKurumId) return []
+    const descendants = getDescendants(secilenKurumId, erisimKurumlar)
+    const subSchools = descendants.filter(k => k.tip === 'altKurum')
+    const seciliObj = erisimKurumlar.find(k => k.id === secilenKurumId)
+    if (seciliObj && seciliObj.tip === 'altKurum') {
+      subSchools.push(seciliObj)
+    }
+    return [...new Map(subSchools.map(s => [s.id, s])).values()]
+  }, [secilenKurumId, erisimKurumlar])
 
   // Veri Arrays (Düzleştirilmiş)
   const atamalar = useMemo(() => Object.values(atamalarMap).flat(), [atamalarMap])
@@ -185,13 +191,9 @@ export default function KurumMentor() {
   // ── Türetilmiş ────────────────────────────────────────────
   // Seçili kurum hiyerarşisindeki tüm ID'ler
   const seciliScopeIds = useMemo(() => {
-    const ids = [secilenKurumId]
-    erisimKurumlar.forEach(k => {
-      if (k.parentId === secilenKurumId || k.rootKurumId === secilenKurumId) {
-        ids.push(k.id)
-      }
-    })
-    return [...new Set(ids)]
+    if (!secilenKurumId) return []
+    const descendants = getDescendants(secilenKurumId, erisimKurumlar).map(k => k.id)
+    return [...new Set([secilenKurumId, ...descendants])]
   }, [secilenKurumId, erisimKurumlar])
 
   // Seçili kuruma bağlı öğretmenler: kurumId eşleşen veya erisimKurumIdler içinde olan

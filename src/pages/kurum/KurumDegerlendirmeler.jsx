@@ -9,6 +9,7 @@ import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { logKaydet } from '../../services/logService'
+import { getDescendants, getAncestors } from '../../utils/hierarchy'
 
 // Puan renk stili
 const PUAN_BG = {
@@ -115,27 +116,9 @@ export default function KurumDegerlendirmeler() {
   // Rubrik listesi için: Sadece seçili kurumun kendi hiyerarşi dalındaki (üst kurumlar + alt okullar) kurumlar
   const listKurumIds = useMemo(() => {
     if (!secilenKurumId) return []
-    const secili = erisimKurumlar.find(k => k.id === secilenKurumId)
-    if (!secili) return [secilenKurumId]
-
-    const ids = new Set()
-    ids.add(secilenKurumId)
-
-    // Üst kurumlar (parent ve root)
-    if (secili.parentId) ids.add(secili.parentId)
-    if (secili.rootKurumId) ids.add(secili.rootKurumId)
-
-    // Alt kurumlar (seçilen kampüs veya root ise alt dalları ekle)
-    erisimKurumlar.forEach(k => {
-      if (secili.tip === 'kurum' && (k.rootKurumId === secilenKurumId || k.parentId === secilenKurumId)) {
-        ids.add(k.id)
-      }
-      if (secili.tip === 'kampus' && k.parentId === secilenKurumId) {
-        ids.add(k.id)
-      }
-    })
-
-    return [...ids]
+    const descendants = getDescendants(secilenKurumId, erisimKurumlar).map(k => k.id)
+    const ancestors = getAncestors(secilenKurumId, erisimKurumlar)
+    return [...new Set([secilenKurumId, ...descendants, ...ancestors])]
   }, [secilenKurumId, erisimKurumlar])
 
   // Rubrikler — seçili kurumun kendi hiyerarşi dalındaki kurumlardan yükle

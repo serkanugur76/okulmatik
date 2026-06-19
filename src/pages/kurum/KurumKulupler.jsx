@@ -7,6 +7,7 @@ import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { logKaydet } from '../../services/logService'
+import { getDescendants, getAncestors } from '../../utils/hierarchy'
 
 // Rubrikten tüm alt kriterler (düz liste)
 function altKriterListesi(rubrik) {
@@ -172,19 +173,14 @@ export default function KurumKulupler() {
 
   const sayimKurumlar = useMemo(() => {
     if (!secilenKurumId) return []
-    if (seviye === 'root') {
-      return erisimKurumlar.filter(k => {
-        if (k.tip !== 'altKurum') return false
-        if (k.rootKurumId === secilenKurumId) return true
-        if (k.parentId === secilenKurumId) return true
-        const parentObj = erisimKurumlar.find(x => x.id === k.parentId)
-        if (parentObj && parentObj.parentId === secilenKurumId) return true
-        return false
-      })
+    const descendants = getDescendants(secilenKurumId, erisimKurumlar)
+    const subSchools = descendants.filter(k => k.tip === 'altKurum')
+    const seciliObj = erisimKurumlar.find(k => k.id === secilenKurumId)
+    if (seciliObj && seciliObj.tip === 'altKurum') {
+      subSchools.push(seciliObj)
     }
-    if (seviye === 'kampus') return erisimKurumlar.filter(k => k.parentId === secilenKurumId && k.tip === 'altKurum')
-    return secilenKurum ? [secilenKurum] : []
-  }, [seviye, secilenKurumId, erisimKurumlar, secilenKurum])
+    return [...new Map(subSchools.map(s => [s.id, s])).values()]
+  }, [secilenKurumId, erisimKurumlar])
 
   const kulupSorguIds = useMemo(() => {
     if (!adminModu) return secilenKurumId ? [secilenKurumId] : []
@@ -201,37 +197,12 @@ export default function KurumKulupler() {
     if (!secilenKurumId) return []
     if (!adminModu) return [secilenKurumId]
     
-    // 1. Alt kurumları (descendants) bul
-    let descendants = []
-    if (activeTip === 'kampus') {
-      descendants = erisimKurumlar.filter(k => k.parentId === secilenKurumId).map(k => k.id)
-    } else if (activeTip === 'kurum') {
-      descendants = erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId).map(k => k.id)
-    }
-
-    // 2. Üst kurumları (ancestors) bul
-    const ancestors = []
-    let currId = secilenKurumId
-    while (currId) {
-      const currObj = erisimKurumlar.find(k => k.id === currId)
-      if (!currObj) break
-      
-      const pId = currObj.parentId
-      if (pId && pId !== currId && !ancestors.includes(pId)) {
-        ancestors.push(pId)
-        currId = pId
-      } else {
-        const rId = currObj.rootKurumId
-        if (rId && rId !== currId && !ancestors.includes(rId)) {
-          ancestors.push(rId)
-        }
-        break
-      }
-    }
+    const descendants = getDescendants(secilenKurumId, erisimKurumlar).map(k => k.id)
+    const ancestors = getAncestors(secilenKurumId, erisimKurumlar)
 
     const uniqueIds = new Set([secilenKurumId, ...descendants, ...ancestors])
     return [...uniqueIds]
-  }, [secilenKurumId, erisimKurumlar, activeTip])
+  }, [secilenKurumId, erisimKurumlar, adminModu])
 
   const sorguIdsKey = sorguIds.join(',')
 

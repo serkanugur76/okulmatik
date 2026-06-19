@@ -7,6 +7,7 @@ import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { logKaydet } from '../../services/logService'
+import { getDescendants } from '../../utils/hierarchy'
 
 const BOŞ_FORM = { ad: '', soyad: '', ogrenciNo: '', sinifId: '', sinifAd: '', cinsiyet: '', dogumTarihi: '', anneAdSoyad: '', anneTelefon: '', babaAdSoyad: '', babaTelefon: '', email: '' }
 const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
@@ -24,10 +25,15 @@ export default function KurumOgrenciler() {
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
 
   const sayimKurumlar = useMemo(() => {
-    if (seviye === 'root') return erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId && k.tip === 'altKurum')
-    if (seviye === 'kampus') return erisimKurumlar.filter(k => k.parentId === secilenKurumId && k.tip === 'altKurum')
-    return secilenKurum ? [secilenKurum] : []
-  }, [seviye, secilenKurumId, erisimKurumlar, secilenKurum]) // eslint-disable-line
+    if (!secilenKurumId) return []
+    const descendants = getDescendants(secilenKurumId, erisimKurumlar)
+    const subSchools = descendants.filter(k => k.tip === 'altKurum')
+    const seciliObj = erisimKurumlar.find(k => k.id === secilenKurumId)
+    if (seciliObj && seciliObj.tip === 'altKurum') {
+      subSchools.push(seciliObj)
+    }
+    return [...new Map(subSchools.map(s => [s.id, s])).values()]
+  }, [secilenKurumId, erisimKurumlar])
 
   const listKurumId = seviye === 'altKurum' ? secilenKurumId : null
   const secilebilir = erisimKurumlar.filter(k => { if (!k.parentId) return false; const u = erisimKurumlar.find(x => x.id === k.parentId); return !!u?.parentId })

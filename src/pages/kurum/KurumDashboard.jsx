@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { collection, getCountFromServer } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
+import { useMemo } from 'react'
+import { getDescendants } from '../../utils/hierarchy'
 
 function IstatKart({ baslik, deger, ikon, renk, altyazi }) {
   return (
@@ -38,16 +40,16 @@ export default function KurumDashboard() {
     : 'altKurum'
 
   // Sayım yapılacak kurum listesi
-  const sayimKurumlar = (() => {
-    if (seviye === 'root') {
-      return erisimKurumlar.filter(k => k.rootKurumId === secilenKurumId && k.tip === 'altKurum')
+  const sayimKurumlar = useMemo(() => {
+    if (!secilenKurumId) return []
+    const descendants = getDescendants(secilenKurumId, erisimKurumlar)
+    const subSchools = descendants.filter(k => k.tip === 'altKurum')
+    const seciliObj = erisimKurumlar.find(k => k.id === secilenKurumId)
+    if (seciliObj && seciliObj.tip === 'altKurum') {
+      subSchools.push(seciliObj)
     }
-    if (seviye === 'kampus') {
-      return erisimKurumlar.filter(k => k.parentId === secilenKurumId && k.tip === 'altKurum')
-    }
-    // Alt kurum: sadece kendisi
-    return secilenKurum ? [secilenKurum] : []
-  })()
+    return [...new Map(subSchools.map(s => [s.id, s])).values()]
+  }, [secilenKurumId, erisimKurumlar])
 
   // Özet metinler
   const rootKurum = erisimKurumlar.find(k => !k.parentId)
