@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, query, orderBy, writeBatch
 } from 'firebase/firestore'
@@ -259,6 +260,27 @@ export default function KurumKulupler() {
       unsubs.forEach(u => u())
     }
   }, [secilenKurumId, sorguIdsKey])
+
+  // Sistem Ayarları (Aktif Eğitim Yılı) Dinleyicisi
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'sistemAyarlari', 'genel'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        if (data.aktifEgitimYili) {
+          const parts = data.aktifEgitimYili.split('-')
+          if (parts.length === 2) {
+            const startYear = parseInt(parts[0], 10)
+            const endYear = parseInt(parts[1], 10)
+            setPlanBaslangicTarihi(`${startYear}-09-15`)
+            setPlanBitisTarihi(`${endYear}-06-19`)
+          }
+        }
+      }
+    }, (err) => {
+      console.warn('Sistem ayarları dinlenemedi:', err.message)
+    })
+    return () => unsub()
+  }, [])
 
   // Öğretmenin sorumlu olduğu kulüpler
   const goruntulenenKulupler = useMemo(() => {

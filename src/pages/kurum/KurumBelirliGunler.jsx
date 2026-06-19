@@ -66,6 +66,36 @@ export default function KurumBelirliGunler() {
     return () => unsub()
   }, [])
 
+  // Sistem Ayarları (Aktif Eğitim Yılı) Dinleyicisi
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'sistemAyarlari', 'genel'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        if (data.aktifEgitimYili) {
+          setSecilenAkademikYil(data.aktifEgitimYili)
+          const startYear = Number(data.aktifEgitimYili.split('-')[0])
+          setAkademikYil(startYear)
+        }
+      }
+    }, (err) => {
+      console.warn('Sistem ayarları dinlenemedi:', err.message)
+    })
+    return () => unsub()
+  }, [])
+
+  // Tatil Çakışma Kontrolü
+  const overlapsWithHoliday = (start, end, currentId) => {
+    if (!start) return false
+    const holidays = belirliGunler.filter(g => g.tatilMi && g.baslangicTarihi && g.id !== currentId)
+    return holidays.some(h => {
+      const hStart = h.baslangicTarihi
+      const hEnd = h.bitisTarihi || hStart
+      const rangeStart = start
+      const rangeEnd = end || start
+      return rangeStart <= hEnd && rangeEnd >= hStart
+    })
+  }
+
   // Tarih Formatlayıcı Yardımcı (YYYY-MM-DD -> GG.AA.YYYY)
   function formatTarihTr(tarihStr) {
     if (!tarihStr) return ''
@@ -503,6 +533,10 @@ export default function KurumBelirliGunler() {
                         ? formatTarihTr(g.baslangicTarihi)
                         : `${formatTarihTr(g.baslangicTarihi)} - ${formatTarihTr(g.bitisTarihi)}`
  
+                      const isHoliday = g.tatilMi
+                      const overlaps = overlapsWithHoliday(g.baslangicTarihi, g.bitisTarihi, g.id)
+                      const displaysAsTatil = isHoliday || overlaps
+ 
                       return (
                         <React.Fragment key={g.id}>
                           {grupDegisti && (
@@ -518,10 +552,10 @@ export default function KurumBelirliGunler() {
                             <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                               <span style={{
                                 padding: '2px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '700',
-                                background: g.tatilMi ? '#FEE2E2' : '#D1FAE5',
-                                color: g.tatilMi ? '#991B1B' : '#065F46'
+                                background: displaysAsTatil ? '#FEE2E2' : '#D1FAE5',
+                                color: displaysAsTatil ? '#991B1B' : '#065F46'
                               }}>
-                                {g.tatilMi ? '🚫 Hayır (Tatil)' : '✅ Evet (Okul Var)'}
+                                {isHoliday ? '🚫 Hayır (Tatil)' : (overlaps ? '🚫 Hayır (Tatil Aralığında)' : '✅ Evet (Okul Var)')}
                               </span>
                             </td>
                             {platformAdmin && (

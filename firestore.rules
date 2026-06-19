@@ -272,5 +272,9 @@ service cloud.firestore {
       allow read:   if request.auth != null;
       allow write:  if platformAdmin();
     }
+    match /sistemAyarlari/{docId} {
+      allow read:   if request.auth != null;
+      allow write:  if platformAdmin();
+    }
   }
 }
