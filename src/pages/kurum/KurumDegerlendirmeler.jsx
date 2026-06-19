@@ -112,17 +112,41 @@ export default function KurumDegerlendirmeler() {
   const [importing,      setImporting]      = useState(false)
   const [importHata,     setImportHata]     = useState('')
 
-  // Rubrikler — tüm erişilebilir kurumlardan yükle (root/kampüs/altKurum)
+  // Rubrik listesi için: Sadece seçili kurumun kendi hiyerarşi dalındaki (üst kurumlar + alt okullar) kurumlar
+  const listKurumIds = useMemo(() => {
+    if (!secilenKurumId) return []
+    const secili = erisimKurumlar.find(k => k.id === secilenKurumId)
+    if (!secili) return [secilenKurumId]
+
+    const ids = new Set()
+    ids.add(secilenKurumId)
+
+    // Üst kurumlar (parent ve root)
+    if (secili.parentId) ids.add(secili.parentId)
+    if (secili.rootKurumId) ids.add(secili.rootKurumId)
+
+    // Alt kurumlar (seçilen kampüs veya root ise alt dalları ekle)
+    erisimKurumlar.forEach(k => {
+      if (secili.tip === 'kurum' && (k.rootKurumId === secilenKurumId || k.parentId === secilenKurumId)) {
+        ids.add(k.id)
+      }
+      if (secili.tip === 'kampus' && k.parentId === secilenKurumId) {
+        ids.add(k.id)
+      }
+    })
+
+    return [...ids]
+  }, [secilenKurumId, erisimKurumlar])
+
+  // Rubrikler — seçili kurumun kendi hiyerarşi dalındaki kurumlardan yükle
   useEffect(() => {
-    const allIds = [...new Set(erisimKurumlar.map(k => k.id))]
-    // erisimKurumlar henüz yüklenmedi — SS'yi temizleme, bekle
-    if (!allIds.length) { setRubrikler([]); return }
+    if (listKurumIds.length === 0) { setRubrikler([]); return }
     const parcalar = {}
-    const unsubs = allIds.map(kid => {
+    const unsubs = listKurumIds.map(kid => {
       const q = query(collection(db, 'kurumlar', kid, 'rubrikler'), orderBy('olusturmaTarihi', 'asc'))
       return onSnapshot(q, snap => {
         parcalar[kid] = snap.docs.map(d => ({ id: d.id, _kurumId: kid, ...d.data() }))
-        const hepsi = [...new Map(allIds.flatMap(id => parcalar[id] || []).map(r => [r.id, r])).values()]
+        const hepsi = [...new Map(listKurumIds.flatMap(id => parcalar[id] || []).map(r => [r.id, r])).values()]
         const normalRubrikler = hepsi.filter(r => !r.isKulup)
         setRubrikler(normalRubrikler)
         // URL'deki rubrikId hâlâ geçerliyse koru; değilse ilkini seç
@@ -133,7 +157,8 @@ export default function KurumDegerlendirmeler() {
       })
     })
     return () => unsubs.forEach(u => u())
-  }, [erisimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
+  }, [listKurumIds.join(',')]) // eslint-disable-line
+
 
   // Öğrenciler
   useEffect(() => {

@@ -55,11 +55,31 @@ export default function KurumRubrikler() {
   const yazabilir = (r) => platformAdmin
     || (r._kurumId === benimKurumId && (!ogretmenModu || profil?.modulIzinler?.rubrik_olustur))
 
-  // Rubrik listesi için: erişilebilir tüm kurumlar (rubrikler alt kurumlarda saklanır)
+  // Rubrik listesi için: Sadece seçili kurumun kendi hiyerarşi dalındaki (üst kurumlar + alt okullar) kurumlar
   const listKurumIds = useMemo(() => {
     if (!secilenKurumId) return []
-    return [...new Set(erisimKurumlar.map(k => k.id))]
-  }, [secilenKurumId, erisimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
+    const secili = erisimKurumlar.find(k => k.id === secilenKurumId)
+    if (!secili) return [secilenKurumId]
+
+    const ids = new Set()
+    ids.add(secilenKurumId)
+
+    // Üst kurumlar (parent ve root)
+    if (secili.parentId) ids.add(secili.parentId)
+    if (secili.rootKurumId) ids.add(secili.rootKurumId)
+
+    // Alt kurumlar (seçilen kampüs veya root ise alt dalları ekle)
+    erisimKurumlar.forEach(k => {
+      if (secili.tip === 'kurum' && (k.rootKurumId === secilenKurumId || k.parentId === secilenKurumId)) {
+        ids.add(k.id)
+      }
+      if (secili.tip === 'kampus' && k.parentId === secilenKurumId) {
+        ids.add(k.id)
+      }
+    })
+
+    return [...ids]
+  }, [secilenKurumId, erisimKurumlar]) // eslint-disable-line
 
   const [rubrikler,     setRubrikler]     = useState([])
   const [sablonlar,     setSablonlar]     = useState([])
