@@ -1,6 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
+import { useAuth } from '../../contexts/AuthContext'
+import { doc, getDoc, onSnapshot, setDoc, collection, query, where } from 'firebase/firestore'
+import { db } from '../../services/firebase'
 
 const SABLONLAR = [
   {
@@ -29,24 +32,42 @@ const SABLONLAR = [
   }
 ]
 
-const OGRETMEN_LISTESI = [
-  'Serkan Uğur',
-  'Ahmet Yılmaz',
-  'Selin Şahin',
-  'Hasan Kaya',
-  'Ayşe Demir',
-  'Elif Aksoy',
-  'Mert Yılmaz',
-  'Mustafa Kaya'
-]
-
 export default function KurumResmiEvraklar() {
   const { secilenKurum, secilenKurumId } = useKurumYonetim()
+  const { profil, kullanici } = useAuth()
   const location = useLocation()
 
   // 1. Şablon Seçimi
   const [seciliSablonId, setSeciliSablonId] = useState(1) // Varsayılan Sene Başı Kurulu (id: 1)
   const [aktifAdim, setAktifAdim] = useState(1) // Sene Başı Kurulu için Wizard adımı (1-4)
+
+  // Rol ve Öğretmen Simülasyonu
+  const defaultRol = profil?.rol === 'kurum_admin' || profil?.rol === 'platform_admin' ? 'mudur' : 'ogretmen'
+  const [simuleRol, setSimuleRol] = useState(location.state?.simuleRol || defaultRol)
+  const [simuleOgretmenAd, setSimuleOgretmenAd] = useState('')
+
+  // Gerçek Öğretmenler listesi
+  const [ogretmenler, setOgretmenler] = useState([])
+  const [toplantiDurumu, setToplantiDurumu] = useState('yapilmadi')
+
+  // Öğretmenleri Firestore'dan yükle
+  useEffect(() => {
+    if (!secilenKurumId) return
+    const q = query(collection(db, 'kurumlar', secilenKurumId, 'kullanicilar'), where('rol', '==', 'ogretmen'))
+    const unsub = onSnapshot(q, snap => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      list.sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+      setOgretmenler(list)
+
+      // Varsayılan simüle öğretmen belirle
+      if (profil?.rol === 'ogretmen' && profil?.ad) {
+        setSimuleOgretmenAd(profil.ad)
+      } else if (list.length > 0) {
+        setSimuleOgretmenAd(list[0].ad)
+      }
+    })
+    return () => unsub()
+  }, [secilenKurumId, profil])
 
   // Eğer URL state üzerinden yönlendirme yapıldıysa o şablonu seç
   useEffect(() => {
@@ -59,57 +80,136 @@ export default function KurumResmiEvraklar() {
   }, [location.state])
 
   // 2. Form State'leri
-  // A. Sene Başı Öğretmenler Kurulu State
+  // A. Sene Başı Öğretmenler Kurulu State (Örnek isimler kaldırıldı, varsayılanlar boş)
   const [kurulForm, setKurulForm] = useState({
     akademikYil: '2025-2026',
-    kararNo: '2025/01',
-    tarih: '2025-09-08',
-    saat: '09:30',
-    yer: 'Okul Konferans Salonu',
-    baskan: 'Uğur Serkan (Okul Müdürü)',
-    yazmanAsil1: 'Ahmet Yılmaz',
-    yazmanAsil2: 'Selin Şahin',
-    yazmanYedek1: 'Hasan Kaya',
-    yazmanYedek2: 'Ayşe Demir',
+    kararNo: '',
+    tarih: '',
+    saat: '',
+    yer: '',
+    baskan: '',
+    yazmanAsil1: '',
+    yazmanAsil2: '',
+    yazmanYedek1: '',
+    yazmanYedek2: '',
     gundem: '1. Açılış, yoklama ve İstiklal Marşı.\n2. Yazman seçimi.\n3. Gündem maddelerinin okunması ve eklemeler.\n4. Okulun genel işleyişi, haftalık ders programları ve nöbet görevlerinin görüşülmesi.\n5. Sınıf rehber öğretmenliklerinin belirlenmesi.\n6. Kurul, Komisyon ve Kulüplere öğretmen seçimlerinin yapılması.\n7. Kapanış.',
-    kararlar: '1. Toplantıya tüm zümre ve sınıf öğretmenleri katılım sağlamıştır.\n2. Yazmanlığa asil olarak Ahmet Yılmaz ve Selin Şahin, yedek olarak Hasan Kaya ve Ayşe Demir seçilmiştir.\n3. Haftalık taslak ders programları ve nöbet günleri onaylanarak tebliğ edilmiştir.\n4. Sınıf rehber öğretmenlikleri şube bazlı olarak belirlenmiş ve karar altına alınmıştır.\n5. Aşağıda dökümü sunulan komisyon üyeleri oybirliği ile seçilmiştir.',
+    kararlar: '1. Toplantıya tüm zümre ve sınıf öğretmenleri katılım sağlamıştır.\n2. Yazmanlık ve komisyon seçimleri oybirliği ile gerçekleştirilerek karar altına alınmıştır.',
     dilekler: 'Başarılı, huzurlu ve verimli bir eğitim-öğretim yılı geçirilmesi temennisiyle toplantı okul müdürü tarafından kapatılmıştır.',
     // Sınıf Rehber Öğretmenleri
-    sinif5A: 'Ahmet Yılmaz',
-    sinif5B: 'Selin Şahin',
-    sinif6A: 'Hasan Kaya',
-    sinif6B: 'Ayşe Demir',
-    sinif7A: 'Elif Aksoy',
-    sinif7B: 'Mert Yılmaz',
-    sinif8A: 'Serkan Uğur',
-    sinif8B: 'Mustafa Kaya',
+    sinif5A: '', sinif5B: '', sinif6A: '', sinif6B: '', sinif7A: '', sinif7B: '', sinif8A: '', sinif8B: '',
     // 7 Komisyon & Kurul Seçimleri
-    komisyonIhaleAsil1: 'Serkan Uğur',
-    komisyonIhaleAsil2: 'Ahmet Yılmaz',
-    komisyonIhaleYedek1: 'Hasan Kaya',
-    komisyonIhaleYedek2: 'Ayşe Demir',
-    
-    komisyonMuayeneAsil1: 'Selin Şahin',
-    komisyonMuayeneAsil2: 'Elif Aksoy',
-    komisyonMuayeneYedek1: 'Mert Yılmaz',
-    komisyonMuayeneYedek2: 'Mustafa Kaya',
-
-    komisyonRehberlik1: 'Serkan Uğur',
-    komisyonRehberlik2: 'Selin Şahin',
-    komisyonRehberlik3: 'Ayşe Demir',
-
-    komisyonWeb1: 'Serkan Uğur',
-    komisyonWeb2: 'Mert Yılmaz',
-
-    komisyonSosyal1: 'Ahmet Yılmaz',
-    komisyonSosyal2: 'Elif Aksoy',
-
-    komisyonYazi1: 'Selin Şahin',
-    komisyonYazi2: 'Hasan Kaya',
-
-    komisyonAile1: 'Ayşe Demir',
-    komisyonAile2: 'Mustafa Kaya'
+    komisyonIhaleAsil1: '', komisyonIhaleAsil2: '', komisyonIhaleYedek1: '', komisyonIhaleYedek2: '',
+    komisyonMuayeneAsil1: '', komisyonMuayeneAsil2: '', komisyonMuayeneYedek1: '', komisyonMuayeneYedek2: '',
+    komisyonRehberlik1: '', komisyonRehberlik2: '', komisyonRehberlik3: '',
+    komisyonWeb1: '', komisyonWeb2: '',
+    komisyonSosyal1: '', komisyonSosyal2: '',
+    komisyonYazi1: '', komisyonYazi2: '',
+    komisyonAile1: '', komisyonAile2: ''
   })
+
+  // Sene Başı Kurul Toplantı verilerini Firestore'dan yükle
+  useEffect(() => {
+    if (!secilenKurumId || seciliSablonId !== 1) return
+    const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', 'seneBasiKurul')
+    const unsub = onSnapshot(docRef, docSnap => {
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        setToplantiDurumu(data.status || 'yapilmadi')
+        setKurulForm(prev => ({
+          ...prev,
+          ...data
+        }))
+      } else {
+        setToplantiDurumu('yapilmadi')
+        setKurulForm({
+          akademikYil: '2025-2026',
+          kararNo: '',
+          tarih: '',
+          saat: '',
+          yer: '',
+          baskan: '',
+          yazmanAsil1: '',
+          yazmanAsil2: '',
+          yazmanYedek1: '',
+          yazmanYedek2: '',
+          gundem: '1. Açılış, yoklama ve İstiklal Marşı.\n2. Yazman seçimi.\n3. Gündem maddelerinin okunması ve eklemeler.\n4. Okulun genel işleyişi, haftalık ders programları ve nöbet görevlerinin görüşülmesi.\n5. Sınıf rehber öğretmenliklerinin belirlenmesi.\n6. Kurul, Komisyon ve Kulüplere öğretmen seçimlerinin yapılması.\n7. Kapanış.',
+          kararlar: '1. Toplantıya tüm zümre ve sınıf öğretmenleri katılım sağlamıştır.\n2. Yazmanlık ve komisyon seçimleri oybirliği ile gerçekleştirilerek karar altına alınmıştır.',
+          dilekler: 'Başarılı, huzurlu ve verimli bir eğitim-öğretim yılı geçirilmesi temennisiyle toplantı okul müdürü tarafından kapatılmıştır.',
+          sinif5A: '', sinif5B: '', sinif6A: '', sinif6B: '', sinif7A: '', sinif7B: '', sinif8A: '', sinif8B: '',
+          komisyonIhaleAsil1: '', komisyonIhaleAsil2: '', komisyonIhaleYedek1: '', komisyonIhaleYedek2: '',
+          komisyonMuayeneAsil1: '', komisyonMuayeneAsil2: '', komisyonMuayeneYedek1: '', komisyonMuayeneYedek2: '',
+          komisyonRehberlik1: '', komisyonRehberlik2: '', komisyonRehberlik3: '',
+          komisyonWeb1: '', komisyonWeb2: '',
+          komisyonSosyal1: '', komisyonSosyal2: '',
+          komisyonYazi1: '', komisyonYazi2: '',
+          komisyonAile1: '', komisyonAile2: ''
+        })
+      }
+    })
+    return () => unsub()
+  }, [secilenKurumId, seciliSablonId])
+
+  // Verileri Firestore'a kaydet
+  const saveToFirestore = async (newFields = {}, newStatus = null) => {
+    if (!secilenKurumId || seciliSablonId !== 1) return
+    const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', 'seneBasiKurul')
+    const updateData = {
+      ...kurulForm,
+      ...newFields
+    }
+    if (newStatus) {
+      updateData.status = newStatus
+    } else {
+      updateData.status = toplantiDurumu
+    }
+    await setDoc(docRef, updateData, { merge: true })
+  }
+
+  // Rol bazlı kontrol yardımcıları
+  const isMudur = simuleRol === 'mudur' || profil?.rol === 'kurum_admin' || profil?.rol === 'platform_admin'
+  const isYazman = (simuleRol === 'ogretmen' && (
+    (simuleOgretmenAd && (
+      simuleOgretmenAd === kurulForm.yazmanAsil1 || 
+      simuleOgretmenAd === kurulForm.yazmanAsil2 || 
+      simuleOgretmenAd === kurulForm.yazmanYedek1 || 
+      simuleOgretmenAd === kurulForm.yazmanYedek2
+    ))
+  )) || (
+    profil?.rol === 'ogretmen' && profil?.ad && (
+      profil.ad === kurulForm.yazmanAsil1 ||
+      profil.ad === kurulForm.yazmanAsil2 ||
+      profil.ad === kurulForm.yazmanYedek1 ||
+      profil.ad === kurulForm.yazmanYedek2
+    )
+  )
+
+  const canEditStep = (step) => {
+    if (toplantiDurumu === 'onaylandi_kapatildi') return false
+    if (isMudur) {
+      if (toplantiDurumu === 'yapilmadi' && step === 1) return true
+      if (toplantiDurumu === 'davet_aktif' && step === 2) return true
+      return false
+    }
+    if (isYazman) {
+      if (toplantiDurumu === 'yazman_doldurma' && (step === 2 || step === 3 || step === 4)) return true
+    }
+    return false
+  }
+
+  // Öğretmen seçim dropdown'larını dolduran fonksiyon
+  const renderOgretmenOptions = () => {
+    return (
+      <>
+        <option value="">— Öğretmen Seçiniz —</option>
+        {ogretmenler.map(o => (
+          <option key={o.id} value={o.ad}>
+            {o.ad}
+          </option>
+        ))}
+      </>
+    )
+  }
+
 
   // B. Zümre Tutanağı State
   const [zumreForm, setZumreForm] = useState({
@@ -211,6 +311,96 @@ export default function KurumResmiEvraklar() {
         {/* SOL SÜTUN: Şablon Seçici & Form Alanı */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
+          {/* Rol Seçici Simülatör */}
+          <div style={{
+            background: 'linear-gradient(135deg, #1B3A6B 0%, #3B82F6 100%)',
+            borderRadius: '12px',
+            padding: '1.25rem',
+            color: '#FFFFFF',
+            boxShadow: '0 4px 15px rgba(27, 58, 107, 0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: '700', letterSpacing: '0.05em', color: '#93C5FD', textTransform: 'uppercase' }}>
+                👤 Aktif Rol Simülasyonu
+              </span>
+              <span style={{
+                fontSize: '0.7rem',
+                padding: '2px 8px',
+                background: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: '12px',
+                fontWeight: '700'
+              }}>
+                {toplantiDurumu === 'yapilmadi' ? 'Başlatılmadı' : 
+                 toplantiDurumu === 'davet_aktif' ? 'Davet Aktif' : 
+                 toplantiDurumu === 'yazman_doldurma' ? 'Yazman Yetkili' : 
+                 toplantiDurumu === 'mudur_onay' ? 'Müdür Onayında' : 'Kapatıldı/Arşiv'}
+              </span>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <button
+                onClick={() => setSimuleRol('ogretmen')}
+                style={{
+                  padding: '8px', fontSize: '0.8rem', fontWeight: '700', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                  backgroundColor: simuleRol === 'ogretmen' ? '#FFFFFF' : 'rgba(255,255,255,0.1)',
+                  color: simuleRol === 'ogretmen' ? '#1B3A6B' : '#FFFFFF',
+                  transition: 'all 0.15s'
+                }}
+              >
+                Öğretmen / Yazman
+              </button>
+              <button
+                onClick={() => setSimuleRol('mudur')}
+                style={{
+                  padding: '8px', fontSize: '0.8rem', fontWeight: '700', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                  backgroundColor: simuleRol === 'mudur' ? '#FFFFFF' : 'rgba(255,255,255,0.1)',
+                  color: simuleRol === 'mudur' ? '#1B3A6B' : '#FFFFFF',
+                  transition: 'all 0.15s'
+                }}
+              >
+                Okul Müdürü
+              </button>
+            </div>
+
+            {simuleRol === 'ogretmen' && ogretmenler.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                <label style={{ fontSize: '0.72rem', color: '#E0F2FE', fontWeight: '700' }}>Öğretmen Seçin:</label>
+                <select
+                  value={simuleOgretmenAd}
+                  onChange={e => setSimuleOgretmenAd(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 8px',
+                    fontSize: '0.8rem',
+                    border: 'none',
+                    borderRadius: '6px',
+                    backgroundColor: '#FFFFFF',
+                    color: '#1E293B',
+                    fontWeight: '600',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {ogretmenler.map(o => (
+                    <option key={o.id} value={o.ad}>
+                      {o.ad} {o.ad === kurulForm.yazmanAsil1 || o.ad === kurulForm.yazmanAsil2 ? '✍️ (Yazman)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            <div style={{ fontSize: '0.7rem', color: '#93C5FD', fontStyle: 'italic', lineHeight: '1.3' }}>
+              {isMudur && "Müdür yetkisi aktif. Süreci başlatabilir ve yazmanları atayabilirsiniz."}
+              {isYazman && toplantiDurumu === 'yazman_doldurma' && "Seçilen Yazmansınız! Evrak doldurma/düzenleme yetkiniz aktiftir."}
+              {isYazman && toplantiDurumu !== 'yazman_doldurma' && `Seçilen Yazmansınız, ancak evrak şu an ${toplantiDurumu === 'davet_aktif' ? 'davet aşamasındadır' : 'müdür onayındadır / kapatılmıştır'}. Düzenleme kilitlidir.`}
+              {simuleRol === 'ogretmen' && !isYazman && "Yetki Kilitli: Bu kurulun yazmanı olmadığınız için sadece okuyabilirsiniz."}
+            </div>
+          </div>
+
           {/* Şablon Seçim Kartı */}
           <div style={{
             background: '#FFFFFF',
@@ -265,6 +455,29 @@ export default function KurumResmiEvraklar() {
             padding: '1.5rem',
             boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
           }}>
+            {seciliSablonId === 1 && toplantiDurumu !== 'yapilmadi' && (
+              <div style={{
+                background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+                border: '1.5px solid #F59E0B',
+                borderRadius: '10px',
+                padding: '1rem',
+                marginBottom: '1rem',
+                color: '#78350F',
+                fontSize: '0.8rem',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+              }}>
+                <div style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                  <span>✉️</span> <span>RESMİ DAVETİYE VE TOPLANTI ÇAĞRISI</span>
+                </div>
+                <p style={{ margin: '6px 0 0', lineHeight: '1.4', fontWeight: '500' }}>
+                  Sayın Meslektaşımız, okulumuz sene başı öğretmenler kurulu toplantısı <strong>{kurulForm.tarih || '—'}</strong> tarihinde saat <strong>{kurulForm.saat || '—'}</strong>'da <strong>{kurulForm.yer || '—'}</strong> bünyesinde gerçekleştirilecektir. Gündem maddelerini inceleyerek katılımınız önemle rica olunur.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px', fontSize: '0.72rem', color: '#B45309', fontWeight: '700' }}>
+                  <span>📋 Gündem Maddeleri:</span> <span>Kararlar ve kurul/komisyon seçimleri yapılacaktır.</span>
+                </div>
+              </div>
+            )}
+
             {/* Şablon Başlığı */}
             <div style={{ borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontSize: '1rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>
@@ -312,6 +525,7 @@ export default function KurumResmiEvraklar() {
                           type="text"
                           value={kurulForm.kararNo}
                           onChange={e => setKurulForm({ ...kurulForm, kararNo: e.target.value })}
+                          disabled={!canEditStep(1)}
                           style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
                         />
                       </div>
@@ -321,6 +535,7 @@ export default function KurumResmiEvraklar() {
                           type="text"
                           value={kurulForm.akademikYil}
                           onChange={e => setKurulForm({ ...kurulForm, akademikYil: e.target.value })}
+                          disabled={!canEditStep(1)}
                           style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
                         />
                       </div>
@@ -333,6 +548,7 @@ export default function KurumResmiEvraklar() {
                           type="date"
                           value={kurulForm.tarih}
                           onChange={e => setKurulForm({ ...kurulForm, tarih: e.target.value })}
+                          disabled={!canEditStep(1)}
                           style={{ width: '100%', padding: '7px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
                         />
                       </div>
@@ -342,6 +558,7 @@ export default function KurumResmiEvraklar() {
                           type="text"
                           value={kurulForm.saat}
                           onChange={e => setKurulForm({ ...kurulForm, saat: e.target.value })}
+                          disabled={!canEditStep(1)}
                           style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
                         />
                       </div>
@@ -354,6 +571,7 @@ export default function KurumResmiEvraklar() {
                           type="text"
                           value={kurulForm.yer}
                           onChange={e => setKurulForm({ ...kurulForm, yer: e.target.value })}
+                          disabled={!canEditStep(1)}
                           style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
                         />
                       </div>
@@ -363,6 +581,7 @@ export default function KurumResmiEvraklar() {
                           type="text"
                           value={kurulForm.baskan}
                           onChange={e => setKurulForm({ ...kurulForm, baskan: e.target.value })}
+                          disabled={!canEditStep(1)}
                           style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
                         />
                       </div>
@@ -374,6 +593,7 @@ export default function KurumResmiEvraklar() {
                         rows="6"
                         value={kurulForm.gundem}
                         onChange={e => setKurulForm({ ...kurulForm, gundem: e.target.value })}
+                        disabled={!canEditStep(1)}
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px', resize: 'vertical', fontFamily: 'sans-serif' }}
                       />
                     </div>
@@ -392,9 +612,10 @@ export default function KurumResmiEvraklar() {
                         <select
                           value={kurulForm.yazmanAsil1}
                           onChange={e => setKurulForm({ ...kurulForm, yazmanAsil1: e.target.value })}
+                          disabled={!(isMudur && toplantiDurumu === 'davet_aktif')}
                           style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                       </div>
                       <div>
@@ -402,9 +623,10 @@ export default function KurumResmiEvraklar() {
                         <select
                           value={kurulForm.yazmanAsil2}
                           onChange={e => setKurulForm({ ...kurulForm, yazmanAsil2: e.target.value })}
+                          disabled={!(isMudur && toplantiDurumu === 'davet_aktif')}
                           style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                       </div>
                     </div>
@@ -415,9 +637,10 @@ export default function KurumResmiEvraklar() {
                         <select
                           value={kurulForm.yazmanYedek1}
                           onChange={e => setKurulForm({ ...kurulForm, yazmanYedek1: e.target.value })}
+                          disabled={!(isMudur && toplantiDurumu === 'davet_aktif')}
                           style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                       </div>
                       <div>
@@ -425,9 +648,10 @@ export default function KurumResmiEvraklar() {
                         <select
                           value={kurulForm.yazmanYedek2}
                           onChange={e => setKurulForm({ ...kurulForm, yazmanYedek2: e.target.value })}
+                          disabled={!(isMudur && toplantiDurumu === 'davet_aktif')}
                           style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                       </div>
                     </div>
@@ -445,9 +669,10 @@ export default function KurumResmiEvraklar() {
                             <select
                               value={kurulForm[`sinif${sinif}`]}
                               onChange={e => setKurulForm({ ...kurulForm, [`sinif${sinif}`]: e.target.value })}
+                              disabled={!canEditStep(2)}
                               style={{ flex: 1, padding: '4px', fontSize: '0.75rem', border: '1px solid #CBD5E1', borderRadius: '4px' }}
                             >
-                              {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                              {renderOgretmenOptions()}
                             </select>
                           </div>
                         ))}
@@ -474,16 +699,18 @@ export default function KurumResmiEvraklar() {
                           <select
                             value={kurulForm.komisyonIhaleAsil1}
                             onChange={e => setKurulForm({ ...kurulForm, komisyonIhaleAsil1: e.target.value })}
+                            disabled={!canEditStep(3)}
                             style={{ width: '100%', padding: '4px', fontSize: '0.72rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '2px' }}
                           >
-                            {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                            {renderOgretmenOptions()}
                           </select>
                           <select
                             value={kurulForm.komisyonIhaleAsil2}
                             onChange={e => setKurulForm({ ...kurulForm, komisyonIhaleAsil2: e.target.value })}
+                            disabled={!canEditStep(3)}
                             style={{ width: '100%', padding: '4px', fontSize: '0.72rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '4px' }}
                           >
-                            {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                            {renderOgretmenOptions()}
                           </select>
                         </div>
                         <div>
@@ -491,16 +718,18 @@ export default function KurumResmiEvraklar() {
                           <select
                             value={kurulForm.komisyonIhaleYedek1}
                             onChange={e => setKurulForm({ ...kurulForm, komisyonIhaleYedek1: e.target.value })}
+                            disabled={!canEditStep(3)}
                             style={{ width: '100%', padding: '4px', fontSize: '0.72rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '2px' }}
                           >
-                            {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                            {renderOgretmenOptions()}
                           </select>
                           <select
                             value={kurulForm.komisyonIhaleYedek2}
                             onChange={e => setKurulForm({ ...kurulForm, komisyonIhaleYedek2: e.target.value })}
+                            disabled={!canEditStep(3)}
                             style={{ width: '100%', padding: '4px', fontSize: '0.72rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '4px' }}
                           >
-                            {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                            {renderOgretmenOptions()}
                           </select>
                         </div>
                       </div>
@@ -517,16 +746,18 @@ export default function KurumResmiEvraklar() {
                           <select
                             value={kurulForm.komisyonMuayeneAsil1}
                             onChange={e => setKurulForm({ ...kurulForm, komisyonMuayeneAsil1: e.target.value })}
+                            disabled={!canEditStep(3)}
                             style={{ width: '100%', padding: '4px', fontSize: '0.72rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '2px' }}
                           >
-                            {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                            {renderOgretmenOptions()}
                           </select>
                           <select
                             value={kurulForm.komisyonMuayeneAsil2}
                             onChange={e => setKurulForm({ ...kurulForm, komisyonMuayeneAsil2: e.target.value })}
+                            disabled={!canEditStep(3)}
                             style={{ width: '100%', padding: '4px', fontSize: '0.72rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '4px' }}
                           >
-                            {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                            {renderOgretmenOptions()}
                           </select>
                         </div>
                         <div>
@@ -534,16 +765,18 @@ export default function KurumResmiEvraklar() {
                           <select
                             value={kurulForm.komisyonMuayeneYedek1}
                             onChange={e => setKurulForm({ ...kurulForm, komisyonMuayeneYedek1: e.target.value })}
+                            disabled={!canEditStep(3)}
                             style={{ width: '100%', padding: '4px', fontSize: '0.72rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '2px' }}
                           >
-                            {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                            {renderOgretmenOptions()}
                           </select>
                           <select
                             value={kurulForm.komisyonMuayeneYedek2}
                             onChange={e => setKurulForm({ ...kurulForm, komisyonMuayeneYedek2: e.target.value })}
+                            disabled={!canEditStep(3)}
                             style={{ width: '100%', padding: '4px', fontSize: '0.72rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '4px' }}
                           >
-                            {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                            {renderOgretmenOptions()}
                           </select>
                         </div>
                       </div>
@@ -558,23 +791,26 @@ export default function KurumResmiEvraklar() {
                         <select
                           value={kurulForm.komisyonRehberlik1}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonRehberlik1: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                         <select
                           value={kurulForm.komisyonRehberlik2}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonRehberlik2: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '3px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                         <select
                           value={kurulForm.komisyonRehberlik3}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonRehberlik3: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '3px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                       </div>
 
@@ -585,16 +821,18 @@ export default function KurumResmiEvraklar() {
                         <select
                           value={kurulForm.komisyonWeb1}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonWeb1: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                         <select
                           value={kurulForm.komisyonWeb2}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonWeb2: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '3px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                       </div>
 
@@ -605,16 +843,18 @@ export default function KurumResmiEvraklar() {
                         <select
                           value={kurulForm.komisyonSosyal1}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonSosyal1: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                         <select
                           value={kurulForm.komisyonSosyal2}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonSosyal2: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '3px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                       </div>
 
@@ -625,16 +865,18 @@ export default function KurumResmiEvraklar() {
                         <select
                           value={kurulForm.komisyonYazi1}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonYazi1: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                         <select
                           value={kurulForm.komisyonYazi2}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonYazi2: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px', marginTop: '3px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                       </div>
                     </div>
@@ -647,16 +889,18 @@ export default function KurumResmiEvraklar() {
                         <select
                           value={kurulForm.komisyonAile1}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonAile1: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                         <select
                           value={kurulForm.komisyonAile2}
                           onChange={e => setKurulForm({ ...kurulForm, komisyonAile2: e.target.value })}
+                          disabled={!canEditStep(3)}
                           style={{ width: '100%', padding: '3px', fontSize: '0.7rem', border: '1px solid #CBD5E1', borderRadius: '4px' }}
                         >
-                          {OGRETMEN_LISTESI.map(o => <option key={o} value={o}>{o}</option>)}
+                          {renderOgretmenOptions()}
                         </select>
                       </div>
                     </div>
@@ -675,6 +919,7 @@ export default function KurumResmiEvraklar() {
                         rows="6"
                         value={kurulForm.kararlar}
                         onChange={e => setKurulForm({ ...kurulForm, kararlar: e.target.value })}
+                        disabled={!canEditStep(4)}
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px', resize: 'vertical', fontFamily: 'sans-serif' }}
                       />
                     </div>
@@ -685,6 +930,7 @@ export default function KurumResmiEvraklar() {
                         rows="3"
                         value={kurulForm.dilekler}
                         onChange={e => setKurulForm({ ...kurulForm, dilekler: e.target.value })}
+                        disabled={!canEditStep(4)}
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px', resize: 'vertical', fontFamily: 'sans-serif' }}
                       />
                     </div>
@@ -695,7 +941,12 @@ export default function KurumResmiEvraklar() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', borderTop: '1px solid #E2E8F0', paddingTop: '1rem' }}>
                   <button
                     disabled={aktifAdim === 1}
-                    onClick={() => setAktifAdim(prev => prev - 1)}
+                    onClick={() => {
+                      if (canEditStep(aktifAdim)) {
+                        saveToFirestore()
+                      }
+                      setAktifAdim(prev => prev - 1)
+                    }}
                     style={{
                       padding: '6px 14px', fontSize: '0.8rem', fontWeight: '600',
                       backgroundColor: '#FFFFFF', color: aktifAdim === 1 ? '#94A3B8' : '#475569',
@@ -706,7 +957,12 @@ export default function KurumResmiEvraklar() {
                   </button>
                   {aktifAdim < 4 ? (
                     <button
-                      onClick={() => setAktifAdim(prev => prev + 1)}
+                      onClick={() => {
+                        if (canEditStep(aktifAdim)) {
+                          saveToFirestore()
+                        }
+                        setAktifAdim(prev => prev + 1)
+                      }}
                       style={{
                         padding: '6px 14px', fontSize: '0.8rem', fontWeight: '600',
                         backgroundColor: '#1B3A6B', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
@@ -997,46 +1253,214 @@ export default function KurumResmiEvraklar() {
 
             {/* Eylemler */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '1.5rem' }}>
-              <button
-                onClick={handleOnayaGonder}
-                disabled={onayaGonderildi}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  backgroundColor: '#10B981',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  transition: 'background 0.2s'
-                }}
-              >
-                {onayaGonderildi ? 'Gönderiliyor…' : '📤 Müdür Onayına Gönder'}
-              </button>
+              {seciliSablonId === 1 ? (
+                <>
+                  {/* MÜDÜR EYLEMLERİ */}
+                  {isMudur && (
+                    <>
+                      {toplantiDurumu === 'yapilmadi' && (
+                        <button
+                          onClick={() => {
+                            if (!kurulForm.tarih || !kurulForm.saat || !kurulForm.yer) {
+                              alert('Lütfen Adım 1\'deki Tarih, Saat ve Yer (Salon) alanlarını doldurunuz!')
+                              return
+                            }
+                            saveToFirestore({}, 'davet_aktif')
+                            alert('Süreç başlatıldı, öğretmen ekranlarında resmi davetiye mesajı aktif edildi.')
+                          }}
+                          style={{
+                            width: '100%', padding: '12px', backgroundColor: '#4F46E5', color: '#FFFFFF',
+                            border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem'
+                          }}
+                        >
+                          🚀 Resmi Süreci Başlat
+                        </button>
+                      )}
 
-              <button
-                onClick={handleYazdir}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  backgroundColor: '#1B3A6B',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  fontSize: '0.85rem',
-                  transition: 'background 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-              >
-                <span>🖨️</span> <span>Evrak Çıktısı Al (Yazdır)</span>
-              </button>
+                      {toplantiDurumu === 'davet_aktif' && (
+                        <button
+                          onClick={() => {
+                            if (!kurulForm.yazmanAsil1 || !kurulForm.yazmanAsil2 || !kurulForm.yazmanYedek1 || !kurulForm.yazmanYedek2) {
+                              alert('Lütfen Adım 2\'deki Yazman (2 Asil, 2 Yedek) seçimlerini yapınız!')
+                              return
+                            }
+                            saveToFirestore({}, 'yazman_doldurma')
+                            alert('Yazman öğretmenler başarıyla onaylandı ve evrağı doldurma yetkileri tanımlandı.')
+                          }}
+                          style={{
+                            width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF',
+                            border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem'
+                          }}
+                        >
+                          👥 Yazmanları Onayla ve Yetkilendir
+                        </button>
+                      )}
+
+                      {toplantiDurumu === 'yazman_doldurma' && (
+                        <div style={{
+                          padding: '10px', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE',
+                          borderRadius: '8px', color: '#1E40AF', fontSize: '0.8rem', fontWeight: '600', textAlign: 'center'
+                        }}>
+                          ⏳ Yazman öğretmenlerin evrağı doldurması bekleniyor.
+                        </div>
+                      )}
+
+                      {toplantiDurumu === 'mudur_onay' && (
+                        <button
+                          onClick={() => {
+                            saveToFirestore({}, 'onaylandi_kapatildi')
+                            alert('Toplantı tutanağı resmi olarak onaylandı ve süreç kapatıldı. Çıktı almaya hazırdır.')
+                          }}
+                          style={{
+                            width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF',
+                            border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem'
+                          }}
+                        >
+                          ✅ Toplantıyı Onayla ve Kapat
+                        </button>
+                      )}
+
+                      {toplantiDurumu === 'onaylandi_kapatildi' && (
+                        <div style={{
+                          padding: '10px', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0',
+                          borderRadius: '8px', color: '#065F46', fontSize: '0.8rem', fontWeight: '700', textAlign: 'center', marginBottom: '8px'
+                        }}>
+                          🗃️ Toplantı onaylandı ve arşivlendi.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* YAZMAN ÖĞRETMEN EYLEMLERİ */}
+                  {simuleRol === 'ogretmen' && isYazman && (
+                    <>
+                      {toplantiDurumu === 'yazman_doldurma' && (
+                        <>
+                          <button
+                            onClick={() => {
+                              saveToFirestore()
+                              alert('Toplantı evrak taslağı başarıyla kaydedildi.')
+                            }}
+                            style={{
+                              width: '100%', padding: '10px', backgroundColor: '#3B82F6', color: '#FFFFFF',
+                              border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem'
+                            }}
+                          >
+                            💾 Taslağı Kaydet
+                          </button>
+                          <button
+                            onClick={() => {
+                              saveToFirestore({}, 'mudur_onay')
+                              alert('Evrak tamamlandı ve müdür onayına sunuldu.')
+                            }}
+                            style={{
+                              width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF',
+                              border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem'
+                            }}
+                          >
+                            📤 Doldurmayı Tamamla ve Müdür Onayına Sun
+                          </button>
+                        </>
+                      )}
+
+                      {toplantiDurumu === 'mudur_onay' && (
+                        <div style={{
+                          padding: '10px', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE',
+                          borderRadius: '8px', color: '#1E40AF', fontSize: '0.8rem', fontWeight: '600', textAlign: 'center'
+                        }}>
+                          ⏳ Evrak müdür onayına sunuldu. Müdürün onaylaması bekleniyor.
+                        </div>
+                      )}
+
+                      {toplantiDurumu === 'davet_aktif' && (
+                        <div style={{
+                          padding: '10px', backgroundColor: '#FFFBEB', border: '1px solid #FDE68A',
+                          borderRadius: '8px', color: '#92400E', fontSize: '0.8rem', fontWeight: '600', textAlign: 'center'
+                        }}>
+                          ✉️ Toplantı daveti aktif. Müdürün yazmanları yetkilendirmesi bekleniyor.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* DİĞER ÖĞRETMENLER (YAZMAN OLMAYANLAR) BİLGİLENDİRMESİ */}
+                  {simuleRol === 'ogretmen' && !isYazman && (
+                    <div style={{
+                      padding: '10px', backgroundColor: '#F1F5F9', border: '1px solid #E2E8F0',
+                      borderRadius: '8px', color: '#475569', fontSize: '0.8rem', fontWeight: '600', textAlign: 'center', marginBottom: '8px'
+                    }}>
+                      🔒 Evrak doldurma yetkisi atanan yazman öğretmenlerdedir.
+                    </div>
+                  )}
+
+                  {/* YAZDIRMA BUTONU (Kapatılınca veya Müdür rolündeyken aktiftir) */}
+                  <button
+                    onClick={handleYazdir}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      backgroundColor: toplantiDurumu === 'onaylandi_kapatildi' ? '#10B981' : '#1B3A6B',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      transition: 'background 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>🖨️</span> <span>{toplantiDurumu === 'onaylandi_kapatildi' ? 'Resmi Çıktı Al (Yazdır)' : 'Evrak Çıktısı Al (Önizleme)'}</span>
+                  </button>
+                </>
+              ) : (
+                // DİĞER RESMİ EVRAKLAR İÇİN VARSAYILAN BUTONLAR
+                <>
+                  <button
+                    onClick={handleOnayaGonder}
+                    disabled={onayaGonderildi}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      backgroundColor: '#10B981',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      transition: 'background 0.2s'
+                    }}
+                  >
+                    {onayaGonderildi ? 'Gönderiliyor…' : '📤 Müdür Onayına Gönder'}
+                  </button>
+
+                  <button
+                    onClick={handleYazdir}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      backgroundColor: '#1B3A6B',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      transition: 'background 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>🖨️</span> <span>Evrak Çıktısı Al (Yazdır)</span>
+                  </button>
+                </>
+              )}
             </div>
 
           </div>
@@ -1111,10 +1535,10 @@ export default function KurumResmiEvraklar() {
                 <div style={{ fontSize: '0.85rem' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem', fontSize: '0.8rem' }}>
                     <tbody>
-                      <tr style={{ borderBottom: '1px solid #000' }}><td style={{ padding: '4px 0', fontWeight: 'bold', width: '150px' }}>Eğitim Öğretim Yılı:</td><td>{kurulForm.akademikYil}</td><td style={{ fontWeight: 'bold', width: '100px' }}>Karar No:</td><td>{kurulForm.kararNo}</td></tr>
-                      <tr style={{ borderBottom: '1px solid #000' }}><td style={{ padding: '4px 0', fontWeight: 'bold' }}>Toplantı Tarihi / Saati:</td><td>{kurulForm.tarih} - {kurulForm.saat}</td><td style={{ fontWeight: 'bold' }}>Toplantı Yeri:</td><td>{kurulForm.yer}</td></tr>
-                      <tr style={{ borderBottom: '1px solid #000' }}><td style={{ padding: '4px 0', fontWeight: 'bold' }}>Kurul Başkanı (Müdür):</td><td colSpan="3">{kurulForm.baskan}</td></tr>
-                      <tr style={{ borderBottom: '1px solid #000' }}><td style={{ padding: '4px 0', fontWeight: 'bold' }}>Seçilen Yazmanlar:</td><td colSpan="3">Asil: {kurulForm.yazmanAsil1}, {kurulForm.yazmanAsil2} | Yedek: {kurulForm.yazmanYedek1}, {kurulForm.yazmanYedek2}</td></tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}><td style={{ padding: '4px 0', fontWeight: 'bold', width: '150px' }}>Eğitim Öğretim Yılı:</td><td>{kurulForm.akademikYil || '—'}</td><td style={{ fontWeight: 'bold', width: '100px' }}>Karar No:</td><td>{kurulForm.kararNo || '—'}</td></tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}><td style={{ padding: '4px 0', fontWeight: 'bold' }}>Toplantı Tarihi / Saati:</td><td>{(kurulForm.tarih || '—') + ' - ' + (kurulForm.saat || '—')}</td><td style={{ fontWeight: 'bold' }}>Toplantı Yeri:</td><td>{kurulForm.yer || '—'}</td></tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}><td style={{ padding: '4px 0', fontWeight: 'bold' }}>Kurul Başkanı (Müdür):</td><td colSpan="3">{kurulForm.baskan || '—'}</td></tr>
+                      <tr style={{ borderBottom: '1px solid #000' }}><td style={{ padding: '4px 0', fontWeight: 'bold' }}>Seçilen Yazmanlar:</td><td colSpan="3">Asil: {kurulForm.yazmanAsil1 || '—'}, {kurulForm.yazmanAsil2 || '—'} | Yedek: {kurulForm.yazmanYedek1 || '—'}, {kurulForm.yazmanYedek2 || '—'}</td></tr>
                     </tbody>
                   </table>
 

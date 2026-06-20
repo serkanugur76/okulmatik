@@ -1,6 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
+import { useAuth } from '../../contexts/AuthContext'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { db } from '../../services/firebase'
 
 const SENE_BASI_GOREVLER = [
   // 1. Resmi Toplantılar ve Tutanaklar
@@ -161,14 +164,44 @@ const SENE_BASI_GOREVLER = [
 
 export default function KurumResmiIslemler() {
   const { secilenKurum, secilenKurumId } = useKurumYonetim()
+  const { profil, kullanici } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
   // 1. Simüle Edilen Aktif Rol
-  const [simuleRol, setSimuleRol] = useState('ogretmen') // ogretmen, zumre, mudur
+  const defaultRol = profil?.rol === 'kurum_admin' || profil?.rol === 'platform_admin' ? 'mudur' : 'ogretmen'
+  const [simuleRol, setSimuleRol] = useState(location.state?.simuleRol || defaultRol)
+
+  // Profil yüklendiğinde varsayılan rolü eşitle (eğer state'ten gelen yoksa)
+  useEffect(() => {
+    if (profil && !location.state?.simuleRol) {
+      const defRol = profil.rol === 'kurum_admin' || profil.rol === 'platform_admin' ? 'mudur' : 'ogretmen'
+      setSimuleRol(defRol)
+    }
+  }, [profil, location.state])
 
   // 1.1 Aktif Dönem Tabı
   const [aktifDonem, setAktifDonem] = useState('sene_basi') // sene_basi, donem_sonu, yil_sonu
+
+  // Firestore Sene Başı Öğretmenler Kurulu Belgesi Dinleyicisi
+  const [seneBasiStatus, setSeneBasiStatus] = useState('yapilmadi')
+  const [seneBasiData, setSeneBasiData] = useState(null)
+
+  useEffect(() => {
+    if (!secilenKurumId) return
+    const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', 'seneBasiKurul')
+    const unsub = onSnapshot(docRef, docSnap => {
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        setSeneBasiStatus(data.status || 'yapilmadi')
+        setSeneBasiData(data)
+      } else {
+        setSeneBasiStatus('yapilmadi')
+        setSeneBasiData(null)
+      }
+    })
+    return () => unsub()
+  }, [secilenKurumId])
 
   // 2. Prototip Durumları (State)
   const [gorevDurumlari, setGorevDurumlari] = useState(() => {
@@ -186,19 +219,61 @@ export default function KurumResmiIslemler() {
     return init
   })
 
+  // Sene Başı Kurulu (ID: 1) durumunu Firestore verisine göre ez
+  const finalGorevDurumlari = useMemo(() => {
+    const updated = { ...gorevDurumlari }
+    
+    let ogretmen = 'yapilmadi'
+    let zumre = 'yapilmadi'
+    let mudur = 'yapilmadi'
+    let imzaDurumu = 'imzalanmadi'
+    
+    if (seneBasiStatus === 'davet_aktif') {
+      ogretmen = 'yapilmadi'
+      zumre = 'yapilmadi'
+      mudur = 'yapilmadi'
+      imzaDurumu = 'imzalanmadi'
+    } else if (seneBasiStatus === 'yazman_doldurma') {
+      ogretmen = 'onay_bekliyor'
+      zumre = 'yapilmadi'
+      mudur = 'yapilmadi'
+      imzaDurumu = 'imzalanmadi'
+    } else if (seneBasiStatus === 'mudur_onay') {
+      ogretmen = 'tamamlandi'
+      zumre = 'yapilmadi'
+      mudur = 'imza_bekliyor'
+      imzaDurumu = 'cagri_yapildi'
+    } else if (seneBasiStatus === 'onaylandi_kapatildi') {
+      ogretmen = 'tamamlandi'
+      zumre = 'yapilmadi'
+      mudur = 'onaylandi'
+      imzaDurumu = 'imzalandi'
+    }
+    
+    updated[1] = {
+      ...updated[1],
+      ogretmen,
+      zumre,
+      mudur,
+      imzaDurumu
+    }
+    
+    return updated
+  }, [gorevDurumlari, seneBasiStatus])
+
   // Arama ve Filtreleme
   const [aramaKelimesi, setAramaKelimesi] = useState('')
   const [seciliKategori, setSeciliKategori] = useState('Hepsi')
 
-  // Toplam Sayılar
+  // Toplam Sayılar (Güncel Firestore durumlarıyla)
   const istatistikler = useMemo(() => {
-    const values = Object.values(gorevDurumlari)
+    const values = Object.values(finalGorevDurumlari)
     const toplam = values.length
     const tamamlanan = values.filter(v => v.mudur === 'onaylandi' || v.imzaDurumu === 'imzalandi').length
     const onayBekleyen = values.filter(v => v.ogretmen === 'onay_bekliyor' || v.zumre === 'onay_bekliyor').length
     const imzayaCagrilan = values.filter(v => v.imzaDurumu === 'cagri_yapildi').length
     return { toplam, tamamlanan, onayBekleyen, imzayaCagrilan }
-  }, [gorevDurumlari])
+  }, [finalGorevDurumlari])
 
   // Filtrelenmiş Liste
   const filtrelenmişGorevler = useMemo(() => {
@@ -271,7 +346,7 @@ export default function KurumResmiIslemler() {
     const basePath = location.pathname.includes('/platform')
       ? '/platform/kurum/resmi-islemler/evraklar'
       : '/kurum/resmi-islemler/evraklar'
-    navigate(basePath, { state: { sablonId: gorev.id } })
+    navigate(basePath, { state: { sablonId: gorev.id, simuleRol } })
   }
 
   if (!secilenKurumId) {
@@ -364,6 +439,54 @@ export default function KurumResmiIslemler() {
           </div>
         </div>
       </div>
+
+      {/* Toplantı Davetiye Alert Banner */}
+      {seneBasiData && (seneBasiStatus === 'davet_aktif' || seneBasiStatus === 'yazman_doldurma' || seneBasiStatus === 'mudur_onay') && (profil?.rol === 'ogretmen' || simuleRol === 'ogretmen') && (
+        <div style={{
+          background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+          border: '1.5px solid #F59E0B',
+          borderRadius: '12px',
+          padding: '1.25rem',
+          marginBottom: '2rem',
+          color: '#78350F',
+          boxShadow: '0 4px 15px rgba(245, 158, 11, 0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem'
+        }}>
+          <div style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+            <span>✉️</span> <span>SENE BAŞI ÖĞRETMENLER KURULU TOPLANTI DAVETİYESİ</span>
+          </div>
+          <p style={{ margin: 0, lineHeight: '1.5', fontSize: '0.875rem', fontWeight: '500' }}>
+            Sayın Öğretmenimiz, okulumuz sene başı öğretmenler kurulu toplantısı <strong>{seneBasiData.tarih || '—'}</strong> tarihinde saat <strong>{seneBasiData.saat || '—'}</strong>'da <strong>{seneBasiData.yer || '—'}</strong> bünyesinde gerçekleştirilecektir. Gündem maddelerini inceleyerek toplantıya katılımınız önemle rica olunur.
+          </p>
+          <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', color: '#B45309', fontWeight: '700' }}>
+            <span>📍 Konum: {seneBasiData.yer || '—'}</span>
+            <span>⏰ Saat: {seneBasiData.saat || '—'}</span>
+            <span>📅 Tarih: {seneBasiData.tarih || '—'}</span>
+          </div>
+          <button
+            onClick={() => handleYazdir({ id: 1 })}
+            style={{
+              alignSelf: 'flex-start',
+              padding: '6px 14px',
+              backgroundColor: '#1B3A6B',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(27, 58, 107, 0.1)',
+              transition: 'background 0.15s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#112244'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#1B3A6B'}
+          >
+            Toplantı Gündemi & Evrakı Görüntüle
+          </button>
+        </div>
+      )}
 
       {/* Dönem Tabları */}
       <div style={{
@@ -506,7 +629,7 @@ export default function KurumResmiIslemler() {
           <tbody>
             {filtrelenmişGorevler.length > 0 ? (
               filtrelenmişGorevler.map((gorev) => {
-                const durum = gorevDurumlari[gorev.id]
+                const durum = finalGorevDurumlari[gorev.id]
                 return (
                   <tr
                     key={gorev.id}

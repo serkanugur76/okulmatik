@@ -189,6 +189,14 @@ service cloud.firestore {
       allow write: if kurumAdmin(kurumId) || platformAdmin();
     }
 
+    match /kurumlar/{kurumId}/resmiEvraklar/{evrakId} {
+      allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
+      allow write: if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId);
+    }
+
+
     match /kurumlar/{kurumId}/kullanicilar/{uid} {
       allow read:  if kurumUyesi(kurumId) || platformAdmin();
       allow write: if kurumAdmin(kurumId) || platformAdmin()
