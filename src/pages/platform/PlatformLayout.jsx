@@ -36,7 +36,7 @@ const KURUM_MENULER = [
       { yol: '/platform/kurum/degerlendirmeler', etiket: 'Değerlendirmeler', ikon: '✅' },
     ]
   },
-  { yol: '/platform/kurum/mentor',          etiket: 'Mentor',           ikon: '🎓' },
+  { yol: '/platform/kurum/mentor',          etiket: 'Mentor Yönetimi',  ikon: '🎓' },
   { yol: '/platform/kurum/nobet',           etiket: 'Nöbet Yönetimi',   ikon: '🛡️' },
   { yol: '/platform/kurum/kulupler',        etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
   { yol: '/platform/kurum/kutuphane',       etiket: 'Kütüphane',        ikon: '📚' },
