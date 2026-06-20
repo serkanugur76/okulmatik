@@ -4,7 +4,7 @@ import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { doc, getDoc, onSnapshot, setDoc, collection, query, where } from 'firebase/firestore'
 import { db } from '../../services/firebase'
-import { getDescendants } from '../../utils/hierarchy'
+import { getDescendants, getAncestors } from '../../utils/hierarchy'
 
 const SABLONLAR = [
   {
@@ -47,11 +47,12 @@ export default function KurumResmiEvraklar() {
   const [simuleRol, setSimuleRol] = useState(location.state?.simuleRol || defaultRol)
   const [simuleOgretmenAd, setSimuleOgretmenAd] = useState('')
 
-  // Seçili kurum hiyerarşisindeki tüm ID'ler
+  // Seçili kurum hiyerarşisindeki tüm ID'ler (alt okullar ve üst kampüs/kurumlar dahil)
   const seciliScopeIds = useMemo(() => {
     if (!secilenKurumId) return []
     const descendants = getDescendants(secilenKurumId, erisimKurumlar || []).map(k => k.id)
-    return [secilenKurumId, ...descendants]
+    const ancestors = getAncestors(secilenKurumId, erisimKurumlar || [])
+    return [...new Set([secilenKurumId, ...descendants, ...ancestors])]
   }, [secilenKurumId, erisimKurumlar])
 
   // Dependency comparison string for seciliScopeIds array
@@ -69,9 +70,11 @@ export default function KurumResmiEvraklar() {
     }
     const parcalar = {}
     const unsubs = seciliScopeIds.map(kid => {
-      const q = query(collection(db, 'kurumlar', kid, 'kullanicilar'), where('rol', '==', 'ogretmen'))
-      return onSnapshot(q, snap => {
-        parcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      const colRef = collection(db, 'kurumlar', kid, 'kullanicilar')
+      return onSnapshot(colRef, snap => {
+        parcalar[kid] = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(u => u.rol === 'ogretmen')
         
         // Parçaları tekilleştirip ada göre sırala
         const hepsi = [...new Map(
