@@ -190,9 +190,16 @@ service cloud.firestore {
     }
 
     match /kurumlar/{kurumId}/resmiEvraklar/{evrakId} {
-      allow read:  if kurumUyesi(kurumId) || platformAdmin()
-                   || ogretmenKurumErisimi(kurumId);
-      allow write: if kurumUyesi(kurumId) || platformAdmin()
+      allow read:  if platformAdmin()
+                   || kullaniciBilgisi().kurumId == kurumId
+                   || kullanicininRootKurumId() == kurumId
+                   || kullanicininParentKurumId() == kurumId
+                   || ogretmenKurumErisimi(kurumId)
+                   || ogretmenParentOkuma(kurumId);
+      allow write: if platformAdmin()
+                   || kullaniciBilgisi().kurumId == kurumId
+                   || kullanicininRootKurumId() == kurumId
+                   || kullanicininParentKurumId() == kurumId
                    || ogretmenKurumErisimi(kurumId);
     }
 

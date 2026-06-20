@@ -1317,13 +1317,18 @@ export default function KurumResmiEvraklar() {
                     <>
                       {toplantiDurumu === 'yapilmadi' && (
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (!kurulForm.tarih || !kurulForm.saat || !kurulForm.yer) {
                               alert('Lütfen Adım 1\'deki Tarih, Saat ve Yer (Salon) alanlarını doldurunuz!')
                               return
                             }
-                            saveToFirestore({}, 'davet_aktif')
-                            alert('Süreç başlatıldı, öğretmen ekranlarında resmi davetiye mesajı aktif edildi.')
+                            try {
+                              await saveToFirestore({}, 'davet_aktif')
+                              alert('Süreç başlatıldı, öğretmen ekranlarında resmi davetiye mesajı aktif edildi.')
+                            } catch (err) {
+                              console.error('Hata:', err)
+                              alert('Süreç başlatılamadı: ' + err.message)
+                            }
                           }}
                           style={{
                             width: '100%', padding: '12px', backgroundColor: '#4F46E5', color: '#FFFFFF',
@@ -1336,13 +1341,18 @@ export default function KurumResmiEvraklar() {
 
                       {toplantiDurumu === 'davet_aktif' && (
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (!kurulForm.yazmanAsil1 || !kurulForm.yazmanAsil2 || !kurulForm.yazmanYedek1 || !kurulForm.yazmanYedek2) {
                               alert('Lütfen Adım 2\'deki Yazman (2 Asil, 2 Yedek) seçimlerini yapınız!')
                               return
                             }
-                            saveToFirestore({}, 'yazman_doldurma')
-                            alert('Yazman öğretmenler başarıyla onaylandı ve evrağı doldurma yetkileri tanımlandı.')
+                            try {
+                              await saveToFirestore({}, 'yazman_doldurma')
+                              alert('Yazman öğretmenler başarıyla onaylandı ve evrağı doldurma yetkileri tanımlandı.')
+                            } catch (err) {
+                              console.error('Hata:', err)
+                              alert('Onaylama başarısız: ' + err.message)
+                            }
                           }}
                           style={{
                             width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF',
@@ -1364,9 +1374,14 @@ export default function KurumResmiEvraklar() {
 
                       {toplantiDurumu === 'mudur_onay' && (
                         <button
-                          onClick={() => {
-                            saveToFirestore({}, 'onaylandi_kapatildi')
-                            alert('Toplantı tutanağı resmi olarak onaylandı ve süreç kapatıldı. Çıktı almaya hazırdır.')
+                          onClick={async () => {
+                            try {
+                              await saveToFirestore({}, 'onaylandi_kapatildi')
+                              alert('Toplantı tutanağı resmi olarak onaylandı ve süreç kapatıldı. Çıktı almaya hazırdır.')
+                            } catch (err) {
+                              console.error('Hata:', err)
+                              alert('Kapatma başarısız: ' + err.message)
+                            }
                           }}
                           style={{
                             width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF',
@@ -1394,9 +1409,14 @@ export default function KurumResmiEvraklar() {
                       {toplantiDurumu === 'yazman_doldurma' && (
                         <>
                           <button
-                            onClick={() => {
-                              saveToFirestore()
-                              alert('Toplantı evrak taslağı başarıyla kaydedildi.')
+                            onClick={async () => {
+                              try {
+                                await saveToFirestore()
+                                alert('Toplantı evrak taslağı başarıyla kaydedildi.')
+                              } catch (err) {
+                                console.error('Hata:', err)
+                                alert('Taslak kaydedilemedi: ' + err.message)
+                              }
                             }}
                             style={{
                               width: '100%', padding: '10px', backgroundColor: '#3B82F6', color: '#FFFFFF',
@@ -1406,9 +1426,14 @@ export default function KurumResmiEvraklar() {
                             💾 Taslağı Kaydet
                           </button>
                           <button
-                            onClick={() => {
-                              saveToFirestore({}, 'mudur_onay')
-                              alert('Evrak tamamlandı ve müdür onayına sunuldu.')
+                            onClick={async () => {
+                              try {
+                                await saveToFirestore({}, 'mudur_onay')
+                                alert('Evrak tamamlandı ve müdür onayına sunuldu.')
+                              } catch (err) {
+                                console.error('Hata:', err)
+                                alert('Onaya sunma başarısız: ' + err.message)
+                              }
                             }}
                             style={{
                               width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF',
