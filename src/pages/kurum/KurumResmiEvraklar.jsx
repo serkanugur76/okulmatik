@@ -4,6 +4,7 @@ import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { doc, getDoc, onSnapshot, setDoc, collection, query, where } from 'firebase/firestore'
 import { db } from '../../services/firebase'
+import { getDescendants } from '../../utils/hierarchy'
 
 const SABLONLAR = [
   {
@@ -33,7 +34,7 @@ const SABLONLAR = [
 ]
 
 export default function KurumResmiEvraklar() {
-  const { secilenKurum, secilenKurumId } = useKurumYonetim()
+  const { secilenKurum, secilenKurumId, erisimKurumlar } = useKurumYonetim()
   const { profil, kullanici } = useAuth()
   const location = useLocation()
 
@@ -46,28 +47,51 @@ export default function KurumResmiEvraklar() {
   const [simuleRol, setSimuleRol] = useState(location.state?.simuleRol || defaultRol)
   const [simuleOgretmenAd, setSimuleOgretmenAd] = useState('')
 
+  // Seçili kurum hiyerarşisindeki tüm ID'ler
+  const seciliScopeIds = useMemo(() => {
+    if (!secilenKurumId) return []
+    const descendants = getDescendants(secilenKurumId, erisimKurumlar || []).map(k => k.id)
+    return [secilenKurumId, ...descendants]
+  }, [secilenKurumId, erisimKurumlar])
+
   // Gerçek Öğretmenler listesi
   const [ogretmenler, setOgretmenler] = useState([])
   const [toplantiDurumu, setToplantiDurumu] = useState('yapilmadi')
 
-  // Öğretmenleri Firestore'dan yükle
+  // Öğretmenleri Firestore'dan yükle (Hiyerarşideki tüm okullardan)
   useEffect(() => {
-    if (!secilenKurumId) return
-    const q = query(collection(db, 'kurumlar', secilenKurumId, 'kullanicilar'), where('rol', '==', 'ogretmen'))
-    const unsub = onSnapshot(q, snap => {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      list.sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
-      setOgretmenler(list)
+    if (!seciliScopeIds.length) {
+      setOgretmenler([])
+      return
+    }
+    const parcalar = {}
+    const unsubs = seciliScopeIds.map(kid => {
+      const q = query(collection(db, 'kurumlar', kid, 'kullanicilar'), where('rol', '==', 'ogretmen'))
+      return onSnapshot(q, snap => {
+        parcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        
+        // Parçaları tekilleştirip ada göre sırala
+        const hepsi = [...new Map(
+          Object.values(parcalar).flat().map(o => [o.id, o])
+        ).values()].sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+        
+        setOgretmenler(hepsi)
 
-      // Varsayılan simüle öğretmen belirle
-      if (profil?.rol === 'ogretmen' && profil?.ad) {
-        setSimuleOgretmenAd(profil.ad)
-      } else if (list.length > 0) {
-        setSimuleOgretmenAd(list[0].ad)
-      }
+        // Varsayılan simüle öğretmen belirle
+        if (profil?.rol === 'ogretmen' && profil?.ad) {
+          setSimuleOgretmenAd(profil.ad)
+        } else if (hepsi.length > 0) {
+          setSimuleOgretmenAd(prev => {
+            if (prev && hepsi.some(o => o.ad === prev)) return prev
+            return hepsi[0].ad
+          })
+        }
+      }, err => {
+        console.error(`Error loading teachers for institution ${kid}:`, err)
+      })
     })
-    return () => unsub()
-  }, [secilenKurumId, profil])
+    return () => unsubs.forEach(u => u())
+  }, [seciliScopeIds, profil])
 
   // Eğer URL state üzerinden yönlendirme yapıldıysa o şablonu seç
   useEffect(() => {
@@ -606,6 +630,21 @@ export default function KurumResmiEvraklar() {
                     <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1B3A6B', paddingBottom: '4px', borderBottom: '1.5px solid #F0F5FF' }}>
                       Adım 2: Yazman Seçimi & Sınıf Rehber Öğretmenliği Atamaları
                     </div>
+                    {toplantiDurumu === 'yapilmadi' && (
+                      <div style={{
+                        background: '#FFF5F5',
+                        border: '1px solid #FEB2B2',
+                        color: '#C53030',
+                        fontSize: '0.78rem',
+                        fontWeight: '700',
+                        padding: '10px',
+                        borderRadius: '8px',
+                        lineHeight: '1.4',
+                        boxShadow: '0 2px 4px rgba(239, 68, 68, 0.05)'
+                      }}>
+                        ⚠️ Yazman ve Rehber Öğretmen seçimi yapabilmek için lütfen önce <strong>1. Adım</strong>'daki tarih, saat ve salon (yer) bilgilerini girip sol alttaki <strong>"Resmi Süreci Başlat"</strong> butonuna tıklayınız.
+                      </div>
+                    )}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
                         <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748B' }}>Asil Yazman 1</label>
@@ -687,6 +726,21 @@ export default function KurumResmiEvraklar() {
                     <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1B3A6B', paddingBottom: '4px', borderBottom: '1.5px solid #F0F5FF' }}>
                       Adım 3: Yıllık Kurul & Komisyon Öğretmen Seçimleri
                     </div>
+                    {(toplantiDurumu === 'yapilmadi' || toplantiDurumu === 'davet_aktif') && (
+                      <div style={{
+                        background: '#EFF6FF',
+                        border: '1px solid #BFDBFE',
+                        color: '#1E40AF',
+                        fontSize: '0.78rem',
+                        fontWeight: '700',
+                        padding: '10px',
+                        borderRadius: '8px',
+                        lineHeight: '1.4',
+                        boxShadow: '0 2px 4px rgba(59, 130, 246, 0.05)'
+                      }}>
+                        ℹ️ Komisyon ve kurul üye seçimleri, toplantı resmi olarak başladıktan ve okul müdürü tarafından <strong>asil/yedek yazmanlar onaylandıktan sonra</strong>, yetkili kılınan yazman öğretmenler tarafından girilecektir.
+                      </div>
+                    )}
                     
                     {/* İhale Komisyonu */}
                     <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
