@@ -308,23 +308,49 @@ export default function KurumResmiEvraklar() {
       {/* Yazdırma esnasında sadece A4 sayfasını gösteren özel stil */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
+          @page {
+            size: A4;
+            margin: 20mm 15mm 20mm 15mm;
+          }
+          body {
+            background: #ffffff !important;
+            color: #000000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           body * {
             visibility: hidden;
-            background: none !important;
           }
           #print-area, #print-area * {
             visibility: visible;
           }
           #print-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 210mm;
-            min-height: 297mm;
-            padding: 20mm !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: auto !important;
+            height: auto !important;
+            padding: 0 !important;
             margin: 0 !important;
             border: none !important;
             box-shadow: none !important;
+            display: block !important;
+            background: #ffffff !important;
+            font-size: 11pt !important;
+          }
+          .evrak-body-content {
+            display: block !important;
+            flex: none !important;
+          }
+          .print-no-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          table, tr, td, th {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
           .evraklar-container {
             padding: 0 !important;
@@ -1613,7 +1639,7 @@ export default function KurumResmiEvraklar() {
             </div>
 
             {/* Evrak İçerik Gövdesi */}
-            <div style={{ flex: 1, fontSize: '0.95rem', textAlign: 'justify', whiteSpace: 'pre-line', padding: '0 0.5rem' }}>
+            <div className="evrak-body-content" style={{ flex: 1, fontSize: '0.95rem', textAlign: 'justify', whiteSpace: 'pre-line', padding: '0 0.5rem' }}>
               
               {/* A. SENE BAŞI ÖĞRETMENLER KURULU TUTANAĞI İÇERİĞİ */}
               {seciliSablonId === 1 && (
@@ -1795,7 +1821,7 @@ export default function KurumResmiEvraklar() {
             </div>
 
             {/* İMZALAR */}
-            <div style={{ marginTop: '2.5rem', borderTop: '1px dashed #E2E8F0', paddingTop: '1rem' }}>
+            <div className="print-no-break" style={{ marginTop: '2.5rem', borderTop: '1px dashed #E2E8F0', paddingTop: '1rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', textAlign: 'center', fontSize: '0.8rem' }}>
                 
                 {/* Sol İmza Grubu (Öğretmenler) */}
@@ -1821,7 +1847,7 @@ export default function KurumResmiEvraklar() {
               </div>
 
               {/* Okul Müdürü Onay Bloku */}
-              <div style={{ marginTop: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div className="print-no-break" style={{ marginTop: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ border: '1.5px solid #000', padding: '8px 20px', width: '220px', fontSize: '0.8rem' }}>
                   <div style={{ fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>ONAYLANDI / UYGUNDUR</div>
                   <div style={{ fontSize: '0.72rem' }}>{seciliSablonId === 1 ? kurulForm.tarih : seciliSablonId === 2 ? zumreForm.tarih : seciliSablonId === 11 ? secimForm.tarih : demirbasForm.tarih}</div>
