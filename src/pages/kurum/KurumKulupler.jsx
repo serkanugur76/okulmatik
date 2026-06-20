@@ -58,8 +58,10 @@ export default function KurumKulupler() {
 
   // Rol kontrolü: admin mi öğretmen mi?
   const adminModu = useMemo(() => {
-    return profil?.rol === 'platform_admin' || profil?.rol === 'kurum_admin'
-  }, [profil])
+    return profil?.rol === 'platform_admin' || 
+           profil?.rol === 'kurum_admin' || 
+           kullanici?.email === 'ugurserkan@gmail.com'
+  }, [profil, kullanici])
 
   const [aktifTab, setAktifTab] = useState('kulupler') // 'kulupler' | 'yoklama' | 'dersPlani' | 'etkinlikler'
   const [kuluplerMap, setKuluplerMap] = useState({})
@@ -195,14 +197,44 @@ export default function KurumKulupler() {
 
   const sorguIds = useMemo(() => {
     if (!secilenKurumId) return []
-    if (!adminModu) return [secilenKurumId]
     
+    // Master kullanıcı (platform_admin) ise, tüm erişebildiği okulların öğrencilerini/öğretmenlerini/rubriklerini yüklesin ki çapraz okullarda hiçbir veri eksik kalmasın.
+    if (profil?.rol === 'platform_admin' || kullanici?.email === 'ugurserkan@gmail.com') {
+      return erisimKurumlar.map(k => k.id)
+    }
+
+    if (!adminModu) {
+      // Öğretmen ise:
+      // Kulüp öğrencilerinin bir kısmı kardeş okullardan olabilir. Bu yüzden öğretmenin kendi kurumu ve onun parent kampüsünün altındaki tüm kardeş okulları ve üst hiyerarşiyi sorguya ekleyelim.
+      const ancestors = getAncestors(secilenKurumId, erisimKurumlar)
+      const campusId = ancestors.find(id => {
+        const obj = erisimKurumlar.find(x => x.id === id)
+        return obj?.tip === 'kampus'
+      }) || secilenKurumId
+
+      const campusDescendants = getDescendants(campusId, erisimKurumlar).map(k => k.id)
+      const descendants = getDescendants(secilenKurumId, erisimKurumlar).map(k => k.id)
+      const uniqueIds = new Set([secilenKurumId, campusId, ...campusDescendants, ...descendants, ...ancestors])
+      return [...uniqueIds]
+    }
+    
+    // Kurum admini ise:
+    // Seçilen kurum, descendants ve ancestors
     const descendants = getDescendants(secilenKurumId, erisimKurumlar).map(k => k.id)
     const ancestors = getAncestors(secilenKurumId, erisimKurumlar)
 
-    const uniqueIds = new Set([secilenKurumId, ...descendants, ...ancestors])
+    // Ama eğer seçilen kurum veya parent'ı bir kampüs ise, o kampüsün altındaki tüm kardeş okulları da dahil edelim ki kampüs genelinde öğrenci eşleşmeleri doğru çalışsın.
+    const campusId = ancestors.find(id => {
+      const obj = erisimKurumlar.find(x => x.id === id)
+      return obj?.tip === 'kampus'
+    }) || (erisimKurumlar.find(x => x.id === secilenKurumId)?.tip === 'kampus' ? secilenKurumId : null)
+
+    const campusDescendants = campusId ? getDescendants(campusId, erisimKurumlar).map(k => k.id) : []
+
+    const uniqueIds = new Set([secilenKurumId, ...descendants, ...ancestors, ...campusDescendants])
+    if (campusId) uniqueIds.add(campusId)
     return [...uniqueIds]
-  }, [secilenKurumId, erisimKurumlar, adminModu])
+  }, [secilenKurumId, erisimKurumlar, adminModu, profil, kullanici])
 
   const sorguIdsKey = sorguIds.join(',')
 
@@ -249,10 +281,12 @@ export default function KurumKulupler() {
     const ogrParcalar = {}
     sorguIds.forEach(kid => {
       const unsub = onSnapshot(collection(db, 'kurumlar', kid, 'kullanicilar'), (snap) => {
-        ogrParcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.rol === 'ogretmen')
+        ogrParcalar[kid] = snap.docs.map(d => ({ ...d.data(), id: d.id, _kurumId: kid })).filter(u => u.rol === 'ogretmen')
         const birlesik = [...new Map(Object.values(ogrParcalar).flat().map(o => [o.id, o])).values()]
           .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
         setOgretmenler(birlesik)
+      }, (err) => {
+        console.warn(`Öğretmenler yüklenemedi (${kid}):`, err.message)
       })
       unsubs.push(unsub)
     })
@@ -261,10 +295,12 @@ export default function KurumKulupler() {
     const ogrnParcalar = {}
     sorguIds.forEach(kid => {
       const unsub = onSnapshot(collection(db, 'kurumlar', kid, 'ogrenciler'), (snap) => {
-        ogrnParcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        const birlesik = [...new Map(Object.values(ogrnParcalar).flat().map(o => [o.id, o])).values()]
+        ogrnParcalar[kid] = snap.docs.map(d => ({ ...d.data(), id: d.id, _kurumId: kid }))
+        const birlesik = [...new Map(Object.values(ogrnParcalar).flat().map(o => [`${o._kurumId}_${o.id}`, o])).values()]
           .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
         setOgrenciler(birlesik)
+      }, (err) => {
+        console.warn(`Öğrenciler yüklenemedi (${kid}):`, err.message)
       })
       unsubs.push(unsub)
     })
@@ -273,10 +309,12 @@ export default function KurumKulupler() {
     const rubrikParcalar = {}
     sorguIds.forEach(kid => {
       const unsub = onSnapshot(collection(db, 'kurumlar', kid, 'rubrikler'), (snap) => {
-        rubrikParcalar[kid] = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        const birlesik = [...new Map(Object.values(rubrikParcalar).flat().map(r => [r.id, r])).values()]
+        rubrikParcalar[kid] = snap.docs.map(d => ({ ...d.data(), id: d.id, _kurumId: kid }))
+        const birlesik = [...new Map(Object.values(rubrikParcalar).flat().map(r => [`${r._kurumId}_${r.id}`, r])).values()]
           .sort((a, b) => (a.ad || a.baslik || '').localeCompare(b.ad || b.baslik || '', 'tr'))
         setRubrikler(birlesik)
+      }, (err) => {
+        console.warn(`Rubrikler yüklenemedi (${kid}):`, err.message)
       })
       unsubs.push(unsub)
     })
@@ -429,7 +467,20 @@ export default function KurumKulupler() {
   // Seçili kulübün öğrencileri
   const kulupOgrencileri = useMemo(() => {
     if (!seciliKulup || !seciliKulup.ogrenciIds) return []
-    return ogrenciler.filter(o => seciliKulup.ogrenciIds.includes(o.id))
+    const targetKurumId = seciliKulup._kurumId
+    return ogrenciler.filter(o => o._kurumId === targetKurumId && seciliKulup.ogrenciIds.includes(o.id))
+  }, [seciliKulup, ogrenciler])
+
+  // Yüklenemeyen (eksik) öğrenci ID'leri (Görsel uyarı ve hata ayıklama için)
+  const eksikOgrenciIds = useMemo(() => {
+    if (!seciliKulup || !seciliKulup.ogrenciIds) return []
+    const targetKurumId = seciliKulup._kurumId
+    const yuklenenIdSet = new Set(
+      ogrenciler
+        .filter(o => o._kurumId === targetKurumId)
+        .map(o => o.id)
+    )
+    return seciliKulup.ogrenciIds.filter(id => !yuklenenIdSet.has(id))
   }, [seciliKulup, ogrenciler])
 
   // Auto-select first club
@@ -627,7 +678,7 @@ export default function KurumKulupler() {
     if (!targetKurumId || !seciliKulupId || !talepOgrenciId) return alert('Lütfen öğrenci seçiniz.')
     if (talepTipi === 'gecis' && !talepHedefKulupId) return alert('Lütfen hedef kulüp seçiniz.')
 
-    const ogr = ogrenciler.find(o => o.id === talepOgrenciId)
+    const ogr = ogrenciler.find(o => o.id === talepOgrenciId && o._kurumId === targetKurumId)
     const ogrenciAdSoyad = ogr ? `${ogr.ad} ${ogr.soyad || ''}`.trim() : 'Bilinmeyen Öğrenci'
     const kaynakKulup = kulupler.find(k => k.id === seciliKulupId)
     const hedefKulup = talepTipi === 'gecis' ? kulupler.find(k => k.id === talepHedefKulupId) : null
@@ -1007,10 +1058,11 @@ export default function KurumKulupler() {
   // Yoklama Kaydet
   async function handleYoklamaKaydet() {
     if (!secilenKurumId || !seciliKulupId) return
+    const targetKurumId = seciliKulup?._kurumId || secilenKurumId
     const gelmeyenler = []
     Object.keys(gelenlerMap).forEach(id => {
       if (!gelenlerMap[id]) {
-        const ogr = ogrenciler.find(o => o.id === id)
+        const ogr = ogrenciler.find(o => o.id === id && o._kurumId === targetKurumId)
         if (ogr) {
           gelmeyenler.push({ id: ogr.id, adSoyad: `${ogr.ad} ${ogr.soyad || ''}`.trim() })
         }
@@ -1026,7 +1078,6 @@ export default function KurumKulupler() {
       yoklamaAlanAd: profil?.ad || profil?.email || 'Öğretmen',
       timestamp: serverTimestamp()
     }
-    const targetKurumId = seciliKulup?._kurumId || secilenKurumId
 
     try {
       await setDoc(doc(db, 'kurumlar', targetKurumId, 'kulupYoklama', yoklamaId), veri)
@@ -1271,14 +1322,17 @@ export default function KurumKulupler() {
 
   // Filtrelenmiş öğrenci listesi (atama modalı için)
   const filtrelenmisOgrenciler = useMemo(() => {
+    if (!seciliKulup) return []
+    const targetKurumId = seciliKulup._kurumId
+    const ayniKurumOgrencileri = ogrenciler.filter(o => o._kurumId === targetKurumId)
     const metin = ogrenciArama.toLowerCase().trim()
-    if (!metin) return ogrenciler
-    return ogrenciler.filter(o =>
+    if (!metin) return ayniKurumOgrencileri
+    return ayniKurumOgrencileri.filter(o =>
       `${o.ad} ${o.soyad || ''}`.toLowerCase().includes(metin) ||
       (o.ogrenciNo || '').toString().includes(metin) ||
       (o.sinifAd || '').toLowerCase().includes(metin)
     )
-  }, [ogrenciler, ogrenciArama])
+  }, [ogrenciler, ogrenciArama, seciliKulup])
 
   if (yukleniyor) {
     return (
@@ -1438,92 +1492,129 @@ export default function KurumKulupler() {
 
                         {/* Accordion Content */}
                         {isAcik && (
-                          <div style={{ padding: '1.25rem', background: '#fff' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '1rem' }}>
+                          <div style={{ padding: '1rem 1.25rem', background: '#fff' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                               {kulupListesi.map(kulup => {
                                 const atananOgretmenIsimleri = ogretmenler
                                   .filter(o => kulup.ogretmenIds && kulup.ogretmenIds.includes(o.id))
                                   .map(o => o.ad)
                                   .join(', ') || 'Atanmamış'
 
+                                const rubrikIsmi = rubrikler
+                                  .filter(r => kulup.rubrikIds && kulup.rubrikIds.includes(r.id))
+                                  .map(r => r.ad || r.baslik)
+                                  .join(', ')
+
                                 return (
-                                  <div key={kulup.id} style={{
-                                    background: '#fff', border: '1px solid #E2E8F0', borderRadius: '14px',
-                                    padding: '1.25rem', display: 'flex', flexDirection: 'column',
-                                    justifyContent: 'space-between', boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                                  }}>
-                                    <div>
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                                        <div>
-                                          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#1E293B' }}>{kulup.ad}</h3>
-                                          {seviye !== 'altKurum' && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
-                                              <span>🏢</span>
-                                              <span>
-                                                {(() => {
-                                                  const okulObj = erisimKurumlar.find(x => x.id === kulup._kurumId)
-                                                  if (!okulObj) return kulup._kurumAd || 'Bilinmeyen Okul'
-                                                  const parentObj = okulObj.parentId ? erisimKurumlar.find(x => x.id === okulObj.parentId) : null
-                                                  if (parentObj && parentObj.tip === 'kampus') {
-                                                    return `${okulObj.ad} (${parentObj.ad})`
-                                                  }
-                                                  return okulObj.ad
-                                                })()}
-                                              </span>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                          <span style={{
-                                            fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', fontWeight: '700',
-                                            background: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FEE2E2' : '#F1F5F9',
-                                            color: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#991B1B' : '#475569',
-                                          }}>
-                                            👥 {kulup.ogrenciIds?.length || 0} / {kulup.kontenjan || '∞'} Üye
-                                          </span>
-                                          {kulup.okulDuzeyi && (
-                                            <span style={{
-                                              fontSize: '0.65rem', padding: '1px 6px', borderRadius: '999px', fontWeight: '700',
-                                              background: kulup.okulDuzeyi === 'ilkokul' ? '#FEF3C7' : kulup.okulDuzeyi === 'ortaokul' ? '#E0F2FE' : kulup.okulDuzeyi === 'lise' ? '#FEE2E2' : '#F1F5F9',
-                                              color: kulup.okulDuzeyi === 'ilkokul' ? '#92400E' : kulup.okulDuzeyi === 'ortaokul' ? '#0369A1' : kulup.okulDuzeyi === 'lise' ? '#991B1B' : '#475569',
-                                              border: '1px solid',
-                                              borderColor: kulup.okulDuzeyi === 'ilkokul' ? '#FDE047' : kulup.okulDuzeyi === 'ortaokul' ? '#7DD3FC' : kulup.okulDuzeyi === 'lise' ? '#FCA5A5' : '#CBD5E1',
-                                            }}>
-                                              {kulup.okulDuzeyi === 'ilkokul' ? '🏫 İlkokul' : kulup.okulDuzeyi === 'ortaokul' ? '🏫 Ortaokul' : kulup.okulDuzeyi === 'lise' ? '🏫 Lise' : '🌍 Genel'}
+                                  <div
+                                    key={kulup.id}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      background: '#fff',
+                                      border: '1px solid #E2E8F0',
+                                      borderRadius: '10px',
+                                      padding: '0.75rem 1.25rem',
+                                      gap: '1.25rem',
+                                      boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                                      flexWrap: 'wrap',
+                                      transition: 'all 0.15s ease-in-out',
+                                      position: 'relative'
+                                    }}
+                                    onMouseEnter={e => {
+                                      e.currentTarget.style.borderColor = '#CBD5E1'
+                                      e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.02)'
+                                    }}
+                                    onMouseLeave={e => {
+                                      e.currentTarget.style.borderColor = '#E2E8F0'
+                                      e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)'
+                                    }}
+                                  >
+                                    {/* Okul Düzeyi Rozeti (Sağ Üst Köşede) */}
+                                    {kulup.okulDuzeyi && (
+                                      <span style={{
+                                        position: 'absolute',
+                                        top: '6px',
+                                        right: '12px',
+                                        fontSize: '0.58rem',
+                                        padding: '1px 5px',
+                                        borderRadius: '999px',
+                                        fontWeight: '700',
+                                        background: kulup.okulDuzeyi === 'ilkokul' ? '#FEF3C7' : kulup.okulDuzeyi === 'ortaokul' ? '#E0F2FE' : kulup.okulDuzeyi === 'lise' ? '#FEE2E2' : '#F1F5F9',
+                                        color: kulup.okulDuzeyi === 'ilkokul' ? '#92400E' : kulup.okulDuzeyi === 'ortaokul' ? '#0369A1' : kulup.okulDuzeyi === 'lise' ? '#991B1B' : '#475569',
+                                        border: '1px solid',
+                                        borderColor: kulup.okulDuzeyi === 'ilkokul' ? '#FDE047' : kulup.okulDuzeyi === 'ortaokul' ? '#7DD3FC' : kulup.okulDuzeyi === 'lise' ? '#FCA5A5' : '#CBD5E1',
+                                      }}>
+                                        {kulup.okulDuzeyi === 'ilkokul' ? '🏫 İlkokul' : kulup.okulDuzeyi === 'ortaokul' ? '🏫 Ortaokul' : kulup.okulDuzeyi === 'lise' ? '🏫 Lise' : '🌍 Genel'}
+                                      </span>
+                                    )}
+
+                                    {/* 1. Sol Kolon: Başlık ve Temel Bilgiler */}
+                                    <div style={{ flex: '2 1 220px', minWidth: '200px' }}>
+                                      <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700', color: '#1E293B' }}>
+                                        {kulup.ad}
+                                      </h3>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                        {seviye !== 'altKurum' && (
+                                          <span style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.7rem', color: '#64748B' }}>
+                                            <span>🏢</span>
+                                            <span>
+                                              {(() => {
+                                                const okulObj = erisimKurumlar.find(x => x.id === kulup._kurumId)
+                                                if (!okulObj) return kulup._kurumAd || 'Bilinmeyen Okul'
+                                                const parentObj = okulObj.parentId ? erisimKurumlar.find(x => x.id === okulObj.parentId) : null
+                                                if (parentObj && parentObj.tip === 'kampus') {
+                                                  return `${okulObj.ad} (${parentObj.ad})`
+                                                }
+                                                return okulObj.ad
+                                              })()}
                                             </span>
-                                          )}
-                                        </div>
-                                      </div>
-
-                                      <p style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: '1.4', minHeight: '40px', margin: '0 0 1rem' }}>
-                                        {kulup.tanitim || 'Tanıtım açıklaması girilmemiş.'}
-                                      </p>
-
-                                      <div style={{ fontSize: '0.75rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
-                                        <div><strong>🧑‍🏫 Danışman Öğretmen:</strong> {atananOgretmenIsimleri}</div>
-                                        <div><strong>📋 Ölçme Kriteri (Rubrik):</strong> {
-                                          rubrikler.filter(r => kulup.rubrikIds && kulup.rubrikIds.includes(r.id)).map(r => r.ad || r.baslik).join(', ') || 'Atanmamış'
-                                        }</div>
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
 
-                                    {/* Aksiyon Butonları */}
-                                    <div style={{ display: 'flex', gap: '6px', marginTop: '1.25rem', flexWrap: 'wrap' }}>
+                                    {/* 2. Orta Kolon: Kısa Tanıtım Açıklaması */}
+                                    <div style={{ flex: '3 1 250px', minWidth: '220px' }}>
+                                      <p style={{ fontSize: '0.78rem', color: '#64748B', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.4' }}>
+                                        {kulup.tanitim || 'Tanıtım açıklaması girilmemiş.'}
+                                      </p>
+                                    </div>
+
+                                    {/* 3. Danışman ve Rubrik Bilgisi */}
+                                    <div style={{ flex: '2 1 180px', minWidth: '160px', display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.72rem', color: '#475569' }}>
+                                      <div><strong>🧑‍🏫 Danışman:</strong> {atananOgretmenIsimleri}</div>
+                                      <div><strong>📋 Rubrik:</strong> {rubrikIsmi || 'Atanmamış'}</div>
+                                    </div>
+
+                                    {/* 4. Kontenjan Durumu */}
+                                    <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center' }}>
+                                      <span style={{
+                                        fontSize: '0.7rem', padding: '3px 8px', borderRadius: '999px', fontWeight: '700',
+                                        background: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FEE2E2' : '#F1F5F9',
+                                        color: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#991B1B' : '#475569',
+                                      }}>
+                                        👥 {kulup.ogrenciIds?.length || 0} / {kulup.kontenjan || '∞'} Üye
+                                      </span>
+                                    </div>
+
+                                    {/* 5. Sağ Kolon: Aksiyon Butonları */}
+                                    <div style={{ display: 'flex', gap: '6px', flex: '0 0 auto', alignItems: 'center' }}>
                                       {adminModu ? (
                                         <button
                                           onClick={() => {
                                             setSeciliKulupId(kulup.id)
-                                            // Öğrenci atama modalını başlat
                                             setGeciciOgrenciler(kulup.ogrenciIds || [])
                                             setOgrenciModalAcik(true)
                                           }}
                                           style={{
-                                            flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#EFF6FF',
+                                            padding: '0.35rem 0.65rem', fontSize: '0.72rem', background: '#EFF6FF',
                                             color: '#1E40AF', border: '1px solid #BFDBFE', borderRadius: '6px',
-                                            fontWeight: '600', cursor: 'pointer', minWidth: '110px'
+                                            fontWeight: '600', cursor: 'pointer'
                                           }}
                                         >
-                                          Öğrencileri Yönet
+                                          👥 Üyeler
                                         </button>
                                       ) : (
                                         <button
@@ -1536,12 +1627,12 @@ export default function KurumKulupler() {
                                             setTalepModalAcik(true)
                                           }}
                                           style={{
-                                            flex: 1, padding: '0.4rem', fontSize: '0.75rem', background: '#F0FDF4',
+                                            padding: '0.35rem 0.65rem', fontSize: '0.72rem', background: '#F0FDF4',
                                             color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: '6px',
-                                            fontWeight: '600', cursor: 'pointer', minWidth: '110px'
+                                            fontWeight: '600', cursor: 'pointer'
                                           }}
                                         >
-                                          Geçiş/Çıkış Talebi
+                                          🔄 Talep
                                         </button>
                                       )}
 
@@ -1554,31 +1645,31 @@ export default function KurumKulupler() {
                                           setMateryalModalAcik(true)
                                         }}
                                         style={{
-                                          padding: '0.4rem 0.6rem', fontSize: '0.75rem', background: '#FFF7ED',
+                                          padding: '0.35rem 0.65rem', fontSize: '0.72rem', background: '#FFF7ED',
                                           color: '#C2410C', border: '1px solid #FFEDD5', borderRadius: '6px',
                                           fontWeight: '600', cursor: 'pointer'
                                         }}
                                       >
-                                        📦 Materyaller
+                                        📦 Materyal
                                       </button>
 
                                       {adminModu && (
                                         <>
                                           <button onClick={() => handleKulupDuzenle(kulup)}
                                             style={{
-                                              padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: '#F8FAFC',
+                                              padding: '0.35rem 0.65rem', fontSize: '0.72rem', background: '#F8FAFC',
                                               color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px',
                                               fontWeight: '600', cursor: 'pointer'
                                             }}>
-                                            Düzenle
+                                            ✏️ Düzenle
                                           </button>
                                           <button onClick={() => handleKulupSil(kulup.id, kulup.ad)}
                                             style={{
-                                              padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: '#FEF2F2',
+                                              padding: '0.35rem 0.65rem', fontSize: '0.72rem', background: '#FEF2F2',
                                               color: '#991B1B', border: '1px solid #FCA5A5', borderRadius: '6px',
                                               fontWeight: '600', cursor: 'pointer'
                                             }}>
-                                            Sil
+                                            🗑️ Sil
                                           </button>
                                         </>
                                       )}
@@ -1635,13 +1726,35 @@ export default function KurumKulupler() {
                   <div style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8', fontSize: '0.85rem' }}>
                     Lütfen yoklama listesini görüntülemek için üst kısımdan bir kulüp seçin.
                   </div>
-                ) : kulupOgrencileri.length === 0 ? (
+                ) : (kulupOgrencileri.length === 0 && eksikOgrenciIds.length === 0) ? (
                   <div style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8', fontSize: '0.85rem' }}>
                     Bu kulübe henüz hiç öğrenci ataması yapılmamış.
                   </div>
                 ) : (
                   <div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {eksikOgrenciIds.length > 0 && (
+                      <div style={{
+                        background: '#FFFBEB', border: '1px solid #F59E0B', borderRadius: '8px',
+                        padding: '1rem', marginBottom: '1.25rem', fontSize: '0.85rem', color: '#B45309',
+                        display: 'flex', flexDirection: 'column', gap: '4px'
+                      }}>
+                        <div style={{ fontWeight: '700' }}>⚠️ Kayıt Uyarısı (Veri Uyuşmazlığı)</div>
+                        <div>
+                          Bu kulübe kayıtlı gözüken <strong>{eksikOgrenciIds.length}</strong> öğrenci, 
+                          seçili olan aktif okul şubesi sınırları veya veri senkronizasyonu nedeniyle yüklenemedi. 
+                          Üst menüden kampüs/ana kurum düzeyinde seçim yapmayı deneyebilirsiniz.
+                        </div>
+                        <div style={{ fontSize: '0.75rem', marginTop: '4px', opacity: 0.85, wordBreak: 'break-all' }}>
+                          Yüklenemeyen Öğrenci ID'leri: {eksikOgrenciIds.join(', ')}
+                        </div>
+                      </div>
+                    )}
+                    {kulupOgrencileri.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                        Kulübe kayıtlı öğrenciler yüklenemedi. Lütfen yetkili okul veya üst kurum seçimini kontrol edin.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {kulupOgrencileri.map(o => {
                         const geldiMi = gelenlerMap[o.id] !== false // undefined/true ise geldi kabul et
                         return (
@@ -1697,6 +1810,7 @@ export default function KurumKulupler() {
                         )
                       })}
                     </div>
+                  )}
 
                     <button
                       onClick={handleYoklamaKaydet}
@@ -2853,7 +2967,7 @@ export default function KurumKulupler() {
                 >
                   <option value="">— Öğrenci Seçin —</option>
                   {ogrenciler
-                    .filter(o => seciliKulup?.ogrenciIds?.includes(o.id))
+                    .filter(o => o._kurumId === seciliKulup?._kurumId && seciliKulup?.ogrenciIds?.includes(o.id))
                     .map(o => (
                       <option key={o.id} value={o.id}>{o.ad} {o.soyad || ''} ({o.sinifAd || 'Sınıfsız'})</option>
                     ))
