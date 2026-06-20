@@ -216,9 +216,8 @@ export default function KurumResmiEvraklar() {
   const canEditStep = (step) => {
     if (toplantiDurumu === 'onaylandi_kapatildi') return false
     if (isMudur) {
-      if (toplantiDurumu === 'yapilmadi' && step === 1) return true
-      if (toplantiDurumu === 'davet_aktif' && step === 2) return true
-      return false
+      // Müdür, evrak kapatılmadığı sürece tüm adımları düzenleyebilir (revizyon/düzeltme dahil)
+      return true
     }
     if (isYazman) {
       if (toplantiDurumu === 'yazman_doldurma' && (step === 2 || step === 3 || step === 4)) return true
@@ -1402,31 +1401,77 @@ export default function KurumResmiEvraklar() {
                       )}
 
                       {toplantiDurumu === 'mudur_onay' && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              await saveToFirestore({}, 'onaylandi_kapatildi')
-                              alert('Toplantı tutanağı resmi olarak onaylandı ve süreç kapatıldı. Çıktı almaya hazırdır.')
-                            } catch (err) {
-                              console.error('Hata:', err)
-                              alert('Kapatma başarısız: ' + err.message)
-                            }
-                          }}
-                          style={{
-                            width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF',
-                            border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem'
-                          }}
-                        >
-                          ✅ Toplantıyı Onayla ve Kapat
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await saveToFirestore({}, 'onaylandi_kapatildi')
+                                alert('Toplantı tutanağı resmi olarak onaylandı ve süreç kapatıldı. Çıktı almaya hazırdır.')
+                              } catch (err) {
+                                console.error('Hata:', err)
+                                alert('Kapatma başarısız: ' + err.message)
+                              }
+                            }}
+                            style={{
+                              width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF',
+                              border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem'
+                            }}
+                          >
+                            ✅ Toplantıyı Onayla ve Kapat
+                          </button>
+                          
+                          <button
+                            onClick={async () => {
+                              if (window.confirm('Bu tutanağı düzeltilmesi için yazman öğretmenlere geri göndermek istediğinize emin misiniz?')) {
+                                try {
+                                  await saveToFirestore({}, 'yazman_doldurma')
+                                  alert('Tutanak düzeltilmek üzere yazmanlara geri gönderildi.')
+                                } catch (err) {
+                                  console.error('Hata:', err)
+                                  alert('Geri gönderme başarısız: ' + err.message)
+                                }
+                              }
+                            }}
+                            style={{
+                              width: '100%', padding: '10px', backgroundColor: '#EF4444', color: '#FFFFFF',
+                              border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem'
+                            }}
+                          >
+                            ↩️ Düzeltme İçin Geri Gönder (Revizyon)
+                          </button>
+                        </div>
                       )}
 
                       {toplantiDurumu === 'onaylandi_kapatildi' && (
-                        <div style={{
-                          padding: '10px', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0',
-                          borderRadius: '8px', color: '#065F46', fontSize: '0.8rem', fontWeight: '700', textAlign: 'center', marginBottom: '8px'
-                        }}>
-                          🗃️ Toplantı onaylandı ve arşivlendi.
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{
+                            padding: '10px', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0',
+                            borderRadius: '8px', color: '#065F46', fontSize: '0.8rem', fontWeight: '700', textAlign: 'center'
+                          }}>
+                            🗃️ Toplantı onaylandı ve arşivlendi.
+                          </div>
+                          {isMudur && (
+                            <button
+                              onClick={async () => {
+                                if (window.confirm('Onaylanmış tutanağı yeniden düzenlemeye açmak istediğinize emin misiniz? Sorumlu öğretmenler ve siz evrak üzerinde tekrar düzenleme yapabileceksiniz.')) {
+                                  try {
+                                    await saveToFirestore({}, 'yazman_doldurma')
+                                    alert('Tutanak yeniden düzenlemeye açıldı. Yazmanlar ve müdür düzenleme yapabilir.')
+                                  } catch (err) {
+                                    console.error('Hata:', err)
+                                    alert('Yeniden düzenlemeye açma başarısız: ' + err.message)
+                                  }
+                                }
+                              }}
+                              style={{
+                                width: '100%', padding: '10px', backgroundColor: '#D97706', color: '#FFFFFF',
+                                border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem',
+                                transition: 'background-color 0.15s'
+                              }}
+                            >
+                              🔓 Yeniden Düzenlemeyi Etkinleştir (Revizyon)
+                            </button>
+                          )}
                         </div>
                       )}
                     </>
