@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
 const SENE_BASI_GOREVLER = [
@@ -162,6 +162,7 @@ const SENE_BASI_GOREVLER = [
 export default function KurumResmiIslemler() {
   const { secilenKurum, secilenKurumId } = useKurumYonetim()
   const navigate = useNavigate()
+  const location = useLocation()
 
   // 1. Simüle Edilen Aktif Rol
   const [simuleRol, setSimuleRol] = useState('ogretmen') // ogretmen, zumre, mudur
@@ -175,10 +176,10 @@ export default function KurumResmiIslemler() {
     const init = {}
     SENE_BASI_GOREVLER.forEach(g => {
       init[g.id] = {
-        ogretmen: g.id <= 3 ? 'tamamlandi' : g.id === 5 || g.id === 11 || g.id === 14 ? 'onay_bekliyor' : 'yapilmadi',
-        zumre: g.id <= 2 ? 'onaylandi' : g.id === 5 ? 'onay_bekliyor' : 'yapilmadi',
-        mudur: g.id === 1 ? 'onaylandi' : g.id === 2 ? 'imza_bekliyor' : 'yapilmadi',
-        imzaDurumu: g.id === 1 ? 'imzalandi' : g.id === 2 ? 'cagri_yapildi' : 'imzalanmadi', // imzalanmadi, cagri_yapildi, imzalandi
+        ogretmen: g.id === 1 ? 'yapilmadi' : g.id <= 3 ? 'tamamlandi' : g.id === 5 || g.id === 11 || g.id === 14 ? 'onay_bekliyor' : 'yapilmadi',
+        zumre: g.id === 1 ? 'yapilmadi' : g.id <= 2 ? 'onaylandi' : g.id === 5 ? 'onay_bekliyor' : 'yapilmadi',
+        mudur: g.id === 1 ? 'yapilmadi' : g.id === 1 ? 'onaylandi' : g.id === 2 ? 'imza_bekliyor' : 'yapilmadi',
+        imzaDurumu: g.id === 1 ? 'imzalanmadi' : g.id === 1 ? 'imzalandi' : g.id === 2 ? 'cagri_yapildi' : 'imzalanmadi', // imzalanmadi, cagri_yapildi, imzalandi
         sonTarih: '2026-09-30'
       }
     })
@@ -267,8 +268,10 @@ export default function KurumResmiIslemler() {
   }
 
   const handleYazdir = (gorev) => {
-    alert(`${gorev.baslik} için üretilen evrak ${gorev.dosyaNo} dosya koduyla yazdırılmak üzere yönlendiriliyor.`)
-    navigate('/kurum/resmi-islemler/evraklar', { state: { sablonId: gorev.id } })
+    const basePath = location.pathname.includes('/platform')
+      ? '/platform/kurum/resmi-islemler/evraklar'
+      : '/kurum/resmi-islemler/evraklar'
+    navigate(basePath, { state: { sablonId: gorev.id } })
   }
 
   if (!secilenKurumId) {
@@ -695,6 +698,17 @@ export default function KurumResmiIslemler() {
                         {/* MÜDÜR ROLÜ AKSİYONLARI */}
                         {simuleRol === 'mudur' && (
                           <>
+                            {durum.mudur === 'yapilmadi' && (
+                              <button
+                                onClick={() => handleYazdir(gorev)}
+                                style={{
+                                  padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+                                  backgroundColor: '#4F46E5', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+                                }}
+                              >
+                                🚀 Süreci Başlat / Düzenle
+                              </button>
+                            )}
                             {durum.ogretmen === 'onay_bekliyor' && (
                               <button
                                 onClick={() => handleMudurOnayla(gorev.id)}
