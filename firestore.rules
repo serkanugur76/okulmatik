@@ -191,13 +191,13 @@ service cloud.firestore {
 
     match /kurumlar/{kurumId}/resmiEvraklar/{evrakId} {
       allow read:  if platformAdmin()
-                   || kullaniciBilgisi().kurumId == kurumId
+                   || kurumUyesi(kurumId)
                    || kullanicininRootKurumId() == kurumId
                    || kullanicininParentKurumId() == kurumId
                    || ogretmenKurumErisimi(kurumId)
                    || ogretmenParentOkuma(kurumId);
       allow write: if platformAdmin()
-                   || kullaniciBilgisi().kurumId == kurumId
+                   || kurumUyesi(kurumId)
                    || kullanicininRootKurumId() == kurumId
                    || kullanicininParentKurumId() == kurumId
                    || ogretmenKurumErisimi(kurumId);
