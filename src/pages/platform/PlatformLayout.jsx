@@ -36,6 +36,14 @@ const KURUM_MENULER = [
       { yol: '/platform/kurum/degerlendirmeler', etiket: 'Değerlendirmeler', ikon: '✅' },
     ]
   },
+  {
+    etiket: 'Resmi İşlemler',
+    ikon: '🏛️',
+    altMenuler: [
+      { yol: '/platform/kurum/resmi-islemler/is-plani', etiket: 'İş Planı & Takip',  ikon: '📋' },
+      { yol: '/platform/kurum/resmi-islemler/evraklar', etiket: 'Evrak Üretimi',     ikon: '📄' },
+    ]
+  },
   { yol: '/platform/kurum/mentor',          etiket: 'Mentor Yönetimi',  ikon: '🎓' },
   { yol: '/platform/kurum/nobet',           etiket: 'Nöbet Yönetimi',   ikon: '🛡️' },
   { yol: '/platform/kurum/kulupler',        etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
@@ -76,17 +84,20 @@ function PlatformSidebar() {
   const [acikSubMenuler, setAcikSubMenuler] = useState(() => {
     return {
       'Kullanıcılar': location.pathname.startsWith('/platform/kurum/kullanicilar') || location.pathname.startsWith('/platform/kurum/ogretmenler'),
-      'Rubrik Yönetimi': location.pathname.startsWith('/platform/kurum/rubrikler') || location.pathname.startsWith('/platform/kurum/degerlendirmeler')
+      'Rubrik Yönetimi': location.pathname.startsWith('/platform/kurum/rubrikler') || location.pathname.startsWith('/platform/kurum/degerlendirmeler'),
+      'Resmi İşlemler': location.pathname.startsWith('/platform/kurum/resmi-islemler')
     }
   })
 
   useEffect(() => {
     const isKullaniciActive = location.pathname.startsWith('/platform/kurum/kullanicilar') || location.pathname.startsWith('/platform/kurum/ogretmenler')
     const isRubrikActive = location.pathname.startsWith('/platform/kurum/rubrikler') || location.pathname.startsWith('/platform/kurum/degerlendirmeler')
+    const isResmiActive = location.pathname.startsWith('/platform/kurum/resmi-islemler')
     setAcikSubMenuler(prev => ({
       ...prev,
       'Kullanıcılar': isKullaniciActive ? true : prev['Kullanıcılar'],
-      'Rubrik Yönetimi': isRubrikActive ? true : prev['Rubrik Yönetimi']
+      'Rubrik Yönetimi': isRubrikActive ? true : prev['Rubrik Yönetimi'],
+      'Resmi İşlemler': isResmiActive ? true : prev['Resmi İşlemler']
     }))
   }, [location.pathname])
 

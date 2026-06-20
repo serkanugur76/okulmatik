@@ -24,6 +24,14 @@ const ADMIN_MENULER = [
       { yol: '/kurum/degerlendirmeler',  etiket: 'Değerlendirmeler', ikon: '📝' },
     ]
   },
+  {
+    etiket: 'Resmi İşlemler',
+    ikon: '🏛️',
+    altMenuler: [
+      { yol: '/kurum/resmi-islemler/is-plani', etiket: 'İş Planı & Takip',  ikon: '📋' },
+      { yol: '/kurum/resmi-islemler/evraklar', etiket: 'Evrak Üretimi',     ikon: '📄' },
+    ]
+  },
   { yol: '/kurum/mentor',            etiket: 'Mentor Yönetimi',  ikon: '🎓' },
   { yol: '/kurum/nobet',             etiket: 'Nöbet Yönetimi',   ikon: '🛡️' },
   { yol: '/kurum/kulupler',          etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
@@ -41,6 +49,14 @@ const OGRETMEN_MENULER = [
     altMenuler: [
       { yol: '/kurum/rubrikler',         etiket: 'Rubrikler',        ikon: '📋' },
       { yol: '/kurum/degerlendirmeler',  etiket: 'Değerlendirmeler', ikon: '📝' },
+    ]
+  },
+  {
+    etiket: 'Resmi İşlemler',
+    ikon: '🏛️',
+    altMenuler: [
+      { yol: '/kurum/resmi-islemler/is-plani', etiket: 'İş Planı & Takip',  ikon: '📋' },
+      { yol: '/kurum/resmi-islemler/evraklar', etiket: 'Evrak Üretimi',     ikon: '📄' },
     ]
   },
   { yol: '/kurum/mentor',            etiket: 'Mentor Programı',  ikon: '🎓' },
@@ -519,17 +535,20 @@ function KurumLayoutInner() {
   const [acikSubMenuler, setAcikSubMenuler] = useState(() => {
     return {
       'Kullanıcılar': location.pathname.startsWith('/kurum/kullanicilar') || location.pathname.startsWith('/kurum/ogretmenler'),
-      'Rubrik Yönetimi': location.pathname.startsWith('/kurum/rubrikler') || location.pathname.startsWith('/kurum/degerlendirmeler')
+      'Rubrik Yönetimi': location.pathname.startsWith('/kurum/rubrikler') || location.pathname.startsWith('/kurum/degerlendirmeler'),
+      'Resmi İşlemler': location.pathname.startsWith('/kurum/resmi-islemler')
     }
   })
 
   useEffect(() => {
     const isKullaniciActive = location.pathname.startsWith('/kurum/kullanicilar') || location.pathname.startsWith('/kurum/ogretmenler')
     const isRubrikActive = location.pathname.startsWith('/kurum/rubrikler') || location.pathname.startsWith('/kurum/degerlendirmeler')
+    const isResmiActive = location.pathname.startsWith('/kurum/resmi-islemler')
     setAcikSubMenuler(prev => ({
       ...prev,
       'Kullanıcılar': isKullaniciActive ? true : prev['Kullanıcılar'],
-      'Rubrik Yönetimi': isRubrikActive ? true : prev['Rubrik Yönetimi']
+      'Rubrik Yönetimi': isRubrikActive ? true : prev['Rubrik Yönetimi'],
+      'Resmi İşlemler': isResmiActive ? true : prev['Resmi İşlemler']
     }))
   }, [location.pathname])
 
