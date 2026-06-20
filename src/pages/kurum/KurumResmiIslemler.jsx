@@ -166,6 +166,9 @@ export default function KurumResmiIslemler() {
   // 1. Simüle Edilen Aktif Rol
   const [simuleRol, setSimuleRol] = useState('ogretmen') // ogretmen, zumre, mudur
 
+  // 1.1 Aktif Dönem Tabı
+  const [aktifDonem, setAktifDonem] = useState('sene_basi') // sene_basi, donem_sonu, yil_sonu
+
   // 2. Prototip Durumları (State)
   const [gorevDurumlari, setGorevDurumlari] = useState(() => {
     // Prototip için varsayılan durumlar oluşturalım
@@ -359,29 +362,70 @@ export default function KurumResmiIslemler() {
         </div>
       </div>
 
-      {/* İstatistik Kartları */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <div style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: '600' }}>Toplam Görev / Evrak</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1E293B', marginTop: '4px' }}>{istatistikler.toplam}</div>
-          <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>MEB Mevzuatı standardı</div>
-        </div>
-        <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <div style={{ fontSize: '0.8rem', color: '#10B981', fontWeight: '600' }}>Tamamlanan / Arşivlenen</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#10B981', marginTop: '4px' }}>{istatistikler.tamamlanan}</div>
-          <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Islak imzalı ve onaylılar dahil</div>
-        </div>
-        <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <div style={{ fontSize: '0.8rem', color: '#F59E0B', fontWeight: '600' }}>İmza ve Onay Bekleyen</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#F59E0B', marginTop: '4px' }}>{istatistikler.onayBekleyen}</div>
-          <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Kontrolü yapılması gerekenler</div>
-        </div>
-        <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <div style={{ fontSize: '0.8rem', color: '#3B82F6', fontWeight: '600' }}>İmza Çağrısı Yapılan</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#3B82F6', marginTop: '4px' }}>{istatistikler.imzayaCagrilan}</div>
-          <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Öğretmenler imzaya bekleniyor</div>
-        </div>
+      {/* Dönem Tabları */}
+      <div style={{
+        display: 'flex',
+        borderBottom: '2px solid #CBD5E1',
+        marginBottom: '2rem',
+        gap: '2rem',
+        overflowX: 'auto',
+        paddingBottom: '2px'
+      }}>
+        {[
+          { id: 'sene_basi', etiket: '📅 Sene Başı İşlemleri' },
+          { id: 'donem_sonu', etiket: '📑 Dönem Ortası / Sonu İşlemleri' },
+          { id: 'yil_sonu', etiket: '🗃️ Sene Sonu İşlemleri' }
+        ].map(tab => {
+          const aktif = aktifDonem === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setAktifDonem(tab.id)}
+              style={{
+                padding: '0.75rem 0.5rem',
+                fontSize: '0.9rem',
+                fontWeight: '700',
+                color: aktif ? '#1B3A6B' : '#64748B',
+                border: 'none',
+                background: 'none',
+                borderBottom: aktif ? '3px solid #1B3A6B' : '3px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
+                marginBottom: '-2px'
+              }}
+            >
+              {tab.etiket}
+            </button>
+          )
+        })}
       </div>
+
+      {aktifDonem === 'sene_basi' ? (
+        <>
+          {/* İstatistik Kartları */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+              <div style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: '600' }}>Toplam Görev / Evrak</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1E293B', marginTop: '4px' }}>{istatistikler.toplam}</div>
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>MEB Mevzuatı standardı</div>
+            </div>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+              <div style={{ fontSize: '0.8rem', color: '#10B981', fontWeight: '600' }}>Tamamlanan / Arşivlenen</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#10B981', marginTop: '4px' }}>{istatistikler.tamamlanan}</div>
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Islak imzalı ve onaylılar dahil</div>
+            </div>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+              <div style={{ fontSize: '0.8rem', color: '#F59E0B', fontWeight: '600' }}>İmza ve Onay Bekleyen</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#F59E0B', marginTop: '4px' }}>{istatistikler.onayBekleyen}</div>
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Kontrolü yapılması gerekenler</div>
+            </div>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+              <div style={{ fontSize: '0.8rem', color: '#3B82F6', fontWeight: '600' }}>İmza Çağrısı Yapılan</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#3B82F6', marginTop: '4px' }}>{istatistikler.imzayaCagrilan}</div>
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Öğretmenler imzaya bekleniyor</div>
+            </div>
+          </div>
 
       {/* Arama ve Filtreleme Paneli */}
       <div style={{
@@ -708,6 +752,48 @@ export default function KurumResmiIslemler() {
           </tbody>
         </table>
       </div>
+    </>
+  ) : (
+        <div style={{
+          background: '#FFFFFF',
+          borderRadius: '16px',
+          padding: '4rem 2rem',
+          textAlign: 'center',
+          border: '1px dashed #CBD5E1',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.02)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1.25rem'
+        }}>
+          <div style={{ fontSize: '4rem', filter: 'drop-shadow(0 10px 10px rgba(0,0,0,0.05))' }}>
+            {aktifDonem === 'donem_sonu' ? '📑' : '🗃️'}
+          </div>
+          <h3 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>
+            {aktifDonem === 'donem_sonu' ? 'Dönem Ortası / Sonu Resmi İşlemleri' : 'Sene Sonu Resmi İşlemleri'}
+          </h3>
+          <p style={{ fontSize: '0.925rem', color: '#64748B', lineHeight: '1.6', margin: 0, maxWidth: '520px' }}>
+            {aktifDonem === 'donem_sonu' 
+              ? 'Dönem sonu yaklaştığında not fişleri, gelişim raporları, dönem sonu kurul ve ŞÖK toplantısı gibi yasal süreçler burada aktif olacaktır.' 
+              : 'Eğitim-öğretim yılı sonunda yapılması gereken sene sonu öğretmenler kurulu kararları, faaliyet raporları ve sınıf demirbaş teslim/iade işlemleri bu sekmede yer alacaktır.'}
+          </p>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            background: 'rgba(27, 58, 107, 0.05)',
+            color: '#1B3A6B',
+            borderRadius: '999px',
+            fontSize: '0.8rem',
+            fontWeight: '700',
+            marginTop: '0.5rem'
+          }}>
+            <span>⏳</span> <span>Zamanı geldiğinde bu sekme doldurulup aktif edilecektir.</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
