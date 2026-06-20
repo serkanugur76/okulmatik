@@ -54,6 +54,9 @@ export default function KurumResmiEvraklar() {
     return [secilenKurumId, ...descendants]
   }, [secilenKurumId, erisimKurumlar])
 
+  // Dependency comparison string for seciliScopeIds array
+  const seciliScopeIdsStr = useMemo(() => seciliScopeIds.join(','), [seciliScopeIds])
+
   // Gerçek Öğretmenler listesi
   const [ogretmenler, setOgretmenler] = useState([])
   const [toplantiDurumu, setToplantiDurumu] = useState('yapilmadi')
@@ -91,7 +94,7 @@ export default function KurumResmiEvraklar() {
       })
     })
     return () => unsubs.forEach(u => u())
-  }, [seciliScopeIds, profil])
+  }, [seciliScopeIdsStr, profil])
 
   // Eğer URL state üzerinden yönlendirme yapıldıysa o şablonu seç
   useEffect(() => {
