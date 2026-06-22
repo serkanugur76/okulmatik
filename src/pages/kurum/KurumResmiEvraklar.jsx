@@ -331,8 +331,9 @@ export default function KurumResmiEvraklar() {
       const altlar = altKurumlar
         .filter(k => k.parentId === kpId)
         .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+      return { kampus: kampusObj, altlar }
     }).filter(g => g.kampus)
-      .sort((a, b) => (a.kampus.ad || '').localeCompare(b.campus.ad || '', 'tr'))
+      .sort((a, b) => (a.kampus.ad || '').localeCompare(b.kampus.ad || '', 'tr'))
 
     // Direct schools not under any campus
     const directAltOkullar = altKurumlar.filter(k => !k.parentId || !kampusIdSet.has(k.parentId))

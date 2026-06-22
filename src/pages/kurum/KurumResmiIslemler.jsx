@@ -382,6 +382,7 @@ export default function KurumResmiIslemler() {
       const altlar = altKurumlar
         .filter(k => k.parentId === kpId)
         .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+      return { kampus: kampusObj, altlar }
     }).filter(g => g.kampus)
       .sort((a, b) => (a.kampus.ad || '').localeCompare(b.kampus.ad || '', 'tr'))
 
