@@ -34,7 +34,7 @@ const SABLONLAR = [
 ]
 
 export default function KurumResmiEvraklar() {
-  const { secilenKurum, secilenKurumId, erisimKurumlar } = useKurumYonetim()
+  const { secilenKurum, secilenKurumId, erisimKurumlar, setSecilenKurumId } = useKurumYonetim()
   const { profil, kullanici } = useAuth()
   const location = useLocation()
 
@@ -300,6 +300,309 @@ export default function KurumResmiEvraklar() {
 
   if (!secilenKurumId) {
     return null
+  }
+
+  const isKampusSeviyesi = secilenKurum?.tip === 'kampus' || secilenKurum?.tip === 'kurum'
+
+  if (isKampusSeviyesi) {
+    const altKurumlar = (erisimKurumlar || []).filter(k => 
+      k.tip === 'altKurum' && 
+      (k.parentId === secilenKurumId || k.rootKurumId === secilenKurumId)
+    )
+
+    // Sort order for schools: ilkokul -> ortaokul -> lise
+    function okulSira(ad = '') {
+      const s = ad.toLocaleLowerCase('tr')
+      if (s.includes('ilkokul'))  return 1
+      if (s.includes('ortaokul')) return 2
+      if (s.includes('lise'))     return 3
+      return 4
+    }
+
+    const campuses = (erisimKurumlar || []).filter(k => k.tip === 'kampus')
+    const kampusIdSet = new Set(campuses.map(c => c.id))
+
+    // Find all unique campus parent IDs among the altKurumlar
+    const altKurumCampuses = [...new Set(altKurumlar.map(k => k.parentId).filter(id => kampusIdSet.has(id)))]
+
+    // Group alt schools by campus
+    const kampusGruplari = altKurumCampuses.map(kpId => {
+      const kampusObj = erisimKurumlar.find(x => x.id === kpId)
+      const altlar = altKurumlar
+        .filter(k => k.parentId === kpId)
+        .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+    }).filter(g => g.kampus)
+      .sort((a, b) => (a.kampus.ad || '').localeCompare(b.campus.ad || '', 'tr'))
+
+    // Direct schools not under any campus
+    const directAltOkullar = altKurumlar.filter(k => !k.parentId || !kampusIdSet.has(k.parentId))
+      .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+
+    return (
+      <div style={{ padding: '2rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes float-warning {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-6px); }
+            100% { transform: translateY(0px); }
+          }
+          .alt-kurum-kart {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          .alt-kurum-kart:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.08) !important;
+            border-color: #3B82F6 !important;
+          }
+        `}} />
+        
+        <div style={{
+          maxWidth: '720px',
+          width: '100%',
+          background: 'linear-gradient(145deg, #FFFFFF 0%, #F8FAFC 100%)',
+          borderRadius: '24px',
+          padding: '3rem 2.5rem',
+          boxShadow: '0 10px 30px rgba(15, 23, 42, 0.05)',
+          border: '1px solid #E2E8F0',
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1.75rem'
+        }}>
+          {/* Beautiful warning/info badge icon */}
+          <div style={{
+            fontSize: '4.5rem',
+            animation: 'float-warning 3s ease-in-out infinite',
+            filter: 'drop-shadow(0 8px 12px rgba(27, 58, 107, 0.1))'
+          }}>
+            🏛️
+          </div>
+          
+          <div>
+            <h2 style={{ fontSize: '1.65rem', fontWeight: '800', color: '#1E293B', margin: '0 0 0.75rem 0', letterSpacing: '-0.02em' }}>
+              Resmi İşlemler İçin Okul Seçimi Gerekli
+            </h2>
+            <p style={{ fontSize: '0.95rem', color: '#64748B', lineHeight: '1.6', margin: 0, maxWidth: '520px' }}>
+              Resmi iş planı ve evrak yönetim süreçleri kampüs düzeyinde değil, okul bazında (İlkokul, Ortaokul veya Lise) yürütülmektedir. Lütfen devam etmek için aşağıdan işlem yapacağınız okulu seçiniz.
+            </p>
+          </div>
+
+          {/* Grouped list of schools by campus */}
+          {kampusGruplari.length > 0 || directAltOkullar.length > 0 ? (
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'left' }}>
+              {kampusGruplari.map(g => (
+                <div key={g.kampus.id} style={{
+                  background: 'rgba(248, 250, 252, 0.6)',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '20px',
+                  padding: '1.25rem 1.5rem 1.5rem 1.5rem',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
+                }}>
+                  <h4 style={{
+                    fontSize: '0.95rem',
+                    fontWeight: '800',
+                    color: '#475569',
+                    margin: '0 0 1rem 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderBottom: '1px solid #E2E8F0',
+                    paddingBottom: '0.5rem'
+                  }}>
+                    <span>🏫</span> {g.kampus.ad}
+                  </h4>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: '1rem'
+                  }}>
+                    {g.altlar.map(k => {
+                      const nameLower = (k.ad || '').toLowerCase()
+                      let cardStyle = { bg: '#EFF6FF', border: '#BFDBFE', color: '#1E40AF', emoji: '🏢', label: 'Okul' }
+                      if (nameLower.includes('ilkokul')) {
+                        cardStyle = { bg: '#ECFDF5', border: '#A7F3D0', color: '#065F46', emoji: '🎒', label: 'İlkokul' }
+                      } else if (nameLower.includes('ortaokul')) {
+                        cardStyle = { bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', emoji: '🏫', label: 'Ortaokul' }
+                      } else if (nameLower.includes('lise')) {
+                        cardStyle = { bg: '#FFF1F2', border: '#FECDD3', color: '#9F1239', emoji: '🎓', label: 'Lise' }
+                      }
+
+                      return (
+                        <div
+                          key={k.id}
+                          className="alt-kurum-kart"
+                          onClick={() => setSecilenKurumId(k.id)}
+                          style={{
+                            background: '#FFFFFF',
+                            border: `1.5px solid #E2E8F0`,
+                            borderRadius: '16px',
+                            padding: '1.25rem 1rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.01)',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <div style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '10px',
+                            backgroundColor: cardStyle.bg,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.5rem'
+                          }}>
+                            {cardStyle.emoji}
+                          </div>
+                          <div>
+                            <div style={{
+                              fontSize: '0.68rem',
+                              fontWeight: '700',
+                              color: cardStyle.color,
+                              backgroundColor: cardStyle.bg,
+                              padding: '1px 6px',
+                              borderRadius: '999px',
+                              display: 'inline-block',
+                              marginBottom: '0.2rem'
+                            }}>
+                              {cardStyle.label}
+                            </div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1E293B', lineHeight: '1.3' }}>
+                              {k.ad}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {directAltOkullar.length > 0 && (
+                <div style={{
+                  background: 'rgba(248, 250, 252, 0.6)',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '20px',
+                  padding: '1.25rem 1.5rem 1.5rem 1.5rem',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
+                }}>
+                  <h4 style={{
+                    fontSize: '0.95rem',
+                    fontWeight: '800',
+                    color: '#475569',
+                    margin: '0 0 1rem 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderBottom: '1px solid #E2E8F0',
+                    paddingBottom: '0.5rem'
+                  }}>
+                    <span>🏢</span> Doğrudan Bağlı Okullar
+                  </h4>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: '1rem'
+                  }}>
+                    {directAltOkullar.map(k => {
+                      const nameLower = (k.ad || '').toLowerCase()
+                      let cardStyle = { bg: '#EFF6FF', border: '#BFDBFE', color: '#1E40AF', emoji: '🏢', label: 'Okul' }
+                      if (nameLower.includes('ilkokul')) {
+                        cardStyle = { bg: '#ECFDF5', border: '#A7F3D0', color: '#065F46', emoji: '🎒', label: 'İlkokul' }
+                      } else if (nameLower.includes('ortaokul')) {
+                        cardStyle = { bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', emoji: '🏫', label: 'Ortaokul' }
+                      } else if (nameLower.includes('lise')) {
+                        cardStyle = { bg: '#FFF1F2', border: '#FECDD3', color: '#9F1239', emoji: '🎓', label: 'Lise' }
+                      }
+
+                      return (
+                        <div
+                          key={k.id}
+                          className="alt-kurum-kart"
+                          onClick={() => setSecilenKurumId(k.id)}
+                          style={{
+                            background: '#FFFFFF',
+                            border: `1.5px solid #E2E8F0`,
+                            borderRadius: '16px',
+                            padding: '1.25rem 1rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.01)',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <div style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '10px',
+                            backgroundColor: cardStyle.bg,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.5rem'
+                          }}>
+                            {cardStyle.emoji}
+                          </div>
+                          <div>
+                            <div style={{
+                              fontSize: '0.68rem',
+                              fontWeight: '700',
+                              color: cardStyle.color,
+                              backgroundColor: cardStyle.bg,
+                              padding: '1px 6px',
+                              borderRadius: '999px',
+                              display: 'inline-block',
+                              marginBottom: '0.2rem'
+                            }}>
+                              {cardStyle.label}
+                            </div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1E293B', lineHeight: '1.3' }}>
+                              {k.ad}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{
+              fontSize: '0.85rem',
+              color: '#94A3B8',
+              fontStyle: 'italic',
+              background: '#F1F5F9',
+              padding: '1rem 2rem',
+              borderRadius: '12px',
+              width: '100%'
+            }}>
+              Yetkili olduğunuz herhangi bir alt okul (ilkokul, ortaokul, lise) bulunmamaktadır.
+            </div>
+          )}
+
+          <div style={{
+            fontSize: '0.8rem',
+            color: '#94A3B8',
+            marginTop: '0.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span>💡</span>
+            <span>Kurum seçiminizi sol üstteki menüden de değiştirebilirsiniz.</span>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
