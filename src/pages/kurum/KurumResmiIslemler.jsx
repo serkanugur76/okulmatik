@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { doc, onSnapshot, deleteDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 
 const SENE_BASI_GOREVLER = [
@@ -164,7 +164,7 @@ const SENE_BASI_GOREVLER = [
 
 export default function KurumResmiIslemler() {
   const { secilenKurum, secilenKurumId, erisimKurumlar, setSecilenKurumId } = useKurumYonetim()
-  const { profil, kullanici } = useAuth()
+  const { profil, kullanici, platformAdmin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -347,6 +347,30 @@ export default function KurumResmiIslemler() {
       ? '/platform/kurum/resmi-islemler/evraklar'
       : '/kurum/resmi-islemler/evraklar'
     navigate(basePath, { state: { sablonId: gorev.id, simuleRol } })
+  }
+
+  const handleSüreçSil = async (gorev) => {
+    if (!window.confirm(`"${gorev.baslik}" sürecini silmek ve sıfırlamak istediğinize emin misiniz?`)) return
+    try {
+      if (gorev.id === 1) {
+        const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', 'seneBasiKurul')
+        await deleteDoc(docRef)
+      }
+      setGorevDurumlari(prev => ({
+        ...prev,
+        [gorev.id]: {
+          ogretmen: 'yapilmadi',
+          zumre: 'yapilmadi',
+          mudur: 'yapilmadi',
+          imzaDurumu: 'imzalanmadi',
+          sonTarih: '2026-09-30'
+        }
+      }))
+      alert('Süreç başarıyla silindi ve sıfırlandı.')
+    } catch (err) {
+      console.error('Süreç silinirken hata oluştu:', err)
+      alert('Süreç silinirken bir hata oluştu: ' + err.message)
+    }
   }
 
   if (!secilenKurumId) {
@@ -1177,6 +1201,28 @@ export default function KurumResmiIslemler() {
                               </div>
                             )}
                           </>
+                        )}
+
+                        {/* MASTER ADMIN (PLATFORM ADMIN) SILME AKSİYONU */}
+                        {platformAdmin && (durum.mudur === 'onaylandi' || durum.imzaDurumu === 'imzalandi') && (
+                          <button
+                            onClick={() => handleSüreçSil(gorev)}
+                            style={{
+                              padding: '5px 10px',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              backgroundColor: '#EF4444',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#DC2626'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#EF4444'}
+                          >
+                            🗑️ Süreci Sil
+                          </button>
                         )}
                       </div>
                     </td>
