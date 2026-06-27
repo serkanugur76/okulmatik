@@ -35,7 +35,7 @@ const SABLONLAR = [
 
 export default function KurumResmiEvraklar() {
   const { secilenKurum, secilenKurumId, erisimKurumlar, setSecilenKurumId } = useKurumYonetim()
-  const { profil, kullanici } = useAuth()
+  const { profil, kullanici, platformAdmin } = useAuth()
   const location = useLocation()
 
   // 1. Şablon Seçimi
@@ -108,6 +108,107 @@ export default function KurumResmiEvraklar() {
       }
     }
   }, [location.state])
+  const [resmiEvraklarDocs, setResmiEvraklarDocs] = useState({})
+  useEffect(() => {
+    if (!secilenKurumId) return
+    const colRef = collection(db, 'kurumlar', secilenKurumId, 'resmiEvraklar')
+    const unsub = onSnapshot(colRef, snapshot => {
+      const docs = {}
+      snapshot.forEach(d => {
+        docs[d.id] = d.data()
+      })
+      setResmiEvraklarDocs(docs)
+    })
+    return () => unsub()
+  }, [secilenKurumId])
+
+  const tumBranslar = useMemo(() => {
+    return resmiEvraklarDocs['seneBasiZumreListesi']?.branslar || [
+      { id: 'turkce', ad: 'Türkçe', sabit: true },
+      { id: 'matematik', ad: 'Matematik', sabit: true },
+      { id: 'sosyal_bilgiler', ad: 'Sosyal Bilgiler (İnkılap Tarihi)', sabit: true },
+      { id: 'fen_bilimleri', ad: 'Fen Bilimleri', sabit: true },
+      { id: 'yabanci_dil', ad: 'Yabancı Dil', sabit: true },
+      { id: 'din_kulturu', ad: 'Din Kültürü', sabit: true },
+      { id: 'muzik', ad: 'Müzik', sabit: true },
+      { id: 'gorsel_sanatlar', ad: 'Görsel Sanatlar', sabit: true },
+      { id: 'beden_egitimi', ad: 'Beden Eğitimi', sabit: true },
+      { id: 'bilisim_teknolojileri', ad: 'Bilişim Teknolojileri', sabit: true },
+      { id: 'uygulamali_dersler', ad: 'Uygulamalı Dersler', sabit: true }
+    ]
+  }, [resmiEvraklarDocs])
+
+  const [seciliBransId, setSeciliBransId] = useState(location.state?.bransId || '')
+
+  useEffect(() => {
+    if (seciliSablonId === 2 && !seciliBransId && tumBranslar.length > 0) {
+      setSeciliBransId(tumBranslar[0].id)
+    }
+  }, [seciliSablonId, seciliBransId, tumBranslar])
+
+  const getOgretmenlerByBrans = (bransId) => {
+    if (!bransId) return ogretmenler
+    const b = tumBranslar.find(x => x.id === bransId)
+    if (!b) return ogretmenler
+    
+    const bIdNorm = b.id.toLowerCase().trim()
+    const bAdNorm = b.ad.toLowerCase().trim()
+    
+    return ogretmenler.filter(o => {
+      const oBranslar = o.branslar || []
+      return oBranslar.some(ub => {
+        const ubNorm = ub.toLowerCase().trim()
+        return bAdNorm.includes(ubNorm) || ubNorm.includes(bAdNorm) || bIdNorm === ubNorm
+      })
+    })
+  }
+
+  const zumreData = useMemo(() => {
+    if (!seciliBransId) return null
+    return resmiEvraklarDocs[`seneBasiZumre_${seciliBransId}`] || null
+  }, [resmiEvraklarDocs, seciliBransId])
+
+  useEffect(() => {
+    if (seciliSablonId === 2 && seciliBransId) {
+      const currentBransAd = tumBranslar.find(b => b.id === seciliBransId)?.ad || ''
+      if (zumreData) {
+        setZumreForm(prev => ({
+          ...prev,
+          ...zumreData,
+          brans: zumreData.brans || currentBransAd
+        }))
+      } else {
+        setZumreForm({
+          akademikYil: '2025-2026',
+          brans: currentBransAd,
+          toplantıNo: '1',
+          tarih: new Date().toISOString().split('T')[0],
+          saat: '10:00',
+          yer: 'Öğretmenler Odası',
+          katilimcilar: '',
+          zumreBaskani: '',
+          gundem: '1. Açılış ve yoklama.\n2. Yıllık planların ve müfredat dağılımlarının incelenmesi.\n3. Ölçme ve değerlendirme kriterlerinin belirlenmesi.\n4. Kaynak kitapların seçimi ve dilekler.',
+          kararlar: ''
+        })
+      }
+    }
+  }, [seciliSablonId, seciliBransId, zumreData, tumBranslar])
+
+  const saveZumreToFirestore = async (newFields = {}, newStatus = null) => {
+    if (!secilenKurumId || !seciliBransId) return
+    const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', `seneBasiZumre_${seciliBransId}`)
+    const updateData = {
+      ...zumreForm,
+      ...newFields
+    }
+    if (newStatus) {
+      updateData.status = newStatus
+    } else if (zumreData?.status) {
+      updateData.status = zumreData.status
+    }
+    await setDoc(docRef, updateData, { merge: true })
+  }
+
 
   // 2. Form State'leri
   // A. Sene Başı Öğretmenler Kurulu State (Örnek isimler kaldırıldı, varsayılanlar boş)
@@ -297,6 +398,12 @@ export default function KurumResmiEvraklar() {
       alert(`${aktifSablon.baslik} başarıyla dolduruldu ve ${aktifSablon.kod} dosya koduyla okul müdürlüğünün onayına sunuldu.`)
     }, 800)
   }
+
+  const userIsZumreBaskani = useMemo(() => {
+    const bBaskan = zumreForm.zumreBaskani || ''
+    if (!bBaskan) return false
+    return profil?.ad === bBaskan || (simuleRol === 'ogretmen' && simuleOgretmenAd === bBaskan)
+  }, [zumreForm.zumreBaskani, profil, simuleRol, simuleOgretmenAd])
 
   if (!secilenKurumId) {
     return null
@@ -670,95 +777,7 @@ export default function KurumResmiEvraklar() {
         {/* SOL SÜTUN: Şablon Seçici & Form Alanı */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
-          {/* Rol Seçici Simülatör */}
-          <div style={{
-            background: 'linear-gradient(135deg, #1B3A6B 0%, #3B82F6 100%)',
-            borderRadius: '12px',
-            padding: '1.25rem',
-            color: '#FFFFFF',
-            boxShadow: '0 4px 15px rgba(27, 58, 107, 0.15)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: '700', letterSpacing: '0.05em', color: '#93C5FD', textTransform: 'uppercase' }}>
-                👤 Aktif Rol Simülasyonu
-              </span>
-              <span style={{
-                fontSize: '0.7rem',
-                padding: '2px 8px',
-                background: 'rgba(255, 255, 255, 0.2)',
-                borderRadius: '12px',
-                fontWeight: '700'
-              }}>
-                {toplantiDurumu === 'yapilmadi' ? 'Başlatılmadı' : 
-                 toplantiDurumu === 'davet_aktif' ? 'Davet Aktif' : 
-                 toplantiDurumu === 'yazman_doldurma' ? 'Yazman Yetkili' : 
-                 toplantiDurumu === 'mudur_onay' ? 'Müdür Onayında' : 'Kapatıldı/Arşiv'}
-              </span>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <button
-                onClick={() => setSimuleRol('ogretmen')}
-                style={{
-                  padding: '8px', fontSize: '0.8rem', fontWeight: '700', border: 'none', borderRadius: '8px', cursor: 'pointer',
-                  backgroundColor: simuleRol === 'ogretmen' ? '#FFFFFF' : 'rgba(255,255,255,0.1)',
-                  color: simuleRol === 'ogretmen' ? '#1B3A6B' : '#FFFFFF',
-                  transition: 'all 0.15s'
-                }}
-              >
-                Öğretmen / Yazman
-              </button>
-              <button
-                onClick={() => setSimuleRol('mudur')}
-                style={{
-                  padding: '8px', fontSize: '0.8rem', fontWeight: '700', border: 'none', borderRadius: '8px', cursor: 'pointer',
-                  backgroundColor: simuleRol === 'mudur' ? '#FFFFFF' : 'rgba(255,255,255,0.1)',
-                  color: simuleRol === 'mudur' ? '#1B3A6B' : '#FFFFFF',
-                  transition: 'all 0.15s'
-                }}
-              >
-                Okul Müdürü
-              </button>
-            </div>
 
-            {simuleRol === 'ogretmen' && ogretmenler.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                <label style={{ fontSize: '0.72rem', color: '#E0F2FE', fontWeight: '700' }}>Öğretmen Seçin:</label>
-                <select
-                  value={simuleOgretmenAd}
-                  onChange={e => setSimuleOgretmenAd(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px',
-                    fontSize: '0.8rem',
-                    border: 'none',
-                    borderRadius: '6px',
-                    backgroundColor: '#FFFFFF',
-                    color: '#1E293B',
-                    fontWeight: '600',
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {ogretmenler.map(o => (
-                    <option key={o.id} value={o.ad}>
-                      {o.ad} {o.ad === kurulForm.yazmanAsil1 || o.ad === kurulForm.yazmanAsil2 ? '✍️ (Yazman)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            
-            <div style={{ fontSize: '0.7rem', color: '#93C5FD', fontStyle: 'italic', lineHeight: '1.3' }}>
-              {isMudur && "Müdür yetkisi aktif. Süreci başlatabilir ve yazmanları atayabilirsiniz."}
-              {isYazman && toplantiDurumu === 'yazman_doldurma' && "Seçilen Yazmansınız! Evrak doldurma/düzenleme yetkiniz aktiftir."}
-              {isYazman && toplantiDurumu !== 'yazman_doldurma' && `Seçilen Yazmansınız, ancak evrak şu an ${toplantiDurumu === 'davet_aktif' ? 'davet aşamasındadır' : 'müdür onayındadır / kapatılmıştır'}. Düzenleme kilitlidir.`}
-              {simuleRol === 'ogretmen' && !isYazman && "Yetki Kilitli: Bu kurulun yazmanı olmadığınız için sadece okuyabilirsiniz."}
-            </div>
-          </div>
 
           {/* Şablon Seçim Kartı */}
           <div style={{
@@ -791,7 +810,8 @@ export default function KurumResmiEvraklar() {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                    <span style={{ fontWeight: '700', fontSize: '0.85rem', color: seciliSablonId === s.id ? '#1B3A6B' : '#1E293B' }}>
+                    <span style={{ fontWeight: '700', fontSize: '0.85rem', color: seciliSablonId === s.id ? '#1B3A6B' : '#1E293B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {platformAdmin && (s.id === 1 || s.id === 2) && <span title="Mutabakat Kilidi">🔒</span>}
                       {s.baslik}
                     </span>
                     <span style={{ fontSize: '0.68rem', fontFamily: 'monospace', background: '#E2E8F0', padding: '2px 6px', borderRadius: '4px', color: '#475569', fontWeight: '600' }}>
@@ -814,7 +834,25 @@ export default function KurumResmiEvraklar() {
             padding: '1.5rem',
             boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
           }}>
-            {seciliSablonId === 1 && toplantiDurumu !== 'yapilmadi' && (
+            {seciliSablonId === 1 && !isMudur && toplantiDurumu === 'yapilmadi' ? (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '3rem 1.5rem',
+                textAlign: 'center',
+                gap: '1.25rem'
+              }}>
+                <div style={{ fontSize: '3.5rem', filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.05))' }}>⏳</div>
+                <h4 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>Başlatılmadı</h4>
+                <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0, lineHeight: '1.6', maxWidth: '320px' }}>
+                  Sene Başı Öğretmenler Kurulu Toplantısı süreci henüz okul müdürü tarafından başlatılmamıştır.
+                </p>
+              </div>
+            ) : (
+              <>
+                {seciliSablonId === 1 && toplantiDurumu !== 'yapilmadi' && (
               <div style={{
                 background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
                 border: '1.5px solid #F59E0B',
@@ -1372,14 +1410,52 @@ export default function KurumResmiEvraklar() {
             {/* B. ZÜMRE TUTANAĞI FORMU */}
             {seciliSablonId === 2 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                
+                {/* Branş Seçim Dropdown */}
+                <div style={{
+                  background: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '10px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px'
+                }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '800', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>📚</span> İşlem Yapılacak Branş Zümresi:
+                  </label>
+                  <select
+                    value={seciliBransId}
+                    onChange={e => setSeciliBransId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      border: '1.5px solid #CBD5E1',
+                      borderRadius: '6px',
+                      backgroundColor: '#FFFFFF',
+                      color: '#1E293B',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {tumBranslar.map(b => (
+                      <option key={b.id} value={b.id}>
+                        {b.ad} {!b.sabit ? '(Seçmeli)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
                     <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748B' }}>Branş / Zümre</label>
                     <input
                       type="text"
                       value={zumreForm.brans}
-                      onChange={e => setZumreForm({ ...zumreForm, brans: e.target.value })}
-                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
+                      disabled={true}
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px', backgroundColor: '#F1F5F9' }}
                     />
                   </div>
                   <div>
@@ -1445,12 +1521,27 @@ export default function KurumResmiEvraklar() {
 
                 <div>
                   <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748B' }}>Zümre Başkanı</label>
-                  <input
-                    type="text"
-                    value={zumreForm.zumreBaskani}
-                    onChange={e => setZumreForm({ ...zumreForm, zumreBaskani: e.target.value })}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
-                  />
+                  {isMudur && (zumreData?.status || 'yapilmadi') !== 'onaylandi_kapatildi' ? (
+                    <select
+                      value={zumreForm.zumreBaskani}
+                      onChange={e => setZumreForm({ ...zumreForm, zumreBaskani: e.target.value })}
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px', backgroundColor: '#FFFFFF', cursor: 'pointer', fontWeight: '600' }}
+                    >
+                      <option value="">— Zümre Başkanı Seçin —</option>
+                      {getOgretmenlerByBrans(seciliBransId).map(o => (
+                        <option key={o.id} value={o.ad}>
+                          {o.ad}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={zumreForm.zumreBaskani}
+                      disabled={true}
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid #CBD5E1', borderRadius: '6px', marginTop: '4px' }}
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -1876,6 +1967,115 @@ export default function KurumResmiEvraklar() {
                     <span>🖨️</span> <span>{toplantiDurumu === 'onaylandi_kapatildi' ? 'Resmi Çıktı Al (Yazdır)' : 'Evrak Çıktısı Al (Önizleme)'}</span>
                   </button>
                 </>
+              ) : seciliSablonId === 2 ? (
+                // ZÜMRE TUTANAĞI AKTİF AKSİYON BUTONLARI
+                <>
+                  {isMudur && (
+                    <>
+                      {(zumreData?.status || 'yapilmadi') === 'yapilmadi' && (
+                        <button
+                          onClick={async () => {
+                            if (!zumreForm.zumreBaskani) {
+                              alert('Lütfen bir Zümre Başkanı seçin!')
+                              return
+                            }
+                            await saveZumreToFirestore({}, 'baskan_secildi')
+                            alert('Zümre Başkanı görevlendirildi ve süreç başlatıldı!')
+                          }}
+                          style={{ width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem', marginBottom: '8px' }}
+                        >
+                          🚀 Görevlendir ve Süreci Başlat
+                        </button>
+                      )}
+                      {((zumreData?.status) === 'baskan_secildi' || zumreData?.status === 'zumre_doldurma') && (
+                        <button
+                          onClick={async () => {
+                            if (!zumreForm.zumreBaskani) {
+                              alert('Lütfen bir Zümre Başkanı seçin!')
+                              return
+                            }
+                            await saveZumreToFirestore({}, zumreData.status)
+                            alert('Görevlendirme başarıyla güncellendi!')
+                          }}
+                          style={{ width: '100%', padding: '12px', backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem', marginBottom: '8px' }}
+                        >
+                          💾 Görevlendirmeyi Güncelle
+                        </button>
+                      )}
+                      {zumreData?.status === 'mudur_onay' && (
+                        <button
+                          onClick={async () => {
+                            await saveZumreToFirestore({}, 'onaylandi_kapatildi')
+                            alert('Zümre onaylandı ve süreç kapatıldı!')
+                          }}
+                          style={{ width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem', marginBottom: '8px' }}
+                        >
+                          ✅ Zümreyi Onayla ve Kapat
+                        </button>
+                      )}
+                    </>
+                  )}
+
+                  {!isMudur && userIsZumreBaskani && (
+                    <>
+                      {zumreData?.status === 'baskan_secildi' && (
+                        <button
+                          onClick={async () => {
+                            await saveZumreToFirestore({}, 'zumre_doldurma')
+                            alert('Toplantı planlandı ve zümre doldurma süreci başlatıldı!')
+                          }}
+                          style={{ width: '100%', padding: '12px', backgroundColor: '#8B5CF6', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem', marginBottom: '8px' }}
+                        >
+                          📅 Toplantıyı Planla ve Süreci Başlat
+                        </button>
+                      )}
+                      {zumreData?.status === 'zumre_doldurma' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginBottom: '8px' }}>
+                          <button
+                            onClick={async () => {
+                              await saveZumreToFirestore({}, 'zumre_doldurma')
+                              alert('Zümre taslağı başarıyla kaydedildi!')
+                            }}
+                            style={{ width: '100%', padding: '12px', backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem' }}
+                          >
+                            💾 Taslağı Kaydet
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await saveZumreToFirestore({}, 'mudur_onay')
+                              alert('Zümre dolduruldu ve müdür onayına gönderildi!')
+                            }}
+                            style={{ width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem' }}
+                          >
+                            📤 Müdür Onayına Gönder
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  <button
+                    onClick={handleYazdir}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      backgroundColor: '#1B3A6B',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      transition: 'background 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>🖨️</span> <span>Evrak Çıktısı Al (Yazdır)</span>
+                  </button>
+                </>
               ) : (
                 // DİĞER RESMİ EVRAKLAR İÇİN VARSAYILAN BUTONLAR
                 <>
@@ -1922,6 +2122,8 @@ export default function KurumResmiEvraklar() {
                 </>
               )}
             </div>
+              </>
+            )}
 
           </div>
         </div>
@@ -1929,14 +2131,7 @@ export default function KurumResmiEvraklar() {
         {/* SAĞ SÜTUN: A4 Canlı Önizleme */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: '700' }}>
-              👁️ A4 Sayfa Ön İzleme (Canlı Güncellenir)
-            </span>
-            <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
-              Yazıcı çıktısı bu şablona göre birebir A4 formatında ayarlanır.
-            </span>
-          </div>
+
 
           {/* A4 Kağıt Konteyneri */}
           <div
@@ -1992,7 +2187,24 @@ export default function KurumResmiEvraklar() {
               
               {/* A. SENE BAŞI ÖĞRETMENLER KURULU TUTANAĞI İÇERİĞİ */}
               {seciliSablonId === 1 && (
-                <div style={{ fontSize: '0.85rem' }}>
+                <>
+                  {!isMudur && toplantiDurumu === 'yapilmadi' ? (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      minHeight: '200mm',
+                      fontSize: '1.5rem',
+                      fontWeight: 'bold',
+                      color: '#94A3B8',
+                      border: '2px dashed #E2E8F0',
+                      borderRadius: '8px'
+                    }}>
+                      Başlatılmadı
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.85rem' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem', fontSize: '0.8rem' }}>
                     <tbody>
                       <tr style={{ borderBottom: '1px solid #000' }}><td style={{ padding: '4px 0', fontWeight: 'bold', width: '150px' }}>Eğitim Öğretim Yılı:</td><td>{kurulForm.akademikYil || '—'}</td><td style={{ fontWeight: 'bold', width: '100px' }}>Karar No:</td><td>{kurulForm.kararNo || '—'}</td></tr>
@@ -2085,7 +2297,9 @@ export default function KurumResmiEvraklar() {
 
                   <div style={{ fontWeight: 'bold', marginTop: '0.75rem', textDecoration: 'underline' }}>KAPANIŞ, DİLEK VE TEMENNİLER:</div>
                   <p style={{ fontSize: '0.8rem', marginTop: '0.25rem', textIndent: '1.5em', margin: 0 }}>{kurulForm.dilekler}</p>
-                </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* B. ZÜMRE TUTANAĞI İÇERİĞİ */}
@@ -2170,7 +2384,8 @@ export default function KurumResmiEvraklar() {
             </div>
 
             {/* İMZALAR */}
-            <div className="print-no-break" style={{ marginTop: '2.5rem', borderTop: '1px dashed #E2E8F0', paddingTop: '1rem' }}>
+            {!(seciliSablonId === 1 && !isMudur && toplantiDurumu === 'yapilmadi') && (
+              <div className="print-no-break" style={{ marginTop: '2.5rem', borderTop: '1px dashed #E2E8F0', paddingTop: '1rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', textAlign: 'center', fontSize: '0.8rem' }}>
                 
                 {/* Sol İmza Grubu (Öğretmenler) */}
@@ -2206,6 +2421,7 @@ export default function KurumResmiEvraklar() {
                 </div>
               </div>
             </div>
+            )}
 
           </div>
 

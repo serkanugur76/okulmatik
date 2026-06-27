@@ -59,6 +59,7 @@ function MenuLink({ yol, ikon, etiket, end = false }) {
     <NavLink
       to={yol}
       end={end}
+      className="sidebar-nav-item"
       style={({ isActive }) => ({
         display: 'flex', alignItems: 'center', gap: '0.75rem',
         padding: '0.65rem 1.25rem', textDecoration: 'none',
@@ -69,8 +70,8 @@ function MenuLink({ yol, ikon, etiket, end = false }) {
         transition: 'all 0.15s',
       })}
     >
-      <span>{ikon}</span>
-      <span>{etiket}</span>
+      <span className="nav-icon">{ikon}</span>
+      <span className="nav-text">{etiket}</span>
     </NavLink>
   )
 }
@@ -120,20 +121,6 @@ function PlatformSidebar() {
     return !!ust?.parentId
   })
 
-  // Seçili kurum için breadcrumb: root → kampüs → altKurum
-  function buildBreadcrumb(kurum) {
-    if (!kurum) return []
-    const parts = [kurum.ad]
-    let current = kurum
-    while (current.parentId) {
-      const parent = erisimKurumlar.find(k => k.id === current.parentId)
-      if (!parent) break
-      parts.unshift(parent.ad)
-      current = parent
-    }
-    return parts
-  }
-
   // optgroup yapısı: root → [ { kampus, altlar[] } ]
   const kurumGruplari = rootKurumlar.map(root => ({
     root,
@@ -147,32 +134,50 @@ function PlatformSidebar() {
       })),
   }))
 
+  const seciliKurumObj = erisimKurumlar.find(k => k.id === secilenKurumId)
+  const selectEmoji = (() => {
+    if (!seciliKurumObj) return '🏢'
+    if (seciliKurumObj.tip === 'kurum') return '🏛️'
+    if (seciliKurumObj.tip === 'kampus') return '🏫'
+    const nameLower = (seciliKurumObj.ad || '').toLowerCase()
+    if (nameLower.includes('ilkokul')) return '🎒'
+    if (nameLower.includes('ortaokul')) return '🏫'
+    if (nameLower.includes('lise')) return '🎓'
+    return '🏢'
+  })()
+
   async function handleCikis() {
     await cikisYap()
     navigate('/giris')
   }
 
   return (
-    <aside style={{
+    <aside className="sidebar-aside" style={{
       width: '240px', height: '100vh', background: SIDEBAR_BG,
       display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0,
+      zIndex: 100, transition: 'width 0.2s',
     }}>
       {/* Logo + badge */}
       <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: `1px solid ${BORDER_COLOR}` }}>
-        <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#fff' }}>📚 Okulmatik</div>
-        <div style={{
-          display: 'inline-block', marginTop: '0.375rem',
-          fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.08em',
-          background: '#4338CA', color: '#C7D2FE',
-          padding: '2px 8px', borderRadius: '999px', textTransform: 'uppercase',
-        }}>
-          ⚙ Platform Yöneticisi
+        <div className="sidebar-logo-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="sidebar-logo" style={{ fontSize: '1.2rem', fontWeight: '700', color: '#fff' }}>
+            <span className="logo-emoji">📚</span>
+            <span className="logo-text"> Okulmatik</span>
+          </div>
+          <div className="sidebar-badge" style={{
+            display: 'inline-block',
+            fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.08em',
+            background: '#4338CA', color: '#C7D2FE',
+            padding: '2px 8px', borderRadius: '999px', textTransform: 'uppercase',
+          }}>
+            ⚙ Admin
+          </div>
         </div>
       </div>
 
       <nav style={{ flex: 1, overflowY: 'auto', paddingBottom: '0.5rem' }}>
         {/* ── Platform Yönetimi ── */}
-        <div style={{ padding: '0.75rem 1.25rem 0.25rem', fontSize: '0.65rem', fontWeight: '700',
+        <div className="sidebar-section-title" style={{ padding: '0.75rem 1.25rem 0.25rem', fontSize: '0.65rem', fontWeight: '700',
           color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           Platform
         </div>
@@ -181,40 +186,47 @@ function PlatformSidebar() {
         ))}
 
         {/* ── Kurum Operasyonları ── */}
-        <div style={{ padding: '0.875rem 1.25rem 0.25rem', fontSize: '0.65rem', fontWeight: '700',
+        <div className="sidebar-section-title" style={{ padding: '0.875rem 1.25rem 0.25rem', fontSize: '0.65rem', fontWeight: '700',
           color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase',
           borderTop: `1px solid ${BORDER_COLOR}`, marginTop: '0.5rem' }}>
           Kurum Operasyonları
         </div>
 
         {/* Kurum seçici */}
-        <div style={{ padding: '0 1rem 0.5rem' }}>
-          <select
-            value={secilenKurumId || ''}
-            onChange={e => setSecilenKurumId(e.target.value || null)}
-            style={{
-              width: '100%', background: 'rgba(255,255,255,0.1)', color: '#fff',
-              border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px',
-              padding: '0.375rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer',
-            }}
-          >
-            <option value="" style={{ background: SIDEBAR_BG }}>— Kurum seçin —</option>
-            {kurumGruplari.flatMap(({ root, kampusGruplari }) => [
-              <optgroup key={`root-${root.id}`} label={`🏛 ${root.ad.toUpperCase()}`}>
-                <option value={root.id} style={{ background: SIDEBAR_BG }}>🏛 {root.ad}</option>
-              </optgroup>,
-              ...kampusGruplari.map(({ kampus, altKurumlar: altlar }) => (
-                <optgroup key={kampus.id} label={`  🏫 ${kampus.ad}`}>
-                  <option value={kampus.id} style={{ background: SIDEBAR_BG }}>🏫 {kampus.ad}</option>
-                  {altlar.map(ak => (
-                    <option key={ak.id} value={ak.id} style={{ background: SIDEBAR_BG }}>
-                      {'  '}└ {ak.ad}
-                    </option>
-                  ))}
-                </optgroup>
-              )),
-            ])}
-          </select>
+        <div className="sidebar-select-container" style={{ padding: '0 1rem 0.5rem' }}>
+          <div className="sidebar-select-label" style={{ display: 'none' }} />
+          <div className="select-wrapper">
+            <select
+              value={secilenKurumId || ''}
+              onChange={e => setSecilenKurumId(e.target.value || null)}
+              className="kurum-select"
+              style={{
+                width: '100%', background: 'rgba(255,255,255,0.1)', color: '#fff',
+                border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px',
+                padding: '0.375rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer',
+              }}
+            >
+              <option value="" style={{ background: SIDEBAR_BG }}>— Kurum seçin —</option>
+              {kurumGruplari.flatMap(({ root, kampusGruplari }) => [
+                <optgroup key={`root-${root.id}`} label={`🏛 ${root.ad.toUpperCase()}`}>
+                  <option value={root.id} style={{ background: SIDEBAR_BG }}>🏛 {root.ad}</option>
+                </optgroup>,
+                ...kampusGruplari.map(({ kampus, altKurumlar: altlar }) => (
+                  <optgroup key={kampus.id} label={`  🏫 ${kampus.ad}`}>
+                    <option value={kampus.id} style={{ background: SIDEBAR_BG }}>🏫 {kampus.ad}</option>
+                    {altlar.map(ak => (
+                      <option key={ak.id} value={ak.id} style={{ background: SIDEBAR_BG }}>
+                        {'  '}└ {ak.ad}
+                      </option>
+                    ))}
+                  </optgroup>
+                )),
+              ])}
+            </select>
+            <div className="select-visual" style={{ display: 'none' }}>
+              {selectEmoji}
+            </div>
+          </div>
         </div>
 
         {KURUM_MENULER.map(m => {
@@ -225,6 +237,7 @@ function PlatformSidebar() {
               <div key={m.etiket}>
                 <button
                   onClick={() => setAcikSubMenuler(prev => ({ ...prev, [m.etiket]: !prev[m.etiket] }))}
+                  className="sidebar-nav-item"
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '0.65rem 1.25rem', background: 'transparent', border: 'none',
@@ -237,20 +250,21 @@ function PlatformSidebar() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <span>{m.ikon}</span>
-                    <span>{m.etiket}</span>
+                    <span className="nav-icon">{m.ikon}</span>
+                    <span className="nav-text">{m.etiket}</span>
                   </div>
-                  <span style={{ fontSize: '0.7rem', opacity: 0.7, transform: isMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                  <span className="nav-arrow" style={{ fontSize: '0.7rem', opacity: 0.7, transform: isMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
                     ▼
                   </span>
                 </button>
 
                 {isMenuOpen && (
-                  <div style={{ background: 'rgba(0,0,0,0.15)', paddingLeft: '0.5rem' }}>
+                  <div className="sidebar-submenu" style={{ background: 'rgba(0,0,0,0.15)', paddingLeft: '0.5rem' }}>
                     {m.altMenuler.map(sub => (
                       <NavLink
                         key={sub.yol}
                         to={sub.yol}
+                        className="sidebar-sub-item"
                         style={({ isActive }) => ({
                           display: 'flex', alignItems: 'center', gap: '0.75rem',
                           padding: '0.6rem 1.25rem', textDecoration: 'none',
@@ -261,8 +275,8 @@ function PlatformSidebar() {
                           transition: 'all 0.15s',
                         })}
                       >
-                        <span>{sub.ikon}</span>
-                        <span>{sub.etiket}</span>
+                        <span className="nav-icon">{sub.ikon}</span>
+                        <span className="nav-text">{sub.etiket}</span>
                       </NavLink>
                     ))}
                   </div>
@@ -279,7 +293,7 @@ function PlatformSidebar() {
 
       {/* Kullanıcı + çıkış */}
       <div style={{ padding: '1rem 1.25rem', borderTop: `1px solid ${BORDER_COLOR}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+        <div className="sidebar-user-container" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
           {profil?.photoURL ? (
             <img
               src={profil.photoURL}
@@ -301,7 +315,7 @@ function PlatformSidebar() {
               })()}
             </div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+          <div className="sidebar-user-info" style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
             <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={profil?.ad}>
               {profil?.ad || 'Platform Yöneticisi'}
             </span>
@@ -312,7 +326,7 @@ function PlatformSidebar() {
         </div>
 
         {/* Yetki Rozeti */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '0.75rem' }}>
+        <div className="sidebar-badges-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '0.75rem' }}>
           <span style={{
             fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.03em',
             background: 'rgba(99,102,241,0.2)', color: '#A5B4FC',
@@ -323,14 +337,15 @@ function PlatformSidebar() {
           </span>
         </div>
 
-        <button onClick={handleCikis} style={{
+        <button onClick={handleCikis} className="sidebar-logout-btn" style={{
           width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.08)',
           color: '#fff', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px',
           fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s',
         }}
         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
         onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>
-          Çıkış Yap
+          <span className="logout-text">Çıkış Yap</span>
+          <span className="logout-icon" style={{ display: 'none' }}>🚪</span>
         </button>
       </div>
     </aside>
@@ -352,7 +367,7 @@ function PlatformMain() {
 
   if (isKurumRoute && !secilenKurumId) {
     return (
-      <main style={{ marginLeft: '240px', flex: 1, padding: '2rem', position: 'relative' }}>
+      <main className="sidebar-main" style={{ marginLeft: '240px', flex: 1, padding: '2rem', position: 'relative' }}>
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -440,7 +455,7 @@ function PlatformMain() {
     || erisimKurumlar.find(k => !k.parentId)?.logoUrl
 
   return (
-    <main style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
+    <main className="sidebar-main" style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
       {/* Breadcrumb + Logo satırı */}
       {breadcrumb.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', gap: '1rem' }}>
@@ -469,6 +484,119 @@ export default function PlatformLayout() {
   return (
     <KurumYonetimProvider>
       <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media (max-width: 768px) {
+            .sidebar-aside {
+              width: 64px !important;
+            }
+            .sidebar-main {
+              margin-left: 64px !important;
+              padding: 1rem !important;
+            }
+            .sidebar-logo-container {
+              justify-content: center !important;
+              margin-bottom: 0 !important;
+            }
+            .sidebar-logo {
+              text-align: center !important;
+              font-size: 1.5rem !important;
+            }
+            .logo-text {
+              display: none !important;
+            }
+            .sidebar-badge {
+              display: none !important;
+            }
+            .sidebar-section-title {
+              display: none !important;
+            }
+            .sidebar-select-label {
+              display: none !important;
+            }
+            .sidebar-select-container {
+              margin-top: 0.5rem !important;
+              padding: 0 0.5rem !important;
+            }
+            .select-wrapper {
+              width: 36px !important;
+              height: 36px !important;
+              margin: 0 auto !important;
+              border-radius: 50% !important;
+              background: rgba(255, 255, 255, 0.1) !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              position: relative !important;
+              overflow: hidden !important;
+            }
+            .kurum-select {
+              opacity: 0 !important;
+              position: absolute !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 100% !important;
+              height: 100% !important;
+              z-index: 2 !important;
+              cursor: pointer !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            .select-visual {
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              font-size: 1.1rem !important;
+              pointer-events: none !important;
+            }
+            .sidebar-nav-item {
+              padding: 0.75rem 0 !important;
+              justify-content: center !important;
+              border-left-width: 3px !important;
+            }
+            .nav-text {
+              display: none !important;
+            }
+            .nav-arrow {
+              display: none !important;
+            }
+            .sidebar-submenu {
+              padding-left: 0 !important;
+              background: rgba(0, 0, 0, 0.2) !important;
+            }
+            .sidebar-sub-item {
+              padding: 0.65rem 0 !important;
+              justify-content: center !important;
+              border-left-width: 3px !important;
+            }
+            .sidebar-user-container {
+              justify-content: center !important;
+              margin-bottom: 0 !important;
+            }
+            .sidebar-user-info {
+              display: none !important;
+            }
+            .sidebar-badges-container {
+              display: none !important;
+            }
+            .sidebar-logout-btn {
+              width: 36px !important;
+              height: 36px !important;
+              padding: 0 !important;
+              border-radius: 50% !important;
+              margin: 0.5rem auto 0 auto !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+            }
+            .logout-text {
+              display: none !important;
+            }
+            .logout-icon {
+              display: inline !important;
+              font-size: 1.1rem !important;
+            }
+          }
+        `}} />
         <PlatformSidebar />
         <PlatformMain />
       </div>

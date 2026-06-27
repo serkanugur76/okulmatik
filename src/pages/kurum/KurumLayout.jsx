@@ -610,17 +610,143 @@ function KurumLayoutInner() {
     return null
   })()
 
+  const seciliKurumObj = erisimKurumlar.find(k => k.id === secilenKurumId)
+  const selectEmoji = (() => {
+    if (!seciliKurumObj) return '🏢'
+    if (seciliKurumObj.tip === 'kurum') return '🏛️'
+    if (seciliKurumObj.tip === 'kampus') return '🏫'
+    const nameLower = (seciliKurumObj.ad || '').toLowerCase()
+    if (nameLower.includes('ilkokul')) return '🎒'
+    if (nameLower.includes('ortaokul')) return '🏫'
+    if (nameLower.includes('lise')) return '🎓'
+    return '🏢'
+  })()
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
-      <aside style={{
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 768px) {
+          .sidebar-aside {
+            width: 64px !important;
+          }
+          .sidebar-main {
+            margin-left: 64px !important;
+            padding: 1rem !important;
+          }
+          .sidebar-logo-container {
+            justify-content: center !important;
+            margin-bottom: 0 !important;
+          }
+          .sidebar-logo {
+            text-align: center !important;
+            font-size: 1.5rem !important;
+          }
+          .logo-text {
+            display: none !important;
+          }
+          .sidebar-badge {
+            display: none !important;
+          }
+          .sidebar-select-label {
+            display: none !important;
+          }
+          .sidebar-select-container {
+            margin-top: 0.5rem !important;
+            padding: 0 0.5rem !important;
+          }
+          .select-wrapper {
+            width: 36px !important;
+            height: 36px !important;
+            margin: 0 auto !important;
+            border-radius: 50% !important;
+            background: rgba(255, 255, 255, 0.12) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            position: relative !important;
+            overflow: hidden !important;
+          }
+          .kurum-select {
+            opacity: 0 !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 2 !important;
+            cursor: pointer !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .select-visual {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 1.1rem !important;
+            pointer-events: none !important;
+          }
+          .sidebar-nav-item {
+            padding: 0.75rem 0 !important;
+            justify-content: center !important;
+            border-left-width: 3px !important;
+          }
+          .nav-text {
+            display: none !important;
+          }
+          .nav-arrow {
+            display: none !important;
+          }
+          .sidebar-submenu {
+            padding-left: 0 !important;
+            background: rgba(0, 0, 0, 0.2) !important;
+          }
+          .sidebar-sub-item {
+            padding: 0.65rem 0 !important;
+            justify-content: center !important;
+            border-left-width: 3px !important;
+          }
+          .sidebar-user-container {
+            justify-content: center !important;
+            margin-bottom: 0 !important;
+          }
+          .sidebar-user-info {
+            display: none !important;
+          }
+          .sidebar-badges-container {
+            display: none !important;
+          }
+          .sidebar-logout-btn {
+            width: 36px !important;
+            height: 36px !important;
+            padding: 0 !important;
+            border-radius: 50% !important;
+            margin: 0.5rem auto 0 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+          .logout-text {
+            display: none !important;
+          }
+          .logout-icon {
+            display: inline !important;
+            font-size: 1.1rem !important;
+          }
+        }
+      `}} />
+      <aside className="sidebar-aside" style={{
         width: '240px', height: '100vh', background: '#1B3A6B',
         display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0,
+        zIndex: 100, transition: 'width 0.2s',
       }}>
         <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: rozet ? '0.5rem' : '0' }}>
-            <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>📚 Okulmatik</div>
+          <div className="sidebar-logo-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: rozet ? '0.5rem' : '0' }}>
+            <div className="sidebar-logo" style={{ fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>
+              <span className="logo-emoji">📚</span>
+              <span className="logo-text"> Okulmatik</span>
+            </div>
             {rozet && (
-              <span style={{
+              <span className="sidebar-badge" style={{
                 fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.04em',
                 color: rozet.renk, background: rozet.bg,
                 border: `1px solid ${rozet.renk}40`,
@@ -632,8 +758,8 @@ function KurumLayoutInner() {
             )}
           </div>
           
-          <div style={{ marginTop: '0.75rem' }}>
-            <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div className="sidebar-select-container" style={{ marginTop: '0.75rem' }}>
+            <div className="sidebar-select-label" style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Kurum / Kampüs Seçimi
             </div>
             
@@ -652,56 +778,69 @@ function KurumLayoutInner() {
               }
 
               return (
-                <select
-                  value={secilenKurumId || ''}
-                  onChange={e => setSecilenKurumId(e.target.value || null)}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(255,255,255,0.12)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: '8px',
-                    padding: '0.5rem',
-                    fontSize: '0.8rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    transition: 'all 0.2s',
-                    marginTop: '0.25rem'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-                >
-                  <option value="" style={{ background: '#1B3A6B', color: '#fff' }}>— Seçiniz —</option>
-                  
-                  {rootlar.map(root => {
-                    const kampusAltlar = kampusler.filter(k => k.parentId === root.id)
-                    const directOkullar = altlar.filter(k => k.parentId === root.id)
-                      .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
-
-                    const options = []
+                <div className="select-wrapper">
+                  <select
+                    value={secilenKurumId || ''}
+                    onChange={e => setSecilenKurumId(e.target.value || null)}
+                    className="kurum-select"
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.12)',
+                      color: '#fff',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: '8px',
+                      padding: '0.5rem',
+                      fontSize: '0.8rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      transition: 'all 0.2s',
+                      marginTop: '0.25rem'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                  >
+                    <option value="" style={{ background: '#1B3A6B', color: '#fff' }}>— Seçiniz —</option>
                     
-                    if (isSelectable(root)) {
-                      options.push(
-                        <option key={root.id} value={root.id} style={{ background: '#1B3A6B', color: '#fff' }}>
-                          🏛 {root.ad}
-                        </option>
-                      )
-                    }
+                    {rootlar.map(root => {
+                      const kampusAltlar = kampusler.filter(k => k.parentId === root.id)
+                      const directOkullar = altlar.filter(k => k.parentId === root.id)
+                        .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
 
-                    kampusAltlar.forEach(kp => {
-                      if (isSelectable(kp)) {
+                      const options = []
+                      
+                      if (isSelectable(root)) {
                         options.push(
-                          <option key={kp.id} value={kp.id} style={{ background: '#1B3A6B', color: '#fff' }}>
-                            &nbsp;&nbsp;🏫 {kp.ad}
+                          <option key={root.id} value={root.id} style={{ background: '#1B3A6B', color: '#fff' }}>
+                            🏛 {root.ad}
                           </option>
                         )
                       }
-                      
-                      const kpOkullar = altlar.filter(k => k.parentId === kp.id)
-                        .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
-                      
-                      kpOkullar.forEach(okul => {
+
+                      kampusAltlar.forEach(kp => {
+                        if (isSelectable(kp)) {
+                          options.push(
+                            <option key={kp.id} value={kp.id} style={{ background: '#1B3A6B', color: '#fff' }}>
+                              &nbsp;&nbsp;🏫 {kp.ad}
+                            </option>
+                          )
+                        }
+                        
+                        const kpOkullar = altlar.filter(k => k.parentId === kp.id)
+                          .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+                        
+                        kpOkullar.forEach(okul => {
+                          if (isSelectable(okul)) {
+                            options.push(
+                              <option key={okul.id} value={okul.id} style={{ background: '#1B3A6B', color: '#fff' }}>
+                                &nbsp;&nbsp;&nbsp;&nbsp;└ {okul.ad}
+                              </option>
+                            )
+                          }
+                        })
+                      })
+
+                      directOkullar.forEach(okul => {
                         if (isSelectable(okul)) {
                           options.push(
                             <option key={okul.id} value={okul.id} style={{ background: '#1B3A6B', color: '#fff' }}>
@@ -710,27 +849,20 @@ function KurumLayoutInner() {
                           )
                         }
                       })
-                    })
 
-                    directOkullar.forEach(okul => {
-                      if (isSelectable(okul)) {
-                        options.push(
-                          <option key={okul.id} value={okul.id} style={{ background: '#1B3A6B', color: '#fff' }}>
-                            &nbsp;&nbsp;&nbsp;&nbsp;└ {okul.ad}
-                          </option>
-                        )
-                      }
-                    })
+                      if (options.length === 0) return null
 
-                    if (options.length === 0) return null
-
-                    return (
-                      <optgroup key={root.id} label={root.ad.toUpperCase()} style={{ background: '#1B3A6B', color: '#93C5FD', fontWeight: 'bold' }}>
-                        {options}
-                      </optgroup>
-                    )
-                  })}
-                </select>
+                      return (
+                        <optgroup key={root.id} label={root.ad.toUpperCase()} style={{ background: '#1B3A6B', color: '#93C5FD', fontWeight: 'bold' }}>
+                          {options}
+                        </optgroup>
+                      )
+                    })}
+                  </select>
+                  <div className="select-visual" style={{ display: 'none' }}>
+                    {selectEmoji}
+                  </div>
+                </div>
               )
             })()}
 
@@ -756,6 +888,7 @@ function KurumLayoutInner() {
                         setAcikSubMenuler(prev => ({ ...prev, [m.etiket]: !prev[m.etiket] }))
                       }
                     }}
+                    className="sidebar-nav-item"
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '0.75rem 1.25rem', background: 'transparent', border: 'none',
@@ -771,20 +904,21 @@ function KurumLayoutInner() {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span>{m.ikon}</span>
-                      <span>{m.etiket}</span>
+                      <span className="nav-icon">{m.ikon}</span>
+                      <span className="nav-text">{m.etiket}</span>
                     </div>
-                    <span style={{ fontSize: '0.7rem', opacity: 0.7, transform: isMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                    <span className="nav-arrow" style={{ fontSize: '0.7rem', opacity: 0.7, transform: isMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
                       ▼
                     </span>
                   </button>
 
                   {isMenuOpen && secilenKurumId && (
-                    <div style={{ background: 'rgba(0,0,0,0.15)', paddingLeft: '0.5rem' }}>
+                    <div className="sidebar-submenu" style={{ background: 'rgba(0,0,0,0.15)', paddingLeft: '0.5rem' }}>
                       {m.altMenuler.map(sub => (
                         <NavLink
                           key={sub.yol}
                           to={sub.yol}
+                          className="sidebar-sub-item"
                           style={({ isActive }) => ({
                             display: 'flex', alignItems: 'center', gap: '0.75rem',
                             padding: '0.65rem 1.25rem', textDecoration: 'none',
@@ -795,8 +929,8 @@ function KurumLayoutInner() {
                             transition: 'all 0.15s',
                           })}
                         >
-                          <span>{sub.ikon}</span>
-                          <span>{sub.etiket}</span>
+                          <span className="nav-icon">{sub.ikon}</span>
+                          <span className="nav-text">{sub.etiket}</span>
                         </NavLink>
                       ))}
                     </div>
@@ -815,6 +949,7 @@ function KurumLayoutInner() {
                     e.preventDefault()
                   }
                 }}
+                className="sidebar-nav-item"
                 style={({ isActive }) => ({
                   display: 'flex', alignItems: 'center', gap: '0.75rem',
                   padding: '0.75rem 1.25rem', textDecoration: 'none',
@@ -827,8 +962,8 @@ function KurumLayoutInner() {
                   cursor: secilenKurumId ? 'pointer' : 'not-allowed',
                   pointerEvents: secilenKurumId ? 'auto' : 'none'
                 })}>
-                <span>{m.ikon}</span>
-                <span>{m.etiket}</span>
+                <span className="nav-icon">{m.ikon}</span>
+                <span className="nav-text">{m.etiket}</span>
               </NavLink>
             )
           })}
@@ -836,7 +971,7 @@ function KurumLayoutInner() {
 
         {/* Alt: kullanıcı bilgisi + çıkış */}
         <div style={{ padding: '1rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <div className="sidebar-user-container" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
             {profil?.photoURL ? (
               <img
                 src={profil.photoURL}
@@ -858,7 +993,7 @@ function KurumLayoutInner() {
                 })()}
               </div>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+            <div className="sidebar-user-info" style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
               <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={profil?.ad}>
                 {profil?.ad || 'Kullanıcı'}
               </span>
@@ -869,7 +1004,7 @@ function KurumLayoutInner() {
           </div>
 
           {/* Yetki/Rol Rozetleri */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '0.75rem' }}>
+          <div className="sidebar-badges-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '0.75rem' }}>
             {(() => {
               const r = (() => {
                 if (profil?.rol === 'platform_admin') {
@@ -912,19 +1047,20 @@ function KurumLayoutInner() {
             )}
           </div>
 
-          <button onClick={handleCikis} style={{
+          <button onClick={handleCikis} className="sidebar-logout-btn" style={{
             width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.08)',
             color: '#fff', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px',
             fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s',
           }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
           onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>
-            Çıkış Yap
+            <span className="logout-text">Çıkış Yap</span>
+            <span className="logout-icon" style={{ display: 'none' }}>🚪</span>
           </button>
         </div>
       </aside>
 
-      <main style={{ marginLeft: '240px', flex: 1, padding: '2rem', position: 'relative' }}>
+      <main className="sidebar-main" style={{ marginLeft: '240px', flex: 1, padding: '2rem', position: 'relative' }}>
         {/* Breadcrumb + Logo satırı */}
         {secilenKurumId && (() => {
           const logo = secilenKurum?.logoUrl
