@@ -1,0 +1,1637 @@
+diff --git a/src/pages/kurum/KurumResmiIslemler.jsx b/src/pages/kurum/KurumResmiIslemler.jsx
+index 6f618fd..3489824 100644
+--- a/src/pages/kurum/KurumResmiIslemler.jsx
++++ b/src/pages/kurum/KurumResmiIslemler.jsx
+@@ -1,10 +1,9 @@
+-import { useState, useMemo, useEffect, Fragment } from 'react'
++import { useState, useMemo, useEffect } from 'react'
+ import { useNavigate, useLocation } from 'react-router-dom'
+ import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
+ import { useAuth } from '../../contexts/AuthContext'
+-import { doc, onSnapshot, deleteDoc, collection, setDoc } from 'firebase/firestore'
++import { doc, onSnapshot, deleteDoc } from 'firebase/firestore'
+ import { db } from '../../services/firebase'
+-import { getDescendants, getAncestors } from '../../utils/hierarchy'
+ 
+ const SENE_BASI_GOREVLER = [
+   // 1. Resmi Toplantılar ve Tutanaklar
+@@ -21,7 +20,7 @@ const SENE_BASI_GOREVLER = [
+   {
+     id: 2,
+     kategori: 'Toplantı & Tutanaklar',
+-    baslik: 'Zümre Öğretmenler Kurulu Toplantı Tutanağı',
++    baslik: 'Sene Başı Zümre Öğretmenler Kurulu',
+     aciklama: 'Aynı branştaki öğretmenlerin yıllık müfredat, kaynak kitap ve değerlendirme kriterlerini planladığı kurul.',
+     sorumlu: 'Zümre Başkanı / Öğretmenler',
+     evrakUretimi: true,
+@@ -163,20 +162,6 @@ const SENE_BASI_GOREVLER = [
+   }
+ ]
+ 
+-const VARSAYILAN_BRANSLAR = [
+-  { id: 'turkce', ad: 'Türkçe', sabit: true },
+-  { id: 'matematik', ad: 'Matematik', sabit: true },
+-  { id: 'sosyal_bilgiler', ad: 'Sosyal Bilgiler (İnkılap Tarihi)', sabit: true },
+-  { id: 'fen_bilimleri', ad: 'Fen Bilimleri', sabit: true },
+-  { id: 'yabanci_dil', ad: 'Yabancı Dil', sabit: true },
+-  { id: 'din_kulturu', ad: 'Din Kültürü', sabit: true },
+-  { id: 'muzik', ad: 'Müzik', sabit: true },
+-  { id: 'gorsel_sanatlar', ad: 'Görsel Sanatlar', sabit: true },
+-  { id: 'beden_egitimi', ad: 'Beden Eğitimi', sabit: true },
+-  { id: 'bilisim_teknolojileri', ad: 'Bilişim Teknolojileri', sabit: true },
+-  { id: 'uygulamali_dersler', ad: 'Uygulamalı Dersler', sabit: true }
+-]
+-
+ export default function KurumResmiIslemler() {
+   const { secilenKurum, secilenKurumId, erisimKurumlar, setSecilenKurumId } = useKurumYonetim()
+   const { profil, kullanici, platformAdmin } = useAuth()
+@@ -186,59 +171,6 @@ export default function KurumResmiIslemler() {
+   // 1. Simüle Edilen Aktif Rol
+   const defaultRol = profil?.rol === 'kurum_admin' || profil?.rol === 'platform_admin' ? 'mudur' : 'ogretmen'
+   const [simuleRol, setSimuleRol] = useState(location.state?.simuleRol || defaultRol)
+-  const [simuleOgretmenAd, setSimuleOgretmenAd] = useState(location.state?.simuleOgretmenAd || '')
+-  const [ogretmenler, setOgretmenler] = useState([])
+-
+-  const isMudur = useMemo(() => {
+-    return simuleRol === 'mudur' || profil?.rol === 'kurum_admin' || profil?.rol === 'platform_admin'
+-  }, [simuleRol, profil])
+-
+-  // Seçili kurum hiyerarşisindeki tüm ID'ler (alt okullar ve üst kampüs/kurumlar dahil)
+-  const seciliScopeIds = useMemo(() => {
+-    if (!secilenKurumId) return []
+-    const descendants = getDescendants(secilenKurumId, erisimKurumlar || []).map(k => k.id)
+-    const ancestors = getAncestors(secilenKurumId, erisimKurumlar || [])
+-    return [...new Set([secilenKurumId, ...descendants, ...ancestors])]
+-  }, [secilenKurumId, erisimKurumlar])
+-
+-  // Öğretmenleri Firestore'dan yükle (Hiyerarşideki tüm okullardan)
+-  useEffect(() => {
+-    if (!seciliScopeIds.length) {
+-      setOgretmenler([])
+-      return
+-    }
+-    const parcalar = {}
+-    const unsubs = seciliScopeIds.map(kid => {
+-      const colRef = collection(db, 'kurumlar', kid, 'kullanicilar')
+-      return onSnapshot(colRef, snap => {
+-        parcalar[kid] = snap.docs
+-          .map(d => ({ id: d.id, ...d.data() }))
+-          .filter(u => u.rol === 'ogretmen')
+-        
+-        // Parçaları tekilleştirip ada göre sırala
+-        const hepsi = [...new Map(
+-          Object.values(parcalar).flat().map(o => [o.id, o])
+-        ).values()].sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+-        
+-        setOgretmenler(hepsi)
+-
+-        // Varsayılan simüle öğretmen belirle
+-        if (location.state?.simuleOgretmenAd) {
+-          setSimuleOgretmenAd(location.state.simuleOgretmenAd)
+-        } else if (profil?.rol === 'ogretmen' && profil?.ad) {
+-          setSimuleOgretmenAd(profil.ad)
+-        } else if (hepsi.length > 0) {
+-          setSimuleOgretmenAd(prev => {
+-            if (prev && hepsi.some(o => o.ad === prev)) return prev
+-            return hepsi[0].ad
+-          })
+-        }
+-      }, err => {
+-        console.error(`Error loading teachers for institution ${kid}:`, err)
+-      })
+-    })
+-    return () => unsubs.forEach(u => u())
+-  }, [seciliScopeIds, profil, location.state])
+ 
+   // Profil yüklendiğinde varsayılan rolü eşitle (eğer state'ten gelen yoksa)
+   useEffect(() => {
+@@ -251,24 +183,9 @@ export default function KurumResmiIslemler() {
+   // 1.1 Aktif Dönem Tabı
+   const [aktifDonem, setAktifDonem] = useState('sene_basi') // sene_basi, donem_sonu, yil_sonu
+ 
+-  // 1.2 Firestore Resmi Evraklar Koleksiyon Dinleyicisi (Tüm belgeler tek kanaldan)
+-  const [resmiEvraklarDocs, setResmiEvraklarDocs] = useState({})
+-
+-  useEffect(() => {
+-    if (!secilenKurumId) return
+-    const colRef = collection(db, 'kurumlar', secilenKurumId, 'resmiEvraklar')
+-    const unsub = onSnapshot(colRef, snapshot => {
+-      const docs = {}
+-      snapshot.forEach(d => {
+-        docs[d.id] = d.data()
+-      })
+-      setResmiEvraklarDocs(docs)
+-    })
+-    return () => unsub()
+-  }, [secilenKurumId])
+-
+-  const seneBasiData = resmiEvraklarDocs['seneBasiKurul'] || null
+-  const seneBasiStatus = seneBasiData?.status || 'yapilmadi'
++  // Firestore Sene Başı Öğretmenler Kurulu Belgesi Dinleyicisi
++  const [seneBasiStatus, setSeneBasiStatus] = useState('yapilmadi')
++  const [seneBasiData, setSeneBasiData] = useState(null)
+ 
+   const isYazman = useMemo(() => {
+     if (!seneBasiData) return false
+@@ -277,42 +194,27 @@ export default function KurumResmiIslemler() {
+     const y3 = seneBasiData.yazmanYedek1 || ''
+     const y4 = seneBasiData.yazmanYedek2 || ''
+     
+-    const ad = simuleRol === 'ogretmen' ? simuleOgretmenAd : (profil?.ad || '')
++    const ad = profil?.ad || ''
+     if (!ad) return false
+     
+     return ad === y1 || ad === y2 || ad === y3 || ad === y4
+-  }, [seneBasiData, simuleRol, simuleOgretmenAd, profil])
+-
+-  const tumBranslar = useMemo(() => {
+-    return resmiEvraklarDocs['seneBasiZumreListesi']?.branslar || VARSAYILAN_BRANSLAR
+-  }, [resmiEvraklarDocs])
+-
+-  const branslar = useMemo(() => {
+-    if (isMudur) return tumBranslar
+-
+-    let userBranslar = []
+-    if (simuleRol === 'ogretmen' && simuleOgretmenAd) {
+-      if (ogretmenler.length === 0) return tumBranslar // loading bypass
+-      const o = ogretmenler.find(x => x.ad === simuleOgretmenAd)
+-      userBranslar = o?.branslar || []
+-    } else if (profil?.rol === 'ogretmen') {
+-      userBranslar = profil?.branslar || []
+-    } else if (simuleRol === 'zumre') {
+-      if (ogretmenler.length === 0) return tumBranslar // loading bypass
+-      const o = ogretmenler.find(x => x.ad === simuleOgretmenAd)
+-      userBranslar = o?.branslar || profil?.branslar || []
+-    }
+-    return tumBranslar.filter(b => 
+-      userBranslar.some(ub => {
+-        const ubNorm = ub.toLowerCase().trim()
+-        const bAdNorm = b.ad.toLowerCase().trim()
+-        const bIdNorm = b.id.toLowerCase().trim()
+-        return bAdNorm.includes(ubNorm) || ubNorm.includes(bAdNorm) || bIdNorm === ubNorm
+-      })
+-    )
+-  }, [tumBranslar, simuleRol, simuleOgretmenAd, profil, ogretmenler, isMudur])
++  }, [seneBasiData, profil])
+ 
+-  const getBransZumreData = (bransId) => resmiEvraklarDocs[`seneBasiZumre_${bransId}`] || null
++  useEffect(() => {
++    if (!secilenKurumId) return
++    const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', 'seneBasiKurul')
++    const unsub = onSnapshot(docRef, docSnap => {
++      if (docSnap.exists()) {
++        const data = docSnap.data()
++        setSeneBasiStatus(data.status || 'yapilmadi')
++        setSeneBasiData(data)
++      } else {
++        setSeneBasiStatus('yapilmadi')
++        setSeneBasiData(null)
++      }
++    })
++    return () => unsub()
++  }, [secilenKurumId])
+ 
+   // 2. Prototip Durumları (State)
+   const [gorevDurumlari, setGorevDurumlari] = useState(() => {
+@@ -330,121 +232,47 @@ export default function KurumResmiIslemler() {
+     return init
+   })
+ 
+-  // Sene Başı Kurulu (ID: 1) ve Zümre Kurulu (ID: 2) durumlarını Firestore verisine göre ez
++  // Sene Başı Kurulu (ID: 1) durumunu Firestore verisine göre ez
+   const finalGorevDurumlari = useMemo(() => {
+     const updated = { ...gorevDurumlari }
+     
+-    // ID: 1 (Sene Başı Öğretmenler Kurulu)
+-    let ogretmen1 = 'yapilmadi'
+-    let zumre1 = 'yapilmadi'
+-    let mudur1 = 'yapilmadi'
+-    let imzaDurumu1 = 'imzalanmadi'
++    let ogretmen = 'yapilmadi'
++    let zumre = 'yapilmadi'
++    let mudur = 'yapilmadi'
++    let imzaDurumu = 'imzalanmadi'
+     
+     if (seneBasiStatus === 'davet_aktif') {
+-      ogretmen1 = 'yapilmadi'
+-      zumre1 = 'yapilmadi'
+-      mudur1 = 'yapilmadi'
+-      imzaDurumu1 = 'imzalanmadi'
++      ogretmen = 'yapilmadi'
++      zumre = 'yapilmadi'
++      mudur = 'yapilmadi'
++      imzaDurumu = 'imzalanmadi'
+     } else if (seneBasiStatus === 'yazman_doldurma') {
+-      ogretmen1 = 'onay_bekliyor'
+-      zumre1 = 'yapilmadi'
+-      mudur1 = 'yapilmadi'
+-      imzaDurumu1 = 'imzalanmadi'
++      ogretmen = 'onay_bekliyor'
++      zumre = 'yapilmadi'
++      mudur = 'yapilmadi'
++      imzaDurumu = 'imzalanmadi'
+     } else if (seneBasiStatus === 'mudur_onay') {
+-      ogretmen1 = 'tamamlandi'
+-      zumre1 = 'yapilmadi'
+-      mudur1 = 'imza_bekliyor'
+-      imzaDurumu1 = 'cagri_yapildi'
++      ogretmen = 'tamamlandi'
++      zumre = 'yapilmadi'
++      mudur = 'imza_bekliyor'
++      imzaDurumu = 'cagri_yapildi'
+     } else if (seneBasiStatus === 'onaylandi_kapatildi') {
+-      ogretmen1 = 'tamamlandi'
+-      zumre1 = 'yapilmadi'
+-      mudur1 = 'onaylandi'
+-      imzaDurumu1 = 'imzalandi'
++      ogretmen = 'tamamlandi'
++      zumre = 'yapilmadi'
++      mudur = 'onaylandi'
++      imzaDurumu = 'imzalandi'
+     }
+     
+     updated[1] = {
+       ...updated[1],
+-      ogretmen: ogretmen1,
+-      zumre: zumre1,
+-      mudur: mudur1,
+-      imzaDurumu: imzaDurumu1
+-    }
+-
+-    // ID: 2 (Zümre Öğretmenler Kurulu Toplantı Tutanağı - Branşların Toplu Durumu)
+-    const branslarData = tumBranslar.map(b => resmiEvraklarDocs[`seneBasiZumre_${b.id}`])
+-    const statuses = branslarData.map(d => d?.status || 'yapilmadi')
+-
+-    let ogretmen2 = 'yapilmadi'
+-    let zumre2 = 'yapilmadi'
+-    let mudur2 = 'yapilmadi'
+-    let imzaDurumu2 = 'imzalanmadi'
+-
+-    if (statuses.length > 0 && statuses.every(s => s === 'onaylandi_kapatildi')) {
+-      ogretmen2 = 'tamamlandi'
+-      zumre2 = 'onaylandi'
+-      mudur2 = 'onaylandi'
+-      imzaDurumu2 = 'imzalandi'
+-    } else if (statuses.length > 0 && statuses.every(s => s === 'yapilmadi')) {
+-      ogretmen2 = 'yapilmadi'
+-      zumre2 = 'yapilmadi'
+-      mudur2 = 'yapilmadi'
+-      imzaDurumu2 = 'imzalanmadi'
+-    } else if (statuses.length > 0) {
+-      const hasMudurOnay = statuses.some(s => s === 'mudur_onay')
+-      const hasZumreDoldurma = statuses.some(s => s === 'zumre_doldurma')
+-      const hasBaskanSecildi = statuses.some(s => s === 'baskan_secildi')
+-      
+-      if (hasMudurOnay) {
+-        ogretmen2 = 'tamamlandi'
+-        zumre2 = 'onaylandi'
+-        mudur2 = 'imza_bekliyor'
+-        imzaDurumu2 = 'cagri_yapildi'
+-      } else if (hasZumreDoldurma) {
+-        ogretmen2 = 'onay_bekliyor'
+-        zumre2 = 'onay_bekliyor'
+-        mudur2 = 'yapilmadi'
+-        imzaDurumu2 = 'imzalanmadi'
+-      } else if (hasBaskanSecildi) {
+-        ogretmen2 = 'yapilmadi'
+-        zumre2 = 'yapilmadi'
+-        mudur2 = 'yapilmadi'
+-        imzaDurumu2 = 'imzalanmadi'
+-      } else {
+-        ogretmen2 = 'yapilmadi'
+-        zumre2 = 'yapilmadi'
+-        mudur2 = 'yapilmadi'
+-        imzaDurumu2 = 'imzalanmadi'
+-      }
+-    }
+-
+-    updated[2] = {
+-      ...updated[2],
+-      ogretmen: ogretmen2,
+-      zumre: zumre2,
+-      mudur: mudur2,
+-      imzaDurumu: imzaDurumu2
++      ogretmen,
++      zumre,
++      mudur,
++      imzaDurumu
+     }
+     
+     return updated
+-  }, [gorevDurumlari, seneBasiStatus, resmiEvraklarDocs, branslar])
+-
+-  const aktifZumreDavetleri = useMemo(() => {
+-    if (simuleRol === 'mudur') return []
+-    const list = []
+-    branslar.forEach(b => {
+-      const bData = resmiEvraklarDocs[`seneBasiZumre_${b.id}`]
+-      const bStatus = bData?.status || 'yapilmadi'
+-      const bBaskan = bData?.zumreBaskani || ''
+-      const isBaskan = (simuleRol === 'ogretmen' && simuleOgretmenAd === bBaskan) || 
+-                       (profil?.rol === 'ogretmen' && profil?.ad === bBaskan) || 
+-                       simuleRol === 'zumre'
+-      
+-      if (isBaskan && bStatus === 'zumre_doldurma') {
+-        list.push({ brans: b, data: bData })
+-      }
+-    })
+-    return list
+-  }, [branslar, resmiEvraklarDocs, simuleRol, simuleOgretmenAd, profil])
++  }, [gorevDurumlari, seneBasiStatus])
+ 
+   // Arama ve Filtreleme
+   const [aramaKelimesi, setAramaKelimesi] = useState('')
+@@ -531,7 +359,7 @@ export default function KurumResmiIslemler() {
+     const basePath = location.pathname.includes('/platform')
+       ? '/platform/kurum/resmi-islemler/evraklar'
+       : '/kurum/resmi-islemler/evraklar'
+-    navigate(basePath, { state: { sablonId: gorev.id, simuleRol, simuleOgretmenAd } })
++    navigate(basePath, { state: { sablonId: gorev.id, simuleRol } })
+   }
+ 
+   const handleSüreçSil = async (gorev) => {
+@@ -540,14 +368,6 @@ export default function KurumResmiIslemler() {
+       if (gorev.id === 1) {
+         const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', 'seneBasiKurul')
+         await deleteDoc(docRef)
+-      } else if (gorev.id === 2) {
+-        // Zümre listesini ve tüm zümre branş evraklarını sil
+-        const listRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', 'seneBasiZumreListesi')
+-        await deleteDoc(listRef)
+-        for (const b of branslar) {
+-          const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', `seneBasiZumre_${b.id}`)
+-          await deleteDoc(docRef)
+-        }
+       }
+       setGorevDurumlari(prev => ({
+         ...prev,
+@@ -566,26 +386,6 @@ export default function KurumResmiIslemler() {
+     }
+   }
+ 
+-  const handleBransEkle = async (yeniAd) => {
+-    if (!yeniAd.trim()) return
+-    const id = 'secmeli_' + Date.now()
+-    const mevcutBranslar = resmiEvraklarDocs['seneBasiZumreListesi']?.branslar || VARSAYILAN_BRANSLAR
+-    // Eğer aynı isimde varsa ekleme
+-    if (mevcutBranslar.some(x => x.ad.toLowerCase() === yeniAd.toLowerCase())) {
+-      alert('Bu ders zaten kayıtlıdır.')
+-      return
+-    }
+-    const guncel = [...mevcutBranslar, { id, ad: yeniAd, sabit: false }]
+-    try {
+-      const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', 'seneBasiZumreListesi')
+-      await setDoc(docRef, { branslar: guncel }, { merge: true })
+-      alert(`"${yeniAd}" zümre süreci başarıyla oluşturuldu.`)
+-    } catch (err) {
+-      console.error('Branş eklenemedi:', err)
+-      alert('Branş eklenemedi: ' + err.message)
+-    }
+-  }
+-
+   if (!secilenKurumId) {
+     return null // Zaten KurumLayout compact placeholder gösterecektir.
+   }
+@@ -974,33 +774,6 @@ export default function KurumResmiIslemler() {
+                 Müdür
+               </button>
+             </div>
+-            {simuleRol === 'ogretmen' && ogretmenler.length > 0 && (
+-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+-                <label style={{ fontSize: '0.68rem', color: '#E0F2FE', fontWeight: '700' }}>Öğretmen Seçin:</label>
+-                <select
+-                  value={simuleOgretmenAd}
+-                  onChange={e => setSimuleOgretmenAd(e.target.value)}
+-                  style={{
+-                    width: '100%',
+-                    padding: '4px 6px',
+-                    fontSize: '0.75rem',
+-                    border: 'none',
+-                    borderRadius: '6px',
+-                    backgroundColor: '#FFFFFF',
+-                    color: '#1E293B',
+-                    fontWeight: '600',
+-                    outline: 'none',
+-                    cursor: 'pointer'
+-                  }}
+-                >
+-                  {ogretmenler.map(o => (
+-                    <option key={o.id} value={o.ad}>
+-                      {o.ad}
+-                    </option>
+-                  ))}
+-                </select>
+-              </div>
+-            )}
+             <div style={{ fontSize: '0.68rem', color: '#93C5FD', marginTop: '0.5rem', fontStyle: 'italic', textAlign: 'center' }}>
+               Seçilen role göre işlem yetkileri ve butonlar değişir.
+             </div>
+@@ -1056,55 +829,6 @@ export default function KurumResmiIslemler() {
+         </div>
+       )}
+ 
+-      {/* Zümre Toplantı Davetiyeleri */}
+-      {aktifZumreDavetleri.map(inv => (
+-        <div key={inv.brans.id} style={{
+-          background: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+-          border: '1.5px solid #10B981',
+-          borderRadius: '12px',
+-          padding: '1.25rem',
+-          marginBottom: '2rem',
+-          color: '#065F46',
+-          boxShadow: '0 4px 15px rgba(16, 185, 129, 0.1)',
+-          display: 'flex',
+-          flexDirection: 'column',
+-          gap: '0.75rem'
+-        }}>
+-          <div style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+-            <span>👑</span> <span>ZÜMRE ÖĞRETMENLER KURULU TOPLANTISI ({inv.brans.ad})</span>
+-          </div>
+-          <p style={{ margin: 0, lineHeight: '1.5', fontSize: '0.875rem', fontWeight: '500' }}>
+-            Sayın Öğretmenimiz, okulumuz <strong>{inv.brans.ad}</strong> branşı zümre öğretmenler kurulu toplantısı <strong>{inv.data.tarih || '—'}</strong> tarihinde saat <strong>{inv.data.saat || '—'}</strong>'da <strong>{inv.data.yer || '—'}</strong> bünyesinde gerçekleştirilecektir.
+-            Toplantı Zümre Başkanı olarak sizin yönetiminizde yapılacaktır. Toplantı kararlarını doldurmanız ve onaylamanız rica olunur.
+-          </p>
+-          <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', color: '#047857', fontWeight: '700' }}>
+-            <span>📍 Konum: {inv.data.yer || '—'}</span>
+-            <span>⏰ Saat: {inv.data.saat || '—'}</span>
+-            <span>📅 Tarih: {inv.data.tarih || '—'}</span>
+-          </div>
+-          <button
+-            onClick={() => navigate(location.pathname.includes('/platform') ? '/platform/kurum/resmi-islemler/evraklar' : '/kurum/resmi-islemler/evraklar', { state: { sablonId: 2, bransId: inv.brans.id, simuleRol, simuleOgretmenAd } })}
+-            style={{
+-              alignSelf: 'flex-start',
+-              padding: '6px 14px',
+-              backgroundColor: '#065F46',
+-              color: '#FFFFFF',
+-              border: 'none',
+-              borderRadius: '6px',
+-              fontSize: '0.75rem',
+-              fontWeight: '700',
+-              cursor: 'pointer',
+-              boxShadow: '0 2px 4px rgba(6, 95, 70, 0.1)',
+-              transition: 'background 0.15s'
+-            }}
+-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#044e34'}
+-            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#065F46'}
+-          >
+-            Zümre Tutanağını Doldur & Yönet
+-          </button>
+-        </div>
+-      ))}
+-
+       {/* Dönem Tabları */}
+       <div style={{
+         display: 'flex',
+@@ -1245,836 +969,368 @@ export default function KurumResmiIslemler() {
+           </thead>
+           <tbody>
+             {filtrelenmişGorevler.length > 0 ? (
+-              filtrelenmişGorevler.flatMap((gorev) => {
++              filtrelenmişGorevler.map((gorev) => {
+                 const durum = finalGorevDurumlari[gorev.id]
+-
+-                // Eğer görev Zümre Kurulu (id: 2) ise ve müdür değilse (öğretmen ise)
+-                // her bir yetkili branşı için ayrı bir satır olarak çiz
+-                if (gorev.id === 2 && !isMudur) {
+-                  return branslar.map((brans) => {
+-                    const bData = getBransZumreData(brans.id)
+-                    const bStatus = bData?.status || 'yapilmadi'
+-                    const bBaskan = bData?.zumreBaskani || 'Seçilmedi'
+-
+-                    // Onay hattı renkleri
+-                    let stepOgretmen = '#E2E8F0'
+-                    let stepZumre = '#E2E8F0'
+-                    let stepMudur = '#E2E8F0'
+-                    let stepImza = '⏳'
+-                    let stepImzaColor = '#94A3B8'
+-                    
+-                    if (bStatus === 'zumre_doldurma') {
+-                      stepOgretmen = '#F59E0B'
+-                      stepZumre = '#F59E0B'
+-                    } else if (bStatus === 'mudur_onay') {
+-                      stepOgretmen = '#10B981'
+-                      stepZumre = '#10B981'
+-                      stepMudur = '#3B82F6'
+-                      stepImza = '✍️'
+-                      stepImzaColor = '#3B82F6'
+-                    } else if (bStatus === 'onaylandi_kapatildi') {
+-                      stepOgretmen = '#10B981'
+-                      stepZumre = '#10B981'
+-                      stepMudur = '#10B981'
+-                      stepImza = '🗃️'
+-                      stepImzaColor = '#10B981'
+-                    }
+-
+-                    const userIsZumreBaskani = (simuleRol === 'ogretmen' && simuleOgretmenAd === bBaskan) || 
+-                                               (profil?.rol === 'ogretmen' && profil?.ad === bBaskan) || 
+-                                               simuleRol === 'zumre'
+-
+-                    const evrakUrl = location.pathname.includes('/platform') 
+-                      ? '/platform/kurum/resmi-islemler/evraklar' 
+-                      : '/kurum/resmi-islemler/evraklar'
+-
+-                    return (
+-                      <tr
+-                        key={`${gorev.id}_${brans.id}`}
+-                        style={{
+-                          borderBottom: '1px solid #E2E8F0',
+-                          transition: 'background 0.15s',
+-                        }}
+-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+-                      >
+-                        {/* Dosya Kodu & Kategori */}
+-                        <td style={{ padding: '1.25rem 1rem', width: '200px', verticalAlign: 'top' }}>
++                return (
++                  <tr
++                    key={gorev.id}
++                    style={{
++                      borderBottom: '1px solid #E2E8F0',
++                      transition: 'background 0.15s',
++                    }}
++                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
++                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
++                  >
++                    {/* Dosya Kodu & Kategori */}
++                    <td style={{ padding: '1.25rem 1rem', width: '200px', verticalAlign: 'top' }}>
++                      <span style={{
++                        fontSize: '0.72rem', fontWeight: '800', color: '#1B3A6B', background: '#EFF6FF',
++                        padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginBottom: '6px',
++                        fontFamily: 'monospace'
++                      }}>
++                        {gorev.dosyaNo}
++                      </span>
++                      <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: '600', textTransform: 'uppercase' }}>
++                        {gorev.kategori}
++                      </div>
++                    </td>
++
++                    {/* Süreç ve Gereksinim */}
++                    <td style={{ padding: '1.25rem 1rem', maxWidth: '350px', verticalAlign: 'top' }}>
++                      <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '4px' }}>{gorev.baslik}</div>
++                      <div style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: '1.4', marginBottom: '8px' }}>{gorev.aciklama}</div>
++                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '0.72rem' }}>
++                        <span style={{ color: '#0369A1', background: '#E0F2FE', padding: '1px 6px', borderRadius: '4px', fontWeight: '500' }}>
++                          👤 Sorumlu: {gorev.sorumlu}
++                        </span>
++                        <span style={{ color: '#475569', background: '#F1F5F9', padding: '1px 6px', borderRadius: '4px', fontWeight: '500' }}>
++                          📄 Gereksinim: {gorev.gereksinim}
++                        </span>
++                      </div>
++                    </td>
++
++                    {/* Onay Pipeline (Adımlar) */}
++                    <td style={{ padding: '1.25rem 1rem', verticalAlign: 'middle', width: '250px' }}>
++                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
++                        {/* 1. Öğretmen Adımı */}
++                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                           <span style={{
+-                            fontSize: '0.72rem', fontWeight: '800', color: '#1B3A6B', background: '#EFF6FF',
+-                            padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginBottom: '6px',
+-                            fontFamily: 'monospace'
++                            width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
++                            fontSize: '0.75rem', fontWeight: '700',
++                            backgroundColor: durum.ogretmen === 'tamamlandi' || durum.ogretmen === 'onay_bekliyor' ? '#10B981' : '#E2E8F0',
++                            color: '#FFFFFF'
+                           }}>
+-                            {gorev.dosyaNo}
++                            {durum.ogretmen === 'tamamlandi' || durum.ogretmen === 'onay_bekliyor' ? '✓' : '1'}
+                           </span>
+-                          <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: '600', textTransform: 'uppercase' }}>
+-                            {gorev.kategori}
+-                          </div>
+-                        </td>
+-
+-                        {/* Süreç ve Gereksinim */}
+-                        <td style={{ padding: '1.25rem 1rem', maxWidth: '350px', verticalAlign: 'top' }}>
+-                          <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '4px' }}>
+-                            {gorev.baslik} ({brans.ad}) {!brans.sabit && <span style={{ fontSize: '0.65rem', background: '#FEF3C7', color: '#D97706', padding: '1px 6px', borderRadius: '4px', marginLeft: '4px' }}>Seçmeli</span>}
+-                          </div>
+-                          <div style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: '1.4', marginBottom: '8px' }}>{gorev.aciklama}</div>
+-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '0.72rem' }}>
+-                            <span style={{ color: '#0369A1', background: '#E0F2FE', padding: '1px 6px', borderRadius: '4px', fontWeight: '500' }}>
+-                              👤 Sorumlu: {userIsZumreBaskani ? 'Siz (Zümre Başkanı)' : `Zümre Başkanı (${bBaskan})`}
+-                            </span>
+-                            <span style={{ color: '#475569', background: '#F1F5F9', padding: '1px 6px', borderRadius: '4px', fontWeight: '500' }}>
+-                              📄 Gereksinim: {gorev.gereksinim}
+-                            </span>
+-                          </div>
+-                        </td>
+-
+-                        {/* Onay Pipeline (Adımlar) */}
+-                        <td style={{ padding: '1.25rem 1rem', verticalAlign: 'middle', width: '250px' }}>
+-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+-                            {/* 1. Öğretmen Adımı */}
+-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+-                              <span style={{
+-                                width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+-                                fontSize: '0.75rem', fontWeight: '700',
+-                                backgroundColor: stepOgretmen,
+-                                color: '#FFFFFF'
+-                              }}>
+-                                {stepOgretmen === '#10B981' ? '✓' : '1'}
+-                              </span>
+-                              <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '600' }}>Öğretmen</span>
+-                            </div>
++                          <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '600' }}>Öğretmen</span>
++                        </div>
+ 
+-                            <div style={{ flex: 1, height: '2px', backgroundColor: stepOgretmen, minWidth: '20px' }} />
++                        {/* Bağlantı çizgisi 1 */}
++                        <div style={{ flex: 1, height: '2px', backgroundColor: durum.ogretmen === 'tamamlandi' || durum.ogretmen === 'onay_bekliyor' ? '#10B981' : '#E2E8F0', minWidth: '20px' }} />
+ 
+-                            {/* 2. Zümre Başkanı Adımı */}
++                        {/* 2. Zümre Başkanı Adımı */}
++                        {gorev.sorumlu.includes('Zümre') && (
++                          <>
+                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                               <span style={{
+                                 width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                 fontSize: '0.75rem', fontWeight: '700',
+-                                backgroundColor: stepZumre,
++                                backgroundColor: durum.zumre === 'onaylandi' ? '#10B981' : durum.zumre === 'onay_bekliyor' ? '#F59E0B' : '#E2E8F0',
+                                 color: '#FFFFFF'
+                               }}>
+-                                {stepZumre === '#10B981' ? '✓' : '2'}
++                                {durum.zumre === 'onaylandi' ? '✓' : '2'}
+                               </span>
+                               <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '600' }}>Zümre Bşk.</span>
+                             </div>
++                            <div style={{ flex: 1, height: '2px', backgroundColor: durum.zumre === 'onaylandi' ? '#10B981' : '#E2E8F0', minWidth: '20px' }} />
++                          </>
++                        )}
+ 
+-                            <div style={{ flex: 1, height: '2px', backgroundColor: stepZumre, minWidth: '20px' }} />
++                        {/* 3. Müdür Adımı */}
++                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
++                          <span style={{
++                            width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
++                            fontSize: '0.75rem', fontWeight: '700',
++                            backgroundColor: durum.mudur === 'onaylandi' ? '#10B981' : durum.mudur === 'imza_bekliyor' ? '#3B82F6' : '#E2E8F0',
++                            color: '#FFFFFF'
++                          }}>
++                            {durum.mudur === 'onaylandi' ? '✓' : 'M'}
++                          </span>
++                          <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '600' }}>Müdür</span>
++                        </div>
++                      </div>
++                    </td>
++
++                    {/* İmza / Arşiv Durumu */}
++                    <td style={{ padding: '1.25rem 1rem', textAlign: 'center', verticalAlign: 'middle', width: '120px' }}>
++                      {durum.imzaDurumu === 'imzalandi' ? (
++                        <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
++                          <span style={{ fontSize: '1.2rem', color: '#10B981' }}>🗃️</span>
++                          <span style={{ fontSize: '0.7rem', color: '#10B981', fontWeight: '700' }}>İmzalandı & Arşiv</span>
++                        </div>
++                      ) : durum.imzaDurumu === 'cagri_yapildi' ? (
++                        <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
++                          <span style={{ fontSize: '1.2rem', color: '#3B82F6', animation: 'float 2s infinite ease-in-out' }}>✍️</span>
++                          <span style={{ fontSize: '0.7rem', color: '#3B82F6', fontWeight: '700' }}>İmzaya Çağrıldı</span>
++                        </div>
++                      ) : (
++                        <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', opacity: 0.4 }}>
++                          <span style={{ fontSize: '1.2rem', color: '#94A3B8' }}>⏳</span>
++                          <span style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: '600' }}>Beklemede</span>
++                        </div>
++                      )}
++                    </td>
++
++                    {/* İşlemler (Rol Bazlı) */}
++                    <td style={{ padding: '1.25rem 1rem', textAlign: 'right', verticalAlign: 'middle', width: '180px' }}>
++                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
++                        {/* ÖĞRETMEN ROLÜ AKSİYONLARI */}
++                        {simuleRol === 'ogretmen' && (
++                          <>
++                            {gorev.id === 1 ? (
++                              <>
++                                {/* Sene Başı Öğretmenler Kurulu için Özel Kısıtlamalar */}
++                                {seneBasiStatus === 'yapilmadi' ? (
++                                  <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: '700', fontStyle: 'italic', background: '#F1F5F9', padding: '4px 8px', borderRadius: '6px' }}>
++                                    Başlatılmadı
++                                  </span>
++                                ) : (
++                                  <>
++                                    {isYazman ? (
++                                      <>
++                                        {(seneBasiStatus === 'davet_aktif' || seneBasiStatus === 'yazman_doldurma') && (
++                                          <button
++                                            onClick={() => handleYazdir(gorev)}
++                                            style={{
++                                              padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                              backgroundColor: '#1B3A6B', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
++                                            }}
++                                          >
++                                            📝 Evrak Doldur
++                                          </button>
++                                        )}
++                                        {durum.imzaDurumu === 'cagri_yapildi' && (
++                                          <button
++                                            onClick={() => handleEvrakImzala(gorev.id)}
++                                            style={{
++                                              padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                              backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
++                                            }}
++                                          >
++                                            ✍️ Evrakı İmzala
++                                          </button>
++                                        )}
++                                        {durum.imzaDurumu === 'imzalandi' && (
++                                          <button
++                                            onClick={() => handleYazdir(gorev)}
++                                            style={{
++                                              padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                              backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer'
++                                            }}
++                                          >
++                                            📄 Önizle / Yazdır
++                                          </button>
++                                        )}
++                                      </>
++                                    ) : (
++                                      <>
++                                        {/* Yazman olmayan öğretmenler için */}
++                                        {(seneBasiStatus === 'davet_aktif' || seneBasiStatus === 'yazman_doldurma') && (
++                                          <button
++                                            onClick={() => handleYazdir(gorev)}
++                                            style={{
++                                              padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                              backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer'
++                                            }}
++                                          >
++                                            📄 Görüntüle
++                                          </button>
++                                        )}
++                                        {durum.imzaDurumu === 'cagri_yapildi' && (
++                                          <button
++                                            onClick={() => handleEvrakImzala(gorev.id)}
++                                            style={{
++                                              padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                              backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
++                                            }}
++                                          >
++                                            ✍️ Evrakı İmzala
++                                          </button>
++                                        )}
++                                        {durum.imzaDurumu === 'imzalandi' && (
++                                          <button
++                                            onClick={() => handleYazdir(gorev)}
++                                            style={{
++                                              padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                              backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer'
++                                            }}
++                                          >
++                                            📄 Önizle / Yazdır
++                                          </button>
++                                        )}
++                                      </>
++                                    )}
++                                  </>
++                                )}
++                              </>
++                            ) : (
++                              <>
++                                {durum.ogretmen === 'yapilmadi' && (
++                                  <button
++                                    onClick={() => gorev.evrakUretimi ? handleYazdir(gorev) : handleOgretmenTamamla(gorev.id)}
++                                    style={{
++                                      padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                      backgroundColor: '#1B3A6B', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
++                                    }}
++                                  >
++                                    {gorev.evrakUretimi ? '📝 Evrak Doldur' : '✓ Tamamlandı Yap'}
++                                  </button>
++                                )}
++                                {durum.ogretmen === 'onay_bekliyor' && (
++                                  <span style={{ fontSize: '0.72rem', color: '#F59E0B', fontWeight: '700', fontStyle: 'italic' }}>
++                                    Onay Bekliyor
++                                  </span>
++                                )}
++                                {durum.imzaDurumu === 'cagri_yapildi' && (
++                                  <button
++                                    onClick={() => handleEvrakImzala(gorev.id)}
++                                    style={{
++                                      padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                      backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
++                                    }}
++                                  >
++                                    ✍️ Evrakı İmzala
++                                  </button>
++                                )}
++                                {durum.imzaDurumu === 'imzalandi' && (
++                                  <button
++                                    onClick={() => handleYazdir(gorev)}
++                                    style={{
++                                      padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                      backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer'
++                                    }}
++                                  >
++                                    📄 Önizle / Yazdır
++                                  </button>
++                                )}
++                              </>
++                            )}
++                          </>
++                        )}
+ 
+-                            {/* 3. Müdür Adımı */}
+-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+-                              <span style={{
+-                                width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+-                                fontSize: '0.75rem', fontWeight: '700',
+-                                backgroundColor: stepMudur,
+-                                color: '#FFFFFF'
+-                              }}>
+-                                {stepMudur === '#10B981' ? '✓' : 'M'}
++                        {/* ZÜMRE BAŞKANI ROLÜ AKSİYONLARI */}
++                        {simuleRol === 'zumre' && (
++                          <>
++                            {gorev.sorumlu.includes('Zümre') && (
++                              <>
++                                {durum.zumre === 'onay_bekliyor' && (
++                                  <button
++                                    onClick={() => handleZumreOnayla(gorev.id)}
++                                    style={{
++                                      padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                      backgroundColor: '#F59E0B', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
++                                    }}
++                                  >
++                                    📋 Zümreyi Onayla
++                                  </button>
++                                )}
++                                {durum.zumre === 'onaylandi' && durum.mudur !== 'onaylandi' && (
++                                  <span style={{ fontSize: '0.72rem', color: '#10B981', fontWeight: '700' }}>
++                                    Zümre Onaylı
++                                  </span>
++                                )}
++                              </>
++                            )}
++                            {!gorev.sorumlu.includes('Zümre') && (
++                              <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontStyle: 'italic' }}>
++                                Zümre yetki dışı
+                               </span>
+-                              <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '600' }}>Müdür</span>
+-                            </div>
+-                          </div>
+-                        </td>
+-
+-                        {/* İmza / Arşiv Durumu */}
+-                        <td style={{ padding: '1.25rem 1rem', textAlign: 'center', verticalAlign: 'middle', width: '120px' }}>
+-                          <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+-                            <span style={{ fontSize: '1.2rem', color: stepImzaColor }}>{stepImza}</span>
+-                            <span style={{ fontSize: '0.7rem', color: stepImzaColor, fontWeight: '700' }}>
+-                              {bStatus === 'onaylandi_kapatildi' ? 'İmzalandı & Arşiv' : bStatus === 'mudur_onay' ? 'İmzaya Çağrıldı' : 'Beklemede'}
+-                            </span>
+-                          </div>
+-                        </td>
++                            )}
++                          </>
++                        )}
+ 
+-                        {/* İşlemler */}
+-                        <td style={{ padding: '1.25rem 1rem', textAlign: 'right', verticalAlign: 'middle', width: '180px' }}>
+-                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
+-                            {userIsZumreBaskani && bStatus === 'zumre_doldurma' ? (
+-                              <button
+-                                onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
+-                                style={{
+-                                  padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                  backgroundColor: '#1B3A6B', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                }}
+-                              >
+-                                📝 Evrak Doldur
+-                              </button>
+-                            ) : userIsZumreBaskani && bStatus === 'baskan_secildi' ? (
++                        {/* MÜDÜR ROLÜ AKSİYONLARI */}
++                        {simuleRol === 'mudur' && (
++                          <>
++                            {durum.mudur === 'yapilmadi' && (
+                               <button
+-                                onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
++                                onClick={() => handleYazdir(gorev)}
+                                 style={{
+                                   padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                  backgroundColor: '#8B5CF6', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
++                                  backgroundColor: '#4F46E5', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+                                 }}
+                               >
+-                                📅 Toplantıyı Planla
++                                🚀 Süreci Başlat / Düzenle
+                               </button>
+-                            ) : bStatus === 'yapilmadi' ? (
+-                              <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: '700', fontStyle: 'italic', background: '#F1F5F9', padding: '4px 8px', borderRadius: '6px' }}>
+-                                Başlatılmadı
+-                              </span>
+-                            ) : bStatus === 'baskan_secildi' ? (
+-                              <span style={{ fontSize: '0.72rem', color: '#8B5CF6', fontWeight: '700', fontStyle: 'italic', background: '#F5F3FF', padding: '4px 8px', borderRadius: '6px' }}>
+-                                Planlanıyor
+-                              </span>
+-                            ) : (
++                            )}
++                            {durum.ogretmen === 'onay_bekliyor' && (
+                               <button
+-                                onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
++                                onClick={() => handleMudurOnayla(gorev.id)}
+                                 style={{
+                                   padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                  backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer'
++                                  backgroundColor: '#10B981', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+                                 }}
+                               >
+-                                📄 Görüntüle
++                                ✅ İncele & Onayla
+                               </button>
+                             )}
+-                            {platformAdmin && (bStatus === 'onaylandi_kapatildi' || bStatus === 'mudur_onay') && (
++                            {durum.mudur === 'imza_bekliyor' && durum.imzaDurumu === 'imzalanmadi' && (
+                               <button
+-                                onClick={async () => {
+-                                  if (window.confirm(`"${brans.ad}" branşına ait tamamlanmış/onaydaki zümre evrakını silmek ve sıfırlamak istediğinize emin misiniz?`)) {
+-                                    const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', `seneBasiZumre_${brans.id}`)
+-                                    await deleteDoc(docRef)
+-                                  }
+-                                }}
++                                onClick={() => handleImzayaCagir(gorev.id)}
+                                 style={{
+                                   padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                  backgroundColor: '#EF4444', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
++                                  backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+                                 }}
+                               >
+-                                🗑️ Evrakı Sil
++                                ✍️ İmzaya Çağır
+                               </button>
+                             )}
+-                          </div>
+-                        </td>
+-                      </tr>
+-                    )
+-                  })
+-                }
+-
+-                return [
+-                  <Fragment key={gorev.id}>
+-                    <tr
+-                      key={gorev.id}
+-                      style={{
+-                        borderBottom: '1px solid #E2E8F0',
+-                        transition: 'background 0.15s',
+-                      }}
+-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+-                    >
+-                      {/* Dosya Kodu & Kategori */}
+-                      <td style={{ padding: '1.25rem 1rem', width: '200px', verticalAlign: 'top' }}>
+-                        <span style={{
+-                          fontSize: '0.72rem', fontWeight: '800', color: '#1B3A6B', background: '#EFF6FF',
+-                          padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginBottom: '6px',
+-                          fontFamily: 'monospace'
+-                        }}>
+-                          {gorev.dosyaNo}
+-                        </span>
+-                        <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: '600', textTransform: 'uppercase' }}>
+-                          {gorev.kategori}
+-                        </div>
+-                      </td>
+-
+-                      {/* Süreç ve Gereksinim */}
+-                      <td style={{ padding: '1.25rem 1rem', maxWidth: '350px', verticalAlign: 'top' }}>
+-                        <div style={{ fontWeight: '700', color: '#1E293B', marginBottom: '4px' }}>{gorev.baslik}</div>
+-                        <div style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: '1.4', marginBottom: '8px' }}>{gorev.aciklama}</div>
+-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '0.72rem' }}>
+-                          <span style={{ color: '#0369A1', background: '#E0F2FE', padding: '1px 6px', borderRadius: '4px', fontWeight: '500' }}>
+-                            👤 Sorumlu: {gorev.sorumlu}
+-                          </span>
+-                          <span style={{ color: '#475569', background: '#F1F5F9', padding: '1px 6px', borderRadius: '4px', fontWeight: '500' }}>
+-                            📄 Gereksinim: {gorev.gereksinim}
+-                          </span>
+-                        </div>
+-                      </td>
+-
+-                      {/* Onay Pipeline (Adımlar) */}
+-                      <td style={{ padding: '1.25rem 1rem', verticalAlign: 'middle', width: '250px' }}>
+-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+-                          {/* 1. Öğretmen Adımı */}
+-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+-                            <span style={{
+-                              width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+-                              fontSize: '0.75rem', fontWeight: '700',
+-                              backgroundColor: durum.ogretmen === 'tamamlandi' || durum.ogretmen === 'onay_bekliyor' ? '#10B981' : '#E2E8F0',
+-                              color: '#FFFFFF'
+-                            }}>
+-                              {durum.ogretmen === 'tamamlandi' || durum.ogretmen === 'onay_bekliyor' ? '✓' : '1'}
+-                            </span>
+-                            <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '600' }}>Öğretmen</span>
+-                          </div>
+-
+-                          {/* Bağlantı çizgisi 1 */}
+-                          <div style={{ flex: 1, height: '2px', backgroundColor: durum.ogretmen === 'tamamlandi' || durum.ogretmen === 'onay_bekliyor' ? '#10B981' : '#E2E8F0', minWidth: '20px' }} />
+-
+-                          {/* 2. Zümre Başkanı Adımı */}
+-                          {gorev.sorumlu.includes('Zümre') && (
+-                            <>
+-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+-                                <span style={{
+-                                  width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+-                                  fontSize: '0.75rem', fontWeight: '700',
+-                                  backgroundColor: durum.zumre === 'onaylandi' ? '#10B981' : durum.zumre === 'onay_bekliyor' ? '#F59E0B' : '#E2E8F0',
+-                                  color: '#FFFFFF'
+-                                }}>
+-                                  {durum.zumre === 'onaylandi' ? '✓' : '2'}
+-                                </span>
+-                                <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '600' }}>Zümre Bşk.</span>
+-                              </div>
+-                              <div style={{ flex: 1, height: '2px', backgroundColor: durum.zumre === 'onaylandi' ? '#10B981' : '#E2E8F0', minWidth: '20px' }} />
+-                            </>
+-                          )}
+-
+-                          {/* 3. Müdür Adımı */}
+-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+-                            <span style={{
+-                              width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+-                              fontSize: '0.75rem', fontWeight: '700',
+-                              backgroundColor: durum.mudur === 'onaylandi' ? '#10B981' : durum.mudur === 'imza_bekliyor' ? '#3B82F6' : '#E2E8F0',
+-                              color: '#FFFFFF'
+-                            }}>
+-                              {durum.mudur === 'onaylandi' ? '✓' : 'M'}
+-                            </span>
+-                            <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '600' }}>Müdür</span>
+-                          </div>
+-                        </div>
+-                      </td>
+-
+-                      {/* İmza / Arşiv Durumu */}
+-                      <td style={{ padding: '1.25rem 1rem', textAlign: 'center', verticalAlign: 'middle', width: '120px' }}>
+-                        {durum.imzaDurumu === 'imzalandi' ? (
+-                          <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+-                            <span style={{ fontSize: '1.2rem', color: '#10B981' }}>🗃️</span>
+-                            <span style={{ fontSize: '0.7rem', color: '#10B981', fontWeight: '700' }}>İmzalandı & Arşiv</span>
+-                          </div>
+-                        ) : durum.imzaDurumu === 'cagri_yapildi' ? (
+-                          <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+-                            <span style={{ fontSize: '1.2rem', color: '#3B82F6', animation: 'float 2s infinite ease-in-out' }}>✍️</span>
+-                            <span style={{ fontSize: '0.7rem', color: '#3B82F6', fontWeight: '700' }}>İmzaya Çağrıldı</span>
+-                          </div>
+-                        ) : (
+-                          <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', opacity: 0.4 }}>
+-                            <span style={{ fontSize: '1.2rem', color: '#94A3B8' }}>⏳</span>
+-                            <span style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: '600' }}>Beklemede</span>
+-                          </div>
+-                        )}
+-                      </td>
+-
+-                      {/* İşlemler (Rol Bazlı) */}
+-                      <td style={{ padding: '1.25rem 1rem', textAlign: 'right', verticalAlign: 'middle', width: '180px' }}>
+-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
+-                          {gorev.id === 2 ? (
+-                            <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#1B3A6B', fontStyle: 'italic', background: '#EFF6FF', padding: '4px 8px', borderRadius: '6px' }}>
+-                              👇 Branş Tablosundan Yönetin
+-                            </span>
+-                          ) : (
+-                            <>
+-                              {/* ÖĞRETMEN ROLÜ AKSİYONLARI */}
+-                              {simuleRol === 'ogretmen' && (
+-                                <>
+-                                  {gorev.id === 1 ? (
+-                                    <>
+-                                      {/* Sene Başı Öğretmenler Kurulu için Özel Kısıtlamalar */}
+-                                      {seneBasiStatus === 'yapilmadi' || !isYazman ? (
+-                                        <>
+-                                          {/* İmza aşamasında veya imzalanmışsa butonları göster, yoksa Başlatılmadı yaz */}
+-                                          {durum.imzaDurumu === 'cagri_yapildi' ? (
+-                                            <button
+-                                              onClick={() => handleEvrakImzala(gorev.id)}
+-                                              style={{
+-                                                padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                                backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                              }}
+-                                            >
+-                                              ✍️ Evrakı İmzala
+-                                            </button>
+-                                          ) : durum.imzaDurumu === 'imzalandi' ? (
+-                                            <button
+-                                              onClick={() => handleYazdir(gorev)}
+-                                              style={{
+-                                                padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                                backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer'
+-                                              }}
+-                                            >
+-                                              📄 Önizle / Yazdır
+-                                            </button>
+-                                          ) : (
+-                                            <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: '700', fontStyle: 'italic', background: '#F1F5F9', padding: '4px 8px', borderRadius: '6px' }}>
+-                                              Başlatılmadı
+-                                            </span>
+-                                          )}
+-                                        </>
+-                                      ) : (
+-                                        <>
+-                                          {/* Yazman olan kullanıcılar için süreç başladıysa doldurma butonu */}
+-                                          {(seneBasiStatus === 'davet_aktif' || seneBasiStatus === 'yazman_doldurma') && (
+-                                            <button
+-                                              onClick={() => handleYazdir(gorev)}
+-                                              style={{
+-                                                padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                                backgroundColor: '#1B3A6B', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                              }}
+-                                            >
+-                                              📝 Evrak Doldur
+-                                            </button>
+-                                          )}
+-                                          {durum.imzaDurumu === 'cagri_yapildi' && (
+-                                            <button
+-                                              onClick={() => handleEvrakImzala(gorev.id)}
+-                                              style={{
+-                                                padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                                backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                              }}
+-                                            >
+-                                              ✍️ Evrakı İmzala
+-                                            </button>
+-                                          )}
+-                                          {durum.imzaDurumu === 'imzalandi' && (
+-                                            <button
+-                                              onClick={() => handleYazdir(gorev)}
+-                                              style={{
+-                                                padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                                backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer'
+-                                              }}
+-                                            >
+-                                              📄 Önizle / Yazdır
+-                                            </button>
+-                                          )}
+-                                        </>
+-                                      )}
+-                                    </>
+-                                  ) : (
+-                                    <>
+-                                      {/* Diğer normal görevler */}
+-                                      {durum.ogretmen === 'yapilmadi' && (
+-                                        <button
+-                                          onClick={() => gorev.evrakUretimi ? handleYazdir(gorev) : handleOgretmenTamamla(gorev.id)}
+-                                          style={{
+-                                            padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                            backgroundColor: '#1B3A6B', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                          }}
+-                                        >
+-                                          {gorev.evrakUretimi ? '📝 Evrak Doldur' : '✓ Tamamlandı Yap'}
+-                                        </button>
+-                                      )}
+-                                      {durum.ogretmen === 'onay_bekliyor' && (
+-                                        <span style={{ fontSize: '0.72rem', color: '#F59E0B', fontWeight: '700', fontStyle: 'italic' }}>
+-                                          Onay Bekliyor
+-                                        </span>
+-                                      )}
+-                                      {durum.imzaDurumu === 'cagri_yapildi' && (
+-                                        <button
+-                                          onClick={() => handleEvrakImzala(gorev.id)}
+-                                          style={{
+-                                            padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                            backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                          }}
+-                                        >
+-                                          ✍️ Evrakı İmzala
+-                                        </button>
+-                                      )}
+-                                      {durum.imzaDurumu === 'imzalandi' && (
+-                                        <button
+-                                          onClick={() => handleYazdir(gorev)}
+-                                          style={{
+-                                            padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                            backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer'
+-                                          }}
+-                                        >
+-                                          📄 Önizle / Yazdır
+-                                        </button>
+-                                      )}
+-                                    </>
+-                                  )}
+-                                </>
+-                              )}
+-
+-                              {/* ZÜMRE BAŞKANI ROLÜ AKSİYONLARI */}
+-                              {simuleRol === 'zumre' && (
+-                                <>
+-                                  {gorev.sorumlu.includes('Zümre') && (
+-                                    <>
+-                                      {durum.zumre === 'onay_bekliyor' && (
+-                                        <button
+-                                          onClick={() => handleZumreOnayla(gorev.id)}
+-                                          style={{
+-                                            padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                            backgroundColor: '#F59E0B', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                          }}
+-                                        >
+-                                          📋 Zümreyi Onayla
+-                                        </button>
+-                                      )}
+-                                      {durum.zumre === 'onaylandi' && durum.mudur !== 'onaylandi' && (
+-                                        <span style={{ fontSize: '0.72rem', color: '#10B981', fontWeight: '700' }}>
+-                                          Zümre Onaylı
+-                                        </span>
+-                                      )}
+-                                    </>
+-                                  )}
+-                                  {!gorev.sorumlu.includes('Zümre') && (
+-                                    <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontStyle: 'italic' }}>
+-                                      Zümre yetki dışı
+-                                    </span>
+-                                  )}
+-                                </>
+-                              )}
+-
+-                              {/* MÜDÜR ROLÜ AKSİYONLARI */}
+-                              {simuleRol === 'mudur' && (
+-                                <>
+-                                  {durum.mudur === 'yapilmadi' && (
+-                                    <button
+-                                      onClick={() => handleYazdir(gorev)}
+-                                      style={{
+-                                        padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                        backgroundColor: '#4F46E5', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                      }}
+-                                    >
+-                                      🚀 Süreci Başlat / Düzenle
+-                                    </button>
+-                                  )}
+-                                  {durum.ogretmen === 'onay_bekliyor' && (
+-                                    <button
+-                                      onClick={() => handleMudurOnayla(gorev.id)}
+-                                      style={{
+-                                        padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                        backgroundColor: '#10B981', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                      }}
+-                                    >
+-                                      ✅ İncele & Onayla
+-                                    </button>
+-                                  )}
+-                                  {durum.mudur === 'imza_bekliyor' && durum.imzaDurumu === 'imzalanmadi' && (
+-                                    <button
+-                                      onClick={() => handleImzayaCagir(gorev.id)}
+-                                      style={{
+-                                        padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                        backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                      }}
+-                                    >
+-                                      ✍️ İmzaya Çağır
+-                                    </button>
+-                                  )}
+-                                  {durum.imzaDurumu === 'cagri_yapildi' && (
+-                                    <span style={{ fontSize: '0.72rem', color: '#3B82F6', fontWeight: '700', fontStyle: 'italic' }}>
+-                                      İmza Bekleniyor
+-                                    </span>
+-                                  )}
+-                                  {(durum.mudur === 'onaylandi' || durum.imzaDurumu === 'imzalandi') && (
+-                                    <div style={{ display: 'flex', gap: '4px' }}>
+-                                      <button
+-                                        onClick={() => handleYazdir(gorev)}
+-                                        style={{
+-                                          padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
+-                                          backgroundColor: '#1B3A6B', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+-                                        }}
+-                                      >
+-                                        🖨️ Çıktı Al
+-                                      </button>
+-                                    </div>
+-                                  )}
+-                                </>
+-                              )}
+-
+-                              {/* MASTER ADMIN (PLATFORM ADMIN) SILME AKSİYONU */}
+-                              {platformAdmin && (durum.mudur === 'onaylandi' || durum.imzaDurumu === 'imzalandi') && (
++                            {durum.imzaDurumu === 'cagri_yapildi' && (
++                              <span style={{ fontSize: '0.72rem', color: '#3B82F6', fontWeight: '700', fontStyle: 'italic' }}>
++                                İmza Bekleniyor
++                              </span>
++                            )}
++                            {(durum.mudur === 'onaylandi' || durum.imzaDurumu === 'imzalandi') && (
++                              <div style={{ display: 'flex', gap: '4px' }}>
+                                 <button
+-                                  onClick={() => handleSüreçSil(gorev)}
++                                  onClick={() => handleYazdir(gorev)}
+                                   style={{
+-                                    padding: '5px 10px',
+-                                    fontSize: '0.75rem',
+-                                    fontWeight: '600',
+-                                    backgroundColor: '#EF4444',
+-                                    color: '#FFFFFF',
+-                                    border: 'none',
+-                                    borderRadius: '6px',
+-                                    cursor: 'pointer',
+-                                    transition: 'all 0.15s'
++                                    padding: '5px 10px', fontSize: '0.75rem', fontWeight: '600',
++                                    backgroundColor: '#1B3A6B', color: '#FFFFFF', border: 'none', borderRadius: '6px', cursor: 'pointer'
+                                   }}
+-                                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#DC2626'}
+-                                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#EF4444'}
+                                 >
+-                                  🗑️ Süreci Sil
++                                  🖨️ Çıktı Al
+                                 </button>
+-                              )}
+-                            </>
+-                          )}
+-                        </div>
+-                      </td>
+-                    </tr>
+-
+-                    {/* ZÜMRE BRANŞLARI LİSTESİ (SUB-ROW) */}
+-                    {gorev.id === 2 && isMudur && (
+-                      <tr style={{ backgroundColor: '#F8FAFC' }}>
+-                        <td colSpan="5" style={{ padding: '1rem 1.5rem 1.5rem 1.5rem' }}>
+-                          <div style={{
+-                            background: '#FFFFFF',
+-                            border: '1.5px solid #E2E8F0',
+-                            borderRadius: '16px',
+-                            padding: '1.5rem',
+-                            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.02)'
+-                          }}>
+-                            {/* Branch header, add elective subject button, and summary */}
+-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+-                              <div>
+-                                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+-                                  <span>📚</span> Branş Zümre Toplantı Süreçleri
+-                                </h4>
+-                                <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#64748B' }}>
+-                                  Her zümrenin kendi toplantı kaydını, zümre başkanını ve onay durumunu aşağıdan yönetebilirsiniz.
+-                                </p>
+                               </div>
+-                              {simuleRol === 'mudur' && (
+-                                <button
+-                                  onClick={() => {
+-                                    const ad = prompt('Eklenecek Seçmeli Dersin Adı:')
+-                                    if (ad) handleBransEkle(ad)
+-                                  }}
+-                                  style={{
+-                                    padding: '6px 12px',
+-                                    fontSize: '0.75rem',
+-                                    fontWeight: '700',
+-                                    backgroundColor: '#10B981',
+-                                    color: '#FFFFFF',
+-                                    border: 'none',
+-                                    borderRadius: '8px',
+-                                    cursor: 'pointer',
+-                                    display: 'flex',
+-                                    alignItems: 'center',
+-                                    gap: '4px',
+-                                    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.1)'
+-                                  }}
+-                                >
+-                                  <span>➕</span> Seçmeli Ders Zümresi Ekle
+-                                </button>
+-                              )}
+-                            </div>
+-
+-                            {/* Branches Table / Grid */}
+-                            <div style={{ overflowX: 'auto' }}>
+-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+-                                <thead>
+-                                  <tr style={{ borderBottom: '2px solid #E2E8F0', color: '#64748B', fontWeight: '700' }}>
+-                                    <th style={{ padding: '8px 4px' }}>Branş / Ders</th>
+-                                    <th style={{ padding: '8px 4px' }}>Zümre Başkanı</th>
+-                                    <th style={{ padding: '8px 4px', textAlign: 'center' }}>Süreç Durumu</th>
+-                                    <th style={{ padding: '8px 4px', textAlign: 'center' }}>Onay Hattı</th>
+-                                    <th style={{ padding: '8px 4px', textAlign: 'right' }}>İşlemler</th>
+-                                  </tr>
+-                                </thead>
+-                                <tbody>
+-                                  {branslar.map(brans => {
+-                                    const bData = getBransZumreData(brans.id)
+-                                    const bStatus = bData?.status || 'yapilmadi'
+-                                    const bBaskan = bData?.zumreBaskani || 'Seçilmedi'
+-                                    
+-                                    // Calculate pipeline step highlights for this branch
+-                                    let stepOgretmen = '#E2E8F0'
+-                                    let stepZumre = '#E2E8F0'
+-                                    let stepMudur = '#E2E8F0'
+-                                    let stepImza = '⏳'
+-                                    let stepImzaColor = '#94A3B8'
+-                                    
+-                                    if (bStatus === 'zumre_doldurma') {
+-                                      stepOgretmen = '#F59E0B'
+-                                      stepZumre = '#F59E0B'
+-                                    } else if (bStatus === 'mudur_onay') {
+-                                      stepOgretmen = '#10B981'
+-                                      stepZumre = '#10B981'
+-                                      stepMudur = '#3B82F6'
+-                                      stepImza = '✍️'
+-                                      stepImzaColor = '#3B82F6'
+-                                    } else if (bStatus === 'onaylandi_kapatildi') {
+-                                      stepOgretmen = '#10B981'
+-                                      stepZumre = '#10B981'
+-                                      stepMudur = '#10B981'
+-                                      stepImza = '🗃️'
+-                                      stepImzaColor = '#10B981'
+-                                    }
+-
+-                                    // Check user simulation permissions
+-                                    const userIsZumreBaskani = (simuleRol === 'ogretmen' && simuleOgretmenAd === bBaskan) || 
+-                                                               (profil?.rol === 'ogretmen' && profil?.ad === bBaskan) || 
+-                                                               simuleRol === 'zumre'
+-
+-                                    const evrakUrl = location.pathname.includes('/platform') 
+-                                      ? '/platform/kurum/resmi-islemler/evraklar' 
+-                                      : '/kurum/resmi-islemler/evraklar'
+-
+-                                    return (
+-                                      <tr key={brans.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+-                                        <td style={{ padding: '10px 4px', fontWeight: '700', color: '#1E293B' }}>
+-                                          {brans.ad} {!brans.sabit && <span style={{ fontSize: '0.65rem', background: '#FEF3C7', color: '#D97706', padding: '1px 6px', borderRadius: '4px', marginLeft: '4px' }}>Seçmeli</span>}
+-                                        </td>
+-                                        <td style={{ padding: '10px 4px', color: bBaskan === 'Seçilmedi' ? '#94A3B8' : '#334155', fontWeight: '600' }}>
+-                                          👤 {bBaskan}
+-                                        </td>
+-                                        <td style={{ padding: '10px 4px', textAlign: 'center' }}>
+-                                          <span style={{
+-                                            fontSize: '0.7rem',
+-                                            padding: '2px 8px',
+-                                            borderRadius: '12px',
+-                                            fontWeight: '700',
+-                                            backgroundColor: bStatus === 'yapilmadi' ? '#F1F5F9' : bStatus === 'baskan_secildi' ? '#F5F3FF' : bStatus === 'zumre_doldurma' ? '#FFFBEB' : bStatus === 'mudur_onay' ? '#EFF6FF' : '#ECFDF5',
+-                                            color: bStatus === 'yapilmadi' ? '#64748B' : bStatus === 'baskan_secildi' ? '#8B5CF6' : bStatus === 'zumre_doldurma' ? '#D97706' : bStatus === 'mudur_onay' ? '#1D4ED8' : '#047857'
+-                                          }}>
+-                                            {bStatus === 'yapilmadi' ? 'Başlatılmadı' : bStatus === 'baskan_secildi' ? 'Başkan Görevlendirildi' : bStatus === 'zumre_doldurma' ? 'Zümre Doldurma' : bStatus === 'mudur_onay' ? 'Müdür Onayında' : 'Onaylandı'}
+-                                          </span>
+-                                        </td>
+-                                        <td style={{ padding: '10px 4px' }}>
+-                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+-                                            <span style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: stepOgretmen, color: '#FFFFFF', fontSize: '0.6rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }} title="1. Öğretmen Doldurma">
+-                                              {stepOgretmen === '#10B981' ? '✓' : '1'}
+-                                            </span>
+-                                            <span style={{ fontSize: '0.6rem', color: '#94A3B8' }}>→</span>
+-                                            <span style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: stepZumre, color: '#FFFFFF', fontSize: '0.6rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }} title="2. Zümre Onay">
+-                                              {stepZumre === '#10B981' ? '✓' : '2'}
+-                                            </span>
+-                                            <span style={{ fontSize: '0.6rem', color: '#94A3B8' }}>→</span>
+-                                            <span style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: stepMudur, color: '#FFFFFF', fontSize: '0.6rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }} title="M. Müdür Onayı">
+-                                              {stepMudur === '#10B981' ? '✓' : 'M'}
+-                                            </span>
+-                                            <span style={{ fontSize: '0.6rem', color: '#94A3B8' }}>→</span>
+-                                            <span style={{ fontSize: '0.9rem', color: stepImzaColor }} title="Resmi Arşiv / İmza">
+-                                              {stepImza}
+-                                            </span>
+-                                          </div>
+-                                        </td>
+-                                        <td style={{ padding: '10px 4px', textAlign: 'right' }}>
+-                                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
+-                                            {/* Müdür Butonları */}
+-                                            {simuleRol === 'mudur' && (
+-                                              <>
+-                                                {bStatus === 'yapilmadi' && (
+-                                                  <button
+-                                                    onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
+-                                                    style={{ padding: '3px 8px', fontSize: '0.7rem', fontWeight: '700', backgroundColor: '#4F46E5', color: '#FFFFFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+-                                                  >
+-                                                    🚀 Görevlendir
+-                                                  </button>
+-                                                )}
+-                                                {bStatus === 'baskan_secildi' && (
+-                                                  <button
+-                                                    onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
+-                                                    style={{ padding: '3px 8px', fontSize: '0.7rem', fontWeight: '700', backgroundColor: '#8B5CF6', color: '#FFFFFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+-                                                  >
+-                                                    🔍 İncele
+-                                                  </button>
+-                                                )}
+-                                                {bStatus === 'zumre_doldurma' && (
+-                                                  <button
+-                                                    onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
+-                                                    style={{ padding: '3px 8px', fontSize: '0.7rem', fontWeight: '700', backgroundColor: '#3B82F6', color: '#FFFFFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+-                                                  >
+-                                                    🔍 İncele / Düzenle
+-                                                  </button>
+-                                                )}
+-                                                {bStatus === 'mudur_onay' && (
+-                                                  <button
+-                                                    onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
+-                                                    style={{ padding: '3px 8px', fontSize: '0.7rem', fontWeight: '700', backgroundColor: '#10B981', color: '#FFFFFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+-                                                  >
+-                                                    ✅ İncele & Onayla
+-                                                  </button>
+-                                                )}
+-                                                {bStatus === 'onaylandi_kapatildi' && (
+-                                                  <button
+-                                                    onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
+-                                                    style={{ padding: '3px 8px', fontSize: '0.7rem', fontWeight: '700', backgroundColor: '#1B3A6B', color: '#FFFFFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+-                                                  >
+-                                                    🖨️ Çıktı Al
+-                                                  </button>
+-                                                )}
+-                                              </>
+-                                            )}
+-
+-                                            {/* Zümre Başkanı / Öğretmen Butonları */}
+-                                            {simuleRol !== 'mudur' && (
+-                                              <>
+-                                                {userIsZumreBaskani && bStatus === 'zumre_doldurma' ? (
+-                                                  <button
+-                                                    onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
+-                                                    style={{ padding: '3px 8px', fontSize: '0.7rem', fontWeight: '700', backgroundColor: '#1B3A6B', color: '#FFFFFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+-                                                  >
+-                                                    📝 Evrak Doldur
+-                                                  </button>
+-                                                ) : userIsZumreBaskani && bStatus === 'baskan_secildi' ? (
+-                                                  <button
+-                                                    onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
+-                                                    style={{ padding: '3px 8px', fontSize: '0.7rem', fontWeight: '700', backgroundColor: '#8B5CF6', color: '#FFFFFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+-                                                  >
+-                                                    📅 Toplantıyı Planla
+-                                                  </button>
+-                                                ) : bStatus === 'yapilmadi' ? (
+-                                                  <span style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: '700', fontStyle: 'italic', background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px' }}>
+-                                                    Başlatılmadı
+-                                                  </span>
+-                                                ) : bStatus === 'baskan_secildi' ? (
+-                                                  <span style={{ fontSize: '0.68rem', color: '#8B5CF6', fontWeight: '700', fontStyle: 'italic', background: '#F5F3FF', padding: '2px 6px', borderRadius: '4px' }}>
+-                                                    Planlanıyor
+-                                                  </span>
+-                                                ) : (
+-                                                  <button
+-                                                    onClick={() => navigate(evrakUrl, { state: { sablonId: 2, bransId: brans.id, simuleRol, simuleOgretmenAd } })}
+-                                                    style={{ padding: '3px 8px', fontSize: '0.7rem', fontWeight: '700', backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '4px', cursor: 'pointer' }}
+-                                                  >
+-                                                    📄 Görüntüle
+-                                                  </button>
+-                                                )}
+-                                              </>
+-                                            )}
++                            )}
++                          </>
++                        )}
+ 
+-                                            {/* Seçmeli Ders Silme (Müdür için) */}
+-                                            {simuleRol === 'mudur' && !brans.sabit && (
+-                                              <button
+-                                                onClick={async () => {
+-                                                  if (window.confirm(`"${brans.ad}" seçmeli ders zümresini silmek istediğinize emin misiniz?`)) {
+-                                                    const guncel = branslar.filter(x => x.id !== brans.id)
+-                                                    const listRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', 'seneBasiZumreListesi')
+-                                                    await setDoc(listRef, { branslar: guncel }, { merge: true })
+-                                                    
+-                                                    // Alt evrak belgesini de sil
+-                                                    const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', `seneBasiZumre_${brans.id}`)
+-                                                    await deleteDoc(docRef)
+-                                                  }
+-                                                }}
+-                                                style={{ padding: '3px 6px', fontSize: '0.7rem', fontWeight: '700', backgroundColor: '#EF4444', color: '#FFFFFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+-                                                title="Zümreyi Sil"
+-                                              >
+-                                                🗑️
+-                                              </button>
+-                                            )}
+-                                            {/* Master Kullanıcı (Platform Admin) Evrak Silme Yetkisi */}
+-                                            {platformAdmin && (bStatus === 'onaylandi_kapatildi' || bStatus === 'mudur_onay') && (
+-                                              <button
+-                                                onClick={async () => {
+-                                                  if (window.confirm(`"${brans.ad}" branşına ait tamamlanmış/onaydaki zümre evrakını silmek ve sıfırlamak istediğinize emin misiniz?`)) {
+-                                                    const docRef = doc(db, 'kurumlar', secilenKurumId, 'resmiEvraklar', `seneBasiZumre_${brans.id}`)
+-                                                    await deleteDoc(docRef)
+-                                                  }
+-                                                }}
+-                                                style={{ padding: '3px 8px', fontSize: '0.7rem', fontWeight: '700', backgroundColor: '#EF4444', color: '#FFFFFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+-                                              >
+-                                                🗑️ Evrakı Sil
+-                                              </button>
+-                                            )}
+-                                          </div>
+-                                        </td>
+-                                      </tr>
+-                                    )
+-                                  })}
+-                                </tbody>
+-                              </table>
+-                            </div>
+-                          </div>
+-                        </td>
+-                      </tr>
+-                    )}
+-                  </Fragment>
+-                ]
++                        {/* MASTER ADMIN (PLATFORM ADMIN) SILME AKSİYONU */}
++                        {platformAdmin && (durum.mudur === 'onaylandi' || durum.imzaDurumu === 'imzalandi') && (
++                          <button
++                            onClick={() => handleSüreçSil(gorev)}
++                            style={{
++                              padding: '5px 10px',
++                              fontSize: '0.75rem',
++                              fontWeight: '600',
++                              backgroundColor: '#EF4444',
++                              color: '#FFFFFF',
++                              border: 'none',
++                              borderRadius: '6px',
++                              cursor: 'pointer',
++                              transition: 'all 0.15s'
++                            }}
++                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#DC2626'}
++                            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#EF4444'}
++                          >
++                            🗑️ Süreci Sil
++                          </button>
++                        )}
++                      </div>
++                    </td>
++                  </tr>
++                )
+               })
+             ) : (
+               <tr>
