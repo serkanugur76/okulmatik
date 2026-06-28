@@ -28,18 +28,30 @@ import KurumResmiEvraklar     from './pages/kurum/KurumResmiEvraklar'
 import PlatformTopluMail      from './pages/platform/PlatformTopluMail'
 
 function KorunanRoute({ izinliRoller, children }) {
-  const { kullanici, profil, yukleniyor } = useAuth()
+  const { kullanici, profil, yukleniyor, platformAdmin } = useAuth()
   if (yukleniyor) return <div className="yukleniyor">Yükleniyor...</div>
   if (!kullanici)  return <Navigate to="/giris" replace />
-  if (izinliRoller && !izinliRoller.includes(profil?.rol))
-    return <Navigate to="/yetkisiz" replace />
+  
+  if (izinliRoller) {
+    if (izinliRoller.includes('platform_admin') && platformAdmin) {
+      return children
+    }
+    if (!izinliRoller.includes(profil?.rol)) {
+      return <Navigate to="/yetkisiz" replace />
+    }
+  }
   return children
 }
 
 function AnaYonlendirici() {
-  const { kullanici, profil, yukleniyor } = useAuth()
+  const { kullanici, profil, yukleniyor, platformAdmin } = useAuth()
   if (yukleniyor) return null
   if (!kullanici)  return <Navigate to="/giris" replace />
+  
+  if (platformAdmin) {
+    return <Navigate to="/platform" replace />
+  }
+  
   const hedef = {
     platform_admin: '/platform',
     kurum_admin:    '/kurum',
