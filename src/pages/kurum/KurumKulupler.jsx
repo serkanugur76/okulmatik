@@ -1326,12 +1326,23 @@ export default function KurumKulupler() {
     const targetKurumId = seciliKulup._kurumId
     const ayniKurumOgrencileri = ogrenciler.filter(o => o._kurumId === targetKurumId)
     const metin = ogrenciArama.toLowerCase().trim()
-    if (!metin) return ayniKurumOgrencileri
-    return ayniKurumOgrencileri.filter(o =>
-      `${o.ad} ${o.soyad || ''}`.toLowerCase().includes(metin) ||
-      (o.ogrenciNo || '').toString().includes(metin) ||
-      (o.sinifAd || '').toLowerCase().includes(metin)
-    )
+    
+    let sonuclar = ayniKurumOgrencileri
+    if (metin) {
+      sonuclar = ayniKurumOgrencileri.filter(o =>
+        `${o.ad} ${o.soyad || ''}`.toLowerCase().includes(metin) ||
+        (o.ogrenciNo || '').toString().includes(metin) ||
+        (o.sinifAd || '').toLowerCase().includes(metin)
+      )
+    }
+
+    // Atanmış öğrenciler (seciliKulup.ogrenciIds listesinde olanlar) en üstte gelsin
+    const atananIds = seciliKulup.ogrenciIds || []
+    return [...sonuclar].sort((a, b) => {
+      const aSecili = atananIds.includes(a.id) ? 1 : 0
+      const bSecili = atananIds.includes(b.id) ? 1 : 0
+      return bSecili - aSecili
+    })
   }, [ogrenciler, ogrenciArama, seciliKulup])
 
   if (yukleniyor) {
