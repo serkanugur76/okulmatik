@@ -1354,58 +1354,6 @@ export default function KurumKulupler() {
             Kurum içi sosyal kulüp tanımlamaları, öğretmen-öğrenci atamaları, yoklama defteri ve etkinlik planlamaları.
           </p>
         </div>
-
-        {/* Tab Seçiciler */}
-        <div style={{ display: 'flex', background: '#E2E8F0', padding: '4px', borderRadius: '8px' }}>
-          <button onClick={() => setAktifTab('kulupler')}
-            style={{
-              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
-              cursor: 'pointer', background: aktifTab === 'kulupler' ? '#fff' : 'transparent',
-              color: aktifTab === 'kulupler' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
-            }}>
-            🏆 Kulüpler
-          </button>
-          <button onClick={() => setAktifTab('yoklama')}
-            style={{
-              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
-              cursor: 'pointer', background: aktifTab === 'yoklama' ? '#fff' : 'transparent',
-              color: aktifTab === 'yoklama' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
-            }}>
-            📝 Yoklama Defteri
-          </button>
-          <button onClick={() => setAktifTab('dersPlani')}
-            style={{
-              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
-              cursor: 'pointer', background: aktifTab === 'dersPlani' ? '#fff' : 'transparent',
-              color: aktifTab === 'dersPlani' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
-            }}>
-            📖 Ders Planı
-          </button>
-          <button onClick={() => setAktifTab('etkinlikler')}
-            style={{
-              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
-              cursor: 'pointer', background: aktifTab === 'etkinlikler' ? '#fff' : 'transparent',
-              color: aktifTab === 'etkinlikler' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
-            }}>
-            🏁 Etkinlik & Turnuvalar
-          </button>
-          <button onClick={() => setAktifTab('talepler')}
-            style={{
-              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
-              cursor: 'pointer', background: aktifTab === 'talepler' ? '#fff' : 'transparent',
-              color: aktifTab === 'talepler' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
-            }}>
-            📩 Geçiş Talepleri
-          </button>
-          <button onClick={() => setAktifTab('degerlendirme')}
-            style={{
-              padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600',
-              cursor: 'pointer', background: aktifTab === 'degerlendirme' ? '#fff' : 'transparent',
-              color: aktifTab === 'degerlendirme' ? '#1B3A6B' : '#64748B', transition: 'all 0.15s'
-            }}>
-            📊 Rubrik Değerlendirme
-          </button>
-        </div>
       </div>
 
       {/* Seçilen kurum doğrulaması */}
@@ -1418,7 +1366,7 @@ export default function KurumKulupler() {
       {secilenKurumId && (
         <>
           {/* ── TAB 1: KULÜPLER TANIMI ── */}
-          {aktifTab === 'kulupler' && (
+          {true && (
             <div>
               {adminModu && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
@@ -1923,10 +1871,93 @@ export default function KurumKulupler() {
               )}
             </div>
           )}
+          {/* Fullscreen Sub-Module Overlay Modal */}
+          {aktifTab !== 'kulupler' && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              background: 'rgba(15, 23, 42, 0.4)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 999,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '1.5rem',
+              boxSizing: 'border-box'
+            }}>
+              <div style={{
+                background: '#fff',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '1200px',
+                height: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                overflow: 'hidden'
+              }}>
+                {/* Header */}
+                <div style={{
+                  padding: '1rem 1.5rem',
+                  borderBottom: '1px solid #E2E8F0',
+                  background: '#F8FAFC',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {aktifTab === 'yoklama' && '📝 Yoklama Defteri'}
+                    {aktifTab === 'dersPlani' && '📖 Ders Planı'}
+                    {aktifTab === 'etkinlikler' && '🏁 Etkinlik & Turnuvalar'}
+                    {aktifTab === 'talepler' && '📩 Geçiş Talepleri'}
+                    {aktifTab === 'degerlendirme' && '📊 Rubrik Değerlendirme'}
+                    <span style={{ fontSize: '0.85rem', fontWeight: '500', color: '#64748B', marginLeft: '0.5rem' }}>
+                      ({(() => {
+                        const selectedClubObj = goruntulenenKulupler.find(k => k.id === seciliKulupId);
+                        return selectedClubObj ? selectedClubObj.ad : '';
+                      })()})
+                    </span>
+                  </h2>
 
-          {/* ── TAB 2: YOKLAMA DEFTERİ ── */}
-          {aktifTab === 'yoklama' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
+                  <button
+                    onClick={() => setAktifTab('kulupler')}
+                    style={{
+                      padding: '0.4rem 0.8rem',
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      background: '#F1F5F9',
+                      color: '#475569',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#EF4444';
+                      e.currentTarget.style.color = '#fff';
+                      e.currentTarget.style.borderColor = '#DC2626';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#F1F5F9';
+                      e.currentTarget.style.color = '#475569';
+                      e.currentTarget.style.borderColor = '#CBD5E1';
+                    }}
+                  >
+                    ✕ Kapat
+                  </button>
+                </div>
+
+                {/* Content Panel */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+                  {/* ── TAB 2: YOKLAMA DEFTERİ ── */}
+                  {aktifTab === 'yoklama' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
               
               {/* Sol Kolon: Yoklama Tablosu */}
               <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
@@ -2761,6 +2792,10 @@ export default function KurumKulupler() {
                   </div>
                 )
               })()}
+            </div>
+          )}
+                </div>
+              </div>
             </div>
           )}
         </>
