@@ -1671,10 +1671,6 @@ export default function KurumKulupler() {
                                         </p>
                                       </div>
 
-                                      {/* Rubrik Bilgisi */}
-                                      <div style={{ flex: '2 1 150px', minWidth: '130px', display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.7rem', color: '#475569' }}>
-                                        <div><strong>📋 Rubrik:</strong> {rubrikIsmi || 'Atanmamış'}</div>
-                                      </div>
                                     </div>
 
                                     {/* Alt Kısım: Kulüp Alt Modül Kısayolları */}
