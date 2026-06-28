@@ -17,6 +17,7 @@ export default function PlatformTopluMail() {
   const [testingConnection, setTestingConnection] = useState(false)
   const [testResult, setTestResult] = useState(null) // { success: boolean, msg: string }
   const [saveStatus, setSaveStatus] = useState(null) // 'kaydedildi' | null
+  const [isDragOver, setIsDragOver] = useState(false)
 
   // Excel data state
   const [students, setStudents] = useState([])
@@ -147,9 +148,8 @@ export default function PlatformTopluMail() {
     }
   }
 
-  // Excel parser
-  const handleExcelImport = (e) => {
-    const file = e.target.files[0]
+  // Excel file parsing logic
+  const processFile = (file) => {
     if (!file) return
 
     const reader = new FileReader()
@@ -166,22 +166,31 @@ export default function PlatformTopluMail() {
           return
         }
 
-        const headers = rows[0].map(h => h.toString().trim())
+        const headers = rows[0].map(h => h !== null && h !== undefined ? h.toString().trim() : '')
         const dataRows = rows.slice(1)
 
-        // Intelligent column mapper
+        // Intelligent column mapper with robust normalization (ignores hyphens, underscores, dots, and Turkish accents)
         const mapping = {}
         headers.forEach((h, index) => {
-          const clean = h.toLowerCase().replace(/\s+/g, '').replace(/[ııİi]/g, 'i').replace(/[şs]/g, 's').replace(/[ğg]/g, 'g').replace(/[üu]/g, 'u').replace(/[öo]/g, 'o').replace(/[çc]/g, 'c')
+          if (!h) return
+          let clean = h.toLowerCase()
+            .replace(/[^a-z0-9ıişğüöç]/g, '')
+            .replace(/[ı]/g, 'i')
+            .replace(/[ş]/g, 's')
+            .replace(/[ğ]/g, 'g')
+            .replace(/[ü]/g, 'u')
+            .replace(/[ö]/g, 'o')
+            .replace(/[ç]/g, 'c')
+
           if (['ad', 'adi', 'isim', 'name', 'firstname'].some(v => clean === v || clean.startsWith('ogrenciad'))) {
             mapping.ad = index
           } else if (['soyad', 'soyadi', 'lastname', 'surname'].some(v => clean === v || clean.startsWith('ogrencisoyad'))) {
             mapping.soyad = index
           } else if (['eposta', 'email', 'mail', 'emailadresi', 'posta'].some(v => clean === v)) {
             mapping.eposta = index
-          } else if (['kullaniciadi', 'kullaniciadi', 'username', 'user'].some(v => clean.includes(v))) {
+          } else if (['kullaniciadi', 'username', 'user'].some(v => clean.includes(v))) {
             mapping.kullaniciAdi = index
-          } else if (['sifre', 'sefre', 'password', 'pass'].some(v => clean === v)) {
+          } else if (['sifre', 'password', 'pass'].some(v => clean === v)) {
             mapping.sifre = index
           } else if (['anahtarkod', 'kod', 'key', 'aktivasyonkodu', 'aktivasyon', 'token'].some(v => clean.includes(v))) {
             mapping.anahtarKod = index
@@ -227,6 +236,29 @@ export default function PlatformTopluMail() {
       }
     }
     reader.readAsArrayBuffer(file)
+  }
+
+  const handleExcelImport = (e) => {
+    const file = e.target.files[0]
+    processFile(file)
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = () => {
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      processFile(file)
+    }
   }
 
   const handleDownloadTemplate = () => {
@@ -584,18 +616,20 @@ export default function PlatformTopluMail() {
 
             <div
               onClick={() => xlsxInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
               style={{
                 border: '2px dashed #CBD5E1',
+                borderColor: isDragOver ? '#4F46E5' : '#CBD5E1',
                 borderRadius: '12px',
                 padding: '2rem 1.5rem',
                 textAlign: 'center',
                 cursor: 'pointer',
-                background: 'rgba(248, 250, 252, 0.5)',
+                background: isDragOver ? 'rgba(79, 70, 229, 0.05)' : 'rgba(248, 250, 252, 0.5)',
                 transition: 'all 0.2s',
                 marginBottom: '1rem'
               }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = '#4F46E5'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = '#CBD5E1'}
             >
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
               <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569', display: 'block' }}>
