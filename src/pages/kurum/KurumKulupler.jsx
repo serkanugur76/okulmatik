@@ -1510,15 +1510,13 @@ export default function KurumKulupler() {
                                     key={kulup.id}
                                     style={{
                                       display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
+                                      flexDirection: 'column',
                                       background: '#fff',
                                       border: '1px solid #E2E8F0',
                                       borderRadius: '10px',
-                                      padding: '0.75rem 1.25rem',
-                                      gap: '1.25rem',
+                                      padding: '1rem 1.25rem',
+                                      gap: '0.75rem',
                                       boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                                      flexWrap: 'wrap',
                                       transition: 'all 0.15s ease-in-out',
                                       position: 'relative'
                                     }}
@@ -1531,76 +1529,15 @@ export default function KurumKulupler() {
                                       e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)'
                                     }}
                                   >
-                                    {/* Okul Düzeyi Rozeti (Sağ Üst Köşede) */}
-                                    {kulup.okulDuzeyi && (
-                                      <span style={{
-                                        position: 'absolute',
-                                        top: '6px',
-                                        right: '12px',
-                                        fontSize: '0.58rem',
-                                        padding: '1px 5px',
-                                        borderRadius: '999px',
-                                        fontWeight: '700',
-                                        background: kulup.okulDuzeyi === 'ilkokul' ? '#FEF3C7' : kulup.okulDuzeyi === 'ortaokul' ? '#E0F2FE' : kulup.okulDuzeyi === 'lise' ? '#FEE2E2' : '#F1F5F9',
-                                        color: kulup.okulDuzeyi === 'ilkokul' ? '#92400E' : kulup.okulDuzeyi === 'ortaokul' ? '#0369A1' : kulup.okulDuzeyi === 'lise' ? '#991B1B' : '#475569',
-                                        border: '1px solid',
-                                        borderColor: kulup.okulDuzeyi === 'ilkokul' ? '#FDE047' : kulup.okulDuzeyi === 'ortaokul' ? '#7DD3FC' : kulup.okulDuzeyi === 'lise' ? '#FCA5A5' : '#CBD5E1',
-                                      }}>
-                                        {kulup.okulDuzeyi === 'ilkokul' ? '🏫 İlkokul' : kulup.okulDuzeyi === 'ortaokul' ? '🏫 Ortaokul' : kulup.okulDuzeyi === 'lise' ? '🏫 Lise' : '🌍 Genel'}
-                                      </span>
-                                    )}
-
-                                    {/* 1. Sol Kolon: Başlık ve Temel Bilgiler */}
-                                    <div style={{ flex: '2 1 220px', minWidth: '200px' }}>
-                                      <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700', color: '#1E293B' }}>
-                                        {kulup.ad}
-                                      </h3>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
-                                        {seviye !== 'altKurum' && (
-                                          <span style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.7rem', color: '#64748B' }}>
-                                            <span>🏢</span>
-                                            <span>
-                                              {(() => {
-                                                const okulObj = erisimKurumlar.find(x => x.id === kulup._kurumId)
-                                                if (!okulObj) return kulup._kurumAd || 'Bilinmeyen Okul'
-                                                const parentObj = okulObj.parentId ? erisimKurumlar.find(x => x.id === okulObj.parentId) : null
-                                                if (parentObj && parentObj.tip === 'kampus') {
-                                                  return `${okulObj.ad} (${parentObj.ad})`
-                                                }
-                                                return okulObj.ad
-                                              })()}
-                                            </span>
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* 2. Orta Kolon: Kısa Tanıtım Açıklaması */}
-                                    <div style={{ flex: '3 1 250px', minWidth: '220px' }}>
-                                      <p style={{ fontSize: '0.78rem', color: '#64748B', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.4' }}>
-                                        {kulup.tanitim || 'Tanıtım açıklaması girilmemiş.'}
-                                      </p>
-                                    </div>
-
-                                    {/* 3. Danışman ve Rubrik Bilgisi */}
-                                    <div style={{ flex: '2 1 180px', minWidth: '160px', display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.72rem', color: '#475569' }}>
-                                      <div><strong>🧑‍🏫 Danışman:</strong> {atananOgretmenIsimleri}</div>
-                                      <div><strong>📋 Rubrik:</strong> {rubrikIsmi || 'Atanmamış'}</div>
-                                    </div>
-
-                                    {/* 4. Kontenjan Durumu */}
-                                    <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center' }}>
-                                      <span style={{
-                                        fontSize: '0.7rem', padding: '3px 8px', borderRadius: '999px', fontWeight: '700',
-                                        background: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FEE2E2' : '#F1F5F9',
-                                        color: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#991B1B' : '#475569',
-                                      }}>
-                                        👥 {kulup.ogrenciIds?.length || 0} / {kulup.kontenjan || '∞'} Üye
-                                      </span>
-                                    </div>
-
-                                    {/* 5. Sağ Kolon: Aksiyon Butonları */}
-                                    <div style={{ display: 'flex', gap: '6px', flex: '0 0 auto', alignItems: 'center' }}>
+                                    {/* Yönetim Butonları Grubu (Sağ Üst Köşede) */}
+                                    <div style={{
+                                      position: 'absolute',
+                                      top: '10px',
+                                      right: '12px',
+                                      display: 'flex',
+                                      gap: '4px',
+                                      alignItems: 'center'
+                                    }}>
                                       {adminModu ? (
                                         <button
                                           onClick={() => {
@@ -1609,9 +1546,9 @@ export default function KurumKulupler() {
                                             setOgrenciModalAcik(true)
                                           }}
                                           style={{
-                                            padding: '0.35rem 0.65rem', fontSize: '0.72rem', background: '#EFF6FF',
-                                            color: '#1E40AF', border: '1px solid #BFDBFE', borderRadius: '6px',
-                                            fontWeight: '600', cursor: 'pointer'
+                                            padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#EFF6FF',
+                                            color: '#1E40AF', border: '1px solid #BFDBFE', borderRadius: '4px',
+                                            fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
                                           }}
                                         >
                                           👥 Üyeler
@@ -1627,9 +1564,9 @@ export default function KurumKulupler() {
                                             setTalepModalAcik(true)
                                           }}
                                           style={{
-                                            padding: '0.35rem 0.65rem', fontSize: '0.72rem', background: '#F0FDF4',
-                                            color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: '6px',
-                                            fontWeight: '600', cursor: 'pointer'
+                                            padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#F0FDF4',
+                                            color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: '4px',
+                                            fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
                                           }}
                                         >
                                           🔄 Talep
@@ -1645,9 +1582,9 @@ export default function KurumKulupler() {
                                           setMateryalModalAcik(true)
                                         }}
                                         style={{
-                                          padding: '0.35rem 0.65rem', fontSize: '0.72rem', background: '#FFF7ED',
-                                          color: '#C2410C', border: '1px solid #FFEDD5', borderRadius: '6px',
-                                          fontWeight: '600', cursor: 'pointer'
+                                          padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#FFF7ED',
+                                          color: '#C2410C', border: '1px solid #FFEDD5', borderRadius: '4px',
+                                          fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
                                         }}
                                       >
                                         📦 Materyal
@@ -1657,22 +1594,270 @@ export default function KurumKulupler() {
                                         <>
                                           <button onClick={() => handleKulupDuzenle(kulup)}
                                             style={{
-                                              padding: '0.35rem 0.65rem', fontSize: '0.72rem', background: '#F8FAFC',
-                                              color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px',
-                                              fontWeight: '600', cursor: 'pointer'
+                                              padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#F8FAFC',
+                                              color: '#475569', border: '1px solid #CBD5E1', borderRadius: '4px',
+                                              fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
                                             }}>
                                             ✏️ Düzenle
                                           </button>
                                           <button onClick={() => handleKulupSil(kulup.id, kulup.ad)}
                                             style={{
-                                              padding: '0.35rem 0.65rem', fontSize: '0.72rem', background: '#FEF2F2',
-                                              color: '#991B1B', border: '1px solid #FCA5A5', borderRadius: '6px',
-                                              fontWeight: '600', cursor: 'pointer'
+                                              padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#FEF2F2',
+                                              color: '#991B1B', border: '1px solid #FCA5A5', borderRadius: '4px',
+                                              fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
                                             }}>
                                             🗑️ Sil
                                           </button>
                                         </>
                                       )}
+                                    </div>
+
+                                    {/* Üst Kısım: Detaylar (Flex Row) */}
+                                    <div style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      gap: '1rem',
+                                      flexWrap: 'wrap',
+                                      paddingRight: '220px' // Sağ üstteki buton grubuna alan bırakmak için
+                                    }}>
+                                      {/* Sol Sütun: Başlık ve Rozet */}
+                                      <div style={{ flex: '2 1 200px', minWidth: '180px' }}>
+                                        <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '700', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                          {kulup.ad}
+                                          {kulup.okulDuzeyi && (
+                                            <span style={{
+                                              fontSize: '0.58rem',
+                                              padding: '1px 5px',
+                                              borderRadius: '999px',
+                                              fontWeight: '700',
+                                              background: kulup.okulDuzeyi === 'ilkokul' ? '#FEF3C7' : kulup.okulDuzeyi === 'ortaokul' ? '#E0F2FE' : kulup.okulDuzeyi === 'lise' ? '#FEE2E2' : '#F1F5F9',
+                                              color: kulup.okulDuzeyi === 'ilkokul' ? '#92400E' : kulup.okulDuzeyi === 'ortaokul' ? '#0369A1' : kulup.okulDuzeyi === 'lise' ? '#991B1B' : '#475569',
+                                              border: '1px solid',
+                                              borderColor: kulup.okulDuzeyi === 'ilkokul' ? '#FDE047' : kulup.okulDuzeyi === 'ortaokul' ? '#7DD3FC' : kulup.okulDuzeyi === 'lise' ? '#FCA5A5' : '#CBD5E1',
+                                            }}>
+                                              {kulup.okulDuzeyi === 'ilkokul' ? 'İlkokul' : kulup.okulDuzeyi === 'ortaokul' ? 'Ortaokul' : kulup.okulDuzeyi === 'lise' ? 'Lise' : 'Genel'}
+                                            </span>
+                                          )}
+                                        </h3>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                          {seviye !== 'altKurum' && (
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.68rem', color: '#64748B' }}>
+                                              <span>🏢</span>
+                                              <span>
+                                                {(() => {
+                                                  const okulObj = erisimKurumlar.find(x => x.id === kulup._kurumId)
+                                                  if (!okulObj) return kulup._kurumAd || 'Bilinmeyen Okul'
+                                                  const parentObj = okulObj.parentId ? erisimKurumlar.find(x => x.id === okulObj.parentId) : null
+                                                  if (parentObj && parentObj.tip === 'kampus') {
+                                                    return `${okulObj.ad} (${parentObj.ad})`
+                                                  }
+                                                  return okulObj.ad
+                                                })()}
+                                              </span>
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Tanıtım Açıklaması */}
+                                      <div style={{ flex: '3 1 220px', minWidth: '180px' }}>
+                                        <p style={{ fontSize: '0.75rem', color: '#64748B', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                                          {kulup.tanitim || 'Tanıtım açıklaması girilmemiş.'}
+                                        </p>
+                                      </div>
+
+                                      {/* Danışman ve Rubrik Bilgisi */}
+                                      <div style={{ flex: '2 1 150px', minWidth: '130px', display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.7rem', color: '#475569' }}>
+                                        <div><strong>🧑‍🏫 Danışman:</strong> {atananOgretmenIsimleri}</div>
+                                        <div><strong>📋 Rubrik:</strong> {rubrikIsmi || 'Atanmamış'}</div>
+                                      </div>
+
+                                      {/* Kontenjan Durumu */}
+                                      <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center' }}>
+                                        <span style={{
+                                          fontSize: '0.68rem', padding: '2px 8px', borderRadius: '999px', fontWeight: '700',
+                                          background: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FEE2E2' : '#F1F5F9',
+                                          color: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#991B1B' : '#475569',
+                                        }}>
+                                          👥 {kulup.ogrenciIds?.length || 0} / {kulup.kontenjan || '∞'} Üye
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Alt Kısım: Kulüp Alt Modül Kısayolları */}
+                                    <div style={{
+                                      display: 'flex',
+                                      gap: '6px',
+                                      marginTop: '4px',
+                                      paddingTop: '8px',
+                                      borderTop: '1px solid #F1F5F9',
+                                      flexWrap: 'wrap'
+                                    }}>
+                                      <button
+                                        onClick={() => {
+                                          setSeciliKulupId(kulup.id)
+                                          setAktifTab('yoklama')
+                                        }}
+                                        style={{
+                                          padding: '0.3rem 0.6rem',
+                                          fontSize: '0.7rem',
+                                          background: '#F8FAFC',
+                                          color: '#475569',
+                                          border: '1px solid #E2E8F0',
+                                          borderRadius: '6px',
+                                          fontWeight: '700',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => {
+                                          e.currentTarget.style.background = '#F1F5F9'
+                                          e.currentTarget.style.color = '#1B3A6B'
+                                          e.currentTarget.style.borderColor = '#CBD5E1'
+                                        }}
+                                        onMouseLeave={e => {
+                                          e.currentTarget.style.background = '#F8FAFC'
+                                          e.currentTarget.style.color = '#475569'
+                                          e.currentTarget.style.borderColor = '#E2E8F0'
+                                        }}
+                                      >
+                                        📝 Yoklama Defteri
+                                      </button>
+
+                                      <button
+                                        onClick={() => {
+                                          setSeciliKulupId(kulup.id)
+                                          setAktifTab('dersPlani')
+                                        }}
+                                        style={{
+                                          padding: '0.3rem 0.6rem',
+                                          fontSize: '0.7rem',
+                                          background: '#F8FAFC',
+                                          color: '#475569',
+                                          border: '1px solid #E2E8F0',
+                                          borderRadius: '6px',
+                                          fontWeight: '700',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => {
+                                          e.currentTarget.style.background = '#F1F5F9'
+                                          e.currentTarget.style.color = '#1B3A6B'
+                                          e.currentTarget.style.borderColor = '#CBD5E1'
+                                        }}
+                                        onMouseLeave={e => {
+                                          e.currentTarget.style.background = '#F8FAFC'
+                                          e.currentTarget.style.color = '#475569'
+                                          e.currentTarget.style.borderColor = '#E2E8F0'
+                                        }}
+                                      >
+                                        📖 Ders Planı
+                                      </button>
+
+                                      <button
+                                        onClick={() => {
+                                          setSeciliKulupId(kulup.id)
+                                          setAktifTab('etkinlikler')
+                                        }}
+                                        style={{
+                                          padding: '0.3rem 0.6rem',
+                                          fontSize: '0.7rem',
+                                          background: '#F8FAFC',
+                                          color: '#475569',
+                                          border: '1px solid #E2E8F0',
+                                          borderRadius: '6px',
+                                          fontWeight: '700',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => {
+                                          e.currentTarget.style.background = '#F1F5F9'
+                                          e.currentTarget.style.color = '#1B3A6B'
+                                          e.currentTarget.style.borderColor = '#CBD5E1'
+                                        }}
+                                        onMouseLeave={e => {
+                                          e.currentTarget.style.background = '#F8FAFC'
+                                          e.currentTarget.style.color = '#475569'
+                                          e.currentTarget.style.borderColor = '#E2E8F0'
+                                        }}
+                                      >
+                                        🏁 Etkinlik & Turnuvalar
+                                      </button>
+
+                                      <button
+                                        onClick={() => {
+                                          setSeciliKulupId(kulup.id)
+                                          setAktifTab('talepler')
+                                        }}
+                                        style={{
+                                          padding: '0.3rem 0.6rem',
+                                          fontSize: '0.7rem',
+                                          background: '#F8FAFC',
+                                          color: '#475569',
+                                          border: '1px solid #E2E8F0',
+                                          borderRadius: '6px',
+                                          fontWeight: '700',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => {
+                                          e.currentTarget.style.background = '#F1F5F9'
+                                          e.currentTarget.style.color = '#1B3A6B'
+                                          e.currentTarget.style.borderColor = '#CBD5E1'
+                                        }}
+                                        onMouseLeave={e => {
+                                          e.currentTarget.style.background = '#F8FAFC'
+                                          e.currentTarget.style.color = '#475569'
+                                          e.currentTarget.style.borderColor = '#E2E8F0'
+                                        }}
+                                      >
+                                        📩 Geçiş Talepleri
+                                      </button>
+
+                                      <button
+                                        onClick={() => {
+                                          setSeciliKulupId(kulup.id)
+                                          setAktifTab('degerlendirme')
+                                        }}
+                                        style={{
+                                          padding: '0.3rem 0.6rem',
+                                          fontSize: '0.7rem',
+                                          background: '#F8FAFC',
+                                          color: '#475569',
+                                          border: '1px solid #E2E8F0',
+                                          borderRadius: '6px',
+                                          fontWeight: '700',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => {
+                                          e.currentTarget.style.background = '#F1F5F9'
+                                          e.currentTarget.style.color = '#1B3A6B'
+                                          e.currentTarget.style.borderColor = '#CBD5E1'
+                                        }}
+                                        onMouseLeave={e => {
+                                          e.currentTarget.style.background = '#F8FAFC'
+                                          e.currentTarget.style.color = '#475569'
+                                          e.currentTarget.style.borderColor = '#E2E8F0'
+                                        }}
+                                      >
+                                        📊 Rubrik Değerlendirme
+                                      </button>
                                     </div>
                                   </div>
                                 )
