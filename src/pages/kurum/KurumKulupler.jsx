@@ -1500,11 +1500,6 @@ export default function KurumKulupler() {
                                   .map(o => o.ad)
                                   .join(', ') || 'Atanmamış'
 
-                                const rubrikIsmi = rubrikler
-                                  .filter(r => kulup.rubrikIds && kulup.rubrikIds.includes(r.id))
-                                  .map(r => r.ad || r.baslik)
-                                  .join(', ')
-
                                 return (
                                   <div
                                     key={kulup.id}
@@ -1517,8 +1512,7 @@ export default function KurumKulupler() {
                                       padding: '1rem 1.25rem',
                                       gap: '0.75rem',
                                       boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                                      transition: 'all 0.15s ease-in-out',
-                                      position: 'relative'
+                                      transition: 'all 0.15s ease-in-out'
                                     }}
                                     onMouseEnter={e => {
                                       e.currentTarget.style.borderColor = '#CBD5E1'
@@ -1529,114 +1523,28 @@ export default function KurumKulupler() {
                                       e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)'
                                     }}
                                   >
-                                    {/* Yönetim Butonları Grubu (Sağ Üst Köşede) */}
-                                    <div style={{
-                                      position: 'absolute',
-                                      top: '10px',
-                                      right: '12px',
-                                      display: 'flex',
-                                      gap: '6px',
-                                      alignItems: 'center'
-                                    }}>
-                                      {/* Okul Düzeyi Seviyesi (Buton Görünümünde) */}
-                                      {kulup.okulDuzeyi && (
-                                        <span style={{
-                                          padding: '0.25rem 0.5rem', fontSize: '0.7rem',
-                                          background: kulup.okulDuzeyi === 'ilkokul' ? '#FEF3C7' : kulup.okulDuzeyi === 'ortaokul' ? '#E0F2FE' : kulup.okulDuzeyi === 'lise' ? '#FEE2E2' : '#F8FAFC',
-                                          color: kulup.okulDuzeyi === 'ilkokul' ? '#92400E' : kulup.okulDuzeyi === 'ortaokul' ? '#0369A1' : kulup.okulDuzeyi === 'lise' ? '#991B1B' : '#475569',
-                                          border: '1px solid',
-                                          borderColor: kulup.okulDuzeyi === 'ilkokul' ? '#FDE047' : kulup.okulDuzeyi === 'ortaokul' ? '#7DD3FC' : kulup.okulDuzeyi === 'lise' ? '#FCA5A5' : '#CBD5E1',
-                                          borderRadius: '4px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '3px'
-                                        }}>
-                                          🏫 {kulup.okulDuzeyi === 'ilkokul' ? 'İlkokul' : kulup.okulDuzeyi === 'ortaokul' ? 'Ortaokul' : kulup.okulDuzeyi === 'lise' ? 'Lise' : 'Genel'}
-                                        </span>
-                                      )}
-
-                                      {/* Üye Sayısı (Aksiyon Butonlarıyla Aynı Hizada ve Görünümde) */}
-                                      <span style={{
-                                        padding: '0.25rem 0.5rem', fontSize: '0.7rem',
-                                        background: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FEF2F2' : '#F8FAFC',
-                                        color: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#991B1B' : '#475569',
-                                        border: '1px solid',
-                                        borderColor: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FCA5A5' : '#CBD5E1',
-                                        borderRadius: '4px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '3px'
-                                      }}>
-                                        👥 {kulup.ogrenciIds?.length || 0} / {kulup.kontenjan || '∞'} Üye
-                                      </span>
-
-                                      {adminModu ? (
-                                        <button
-                                          onClick={() => {
-                                            setSeciliKulupId(kulup.id)
-                                            setGeciciOgrenciler(kulup.ogrenciIds || [])
-                                            setOgrenciModalAcik(true)
-                                          }}
-                                          style={{
-                                            padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#EFF6FF',
-                                            color: '#1E40AF', border: '1px solid #BFDBFE', borderRadius: '4px',
-                                            fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
-                                          }}
-                                        >
-                                          👥 Üyeler
-                                        </button>
-                                      ) : (
-                                        <button
-                                          onClick={() => {
-                                            setSeciliKulupId(kulup.id)
-                                            setTalepOgrenciId('')
-                                            setTalepTipi('gecis')
-                                            setTalepHedefKulupId('')
-                                            setTalepAciklama('')
-                                            setTalepModalAcik(true)
-                                          }}
-                                          style={{
-                                            padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#F0FDF4',
-                                            color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: '4px',
-                                            fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
-                                          }}
-                                        >
-                                          🔄 Talep
-                                        </button>
-                                      )}
-
-                                      {adminModu && (
-                                        <>
-                                          <button onClick={() => handleKulupDuzenle(kulup)}
-                                            style={{
-                                              padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#F8FAFC',
-                                              color: '#475569', border: '1px solid #CBD5E1', borderRadius: '4px',
-                                              fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
-                                            }}>
-                                            ✏️ Düzenle
-                                          </button>
-                                          <button onClick={() => handleKulupSil(kulup.id, kulup.ad)}
-                                            style={{
-                                              padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#FEF2F2',
-                                              color: '#991B1B', border: '1px solid #FCA5A5', borderRadius: '4px',
-                                              fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
-                                            }}>
-                                            🗑️ Sil
-                                          </button>
-                                        </>
-                                      )}
-                                    </div>
-
                                     {/* Üst Kısım: Detaylar (Flex Row) */}
                                     <div style={{
                                       display: 'flex',
-                                      alignItems: 'center',
+                                      alignItems: 'stretch',
                                       justifyContent: 'space-between',
-                                      gap: '1rem',
-                                      flexWrap: 'wrap',
-                                      paddingRight: '220px' // Sağ üstteki buton grubuna alan bırakmak için
+                                      gap: '1.25rem',
+                                      flexWrap: 'wrap'
                                     }}>
-                                      {/* Sol Sütun: Başlık, Okul Düzeyi, Danışman ve Kurum */}
-                                      <div style={{ flex: '2 1 200px', minWidth: '180px' }}>
-                                        <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '700', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                      {/* Sol Sütun: Başlık, Danışman ve Kurum */}
+                                      <div style={{
+                                        flex: '1 1 240px',
+                                        minWidth: '200px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'flex-start',
+                                        gap: '6px'
+                                      }}>
+                                        <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '700', color: '#1B3A6B' }}>
                                           {kulup.ad}
                                         </h3>
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '6px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                           {/* Danışman */}
                                           <div style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             <span>🧑‍🏫</span>
@@ -1664,30 +1572,132 @@ export default function KurumKulupler() {
                                         </div>
                                       </div>
 
-                                      {/* Tanıtım Açıklaması (Çerçeveli & Sabit 5 Satır Yükseklik) */}
+                                      {/* Sağ Sütun: Yönetim Butonları ve Tanıtım Açıklaması (Dikey Yığın) */}
                                       <div style={{
-                                        flex: '3 1 240px',
-                                        minWidth: '200px',
-                                        background: '#F8FAFC',
-                                        border: '1px solid #E2E8F0',
-                                        borderRadius: '6px',
-                                        padding: '0.5rem 0.75rem',
-                                        height: '84px',
-                                        overflowY: 'auto',
-                                        boxSizing: 'border-box'
+                                        flex: '2 1 360px',
+                                        minWidth: '280px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '8px',
+                                        alignItems: 'flex-end',
+                                        justifyContent: 'flex-start'
                                       }}>
-                                        <p style={{
-                                          fontSize: '0.72rem',
-                                          color: '#475569',
-                                          margin: 0,
-                                          lineHeight: '1.4',
-                                          whiteSpace: 'pre-wrap',
-                                          wordBreak: 'break-word'
+                                        {/* Yönetim Butonları Grubu */}
+                                        <div style={{
+                                          display: 'flex',
+                                          gap: '6px',
+                                          alignItems: 'center',
+                                          flexWrap: 'wrap',
+                                          justifyContent: 'flex-end'
                                         }}>
-                                          {kulup.tanitim || 'Tanıtım açıklaması girilmemiş.'}
-                                        </p>
-                                      </div>
+                                          {/* Okul Düzeyi Seviyesi (Buton Görünümünde) */}
+                                          {kulup.okulDuzeyi && (
+                                            <span style={{
+                                              padding: '0.25rem 0.5rem', fontSize: '0.7rem',
+                                              background: kulup.okulDuzeyi === 'ilkokul' ? '#FEF3C7' : kulup.okulDuzeyi === 'ortaokul' ? '#E0F2FE' : kulup.okulDuzeyi === 'lise' ? '#FEE2E2' : '#F8FAFC',
+                                              color: kulup.okulDuzeyi === 'ilkokul' ? '#92400E' : kulup.okulDuzeyi === 'ortaokul' ? '#0369A1' : kulup.okulDuzeyi === 'lise' ? '#991B1B' : '#475569',
+                                              border: '1px solid',
+                                              borderColor: kulup.okulDuzeyi === 'ilkokul' ? '#FDE047' : kulup.okulDuzeyi === 'ortaokul' ? '#7DD3FC' : kulup.okulDuzeyi === 'lise' ? '#FCA5A5' : '#CBD5E1',
+                                              borderRadius: '4px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '3px'
+                                            }}>
+                                              🏫 {kulup.okulDuzeyi === 'ilkokul' ? 'İlkokul' : kulup.okulDuzeyi === 'ortaokul' ? 'Ortaokul' : kulup.okulDuzeyi === 'lise' ? 'Lise' : 'Genel'}
+                                            </span>
+                                          )}
 
+                                          {/* Üye Sayısı (Aksiyon Butonlarıyla Aynı Hizada ve Görünümde) */}
+                                          <span style={{
+                                            padding: '0.25rem 0.5rem', fontSize: '0.7rem',
+                                            background: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FEF2F2' : '#F8FAFC',
+                                            color: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#991B1B' : '#475569',
+                                            border: '1px solid',
+                                            borderColor: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FCA5A5' : '#CBD5E1',
+                                            borderRadius: '4px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '3px'
+                                          }}>
+                                            👥 {kulup.ogrenciIds?.length || 0} / {kulup.kontenjan || '∞'} Üye
+                                          </span>
+
+                                          {adminModu ? (
+                                            <button
+                                              onClick={() => {
+                                                setSeciliKulupId(kulup.id)
+                                                setGeciciOgrenciler(kulup.ogrenciIds || [])
+                                                setOgrenciModalAcik(true)
+                                              }}
+                                              style={{
+                                                padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#EFF6FF',
+                                                color: '#1E40AF', border: '1px solid #BFDBFE', borderRadius: '4px',
+                                                fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
+                                              }}
+                                            >
+                                              👥 Üyeler
+                                            </button>
+                                          ) : (
+                                            <button
+                                              onClick={() => {
+                                                setSeciliKulupId(kulup.id)
+                                                setTalepOgrenciId('')
+                                                setTalepTipi('gecis')
+                                                setTalepHedefKulupId('')
+                                                setTalepAciklama('')
+                                                setTalepModalAcik(true)
+                                              }}
+                                              style={{
+                                                padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#F0FDF4',
+                                                color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: '4px',
+                                                fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
+                                              }}
+                                            >
+                                              🔄 Talep
+                                            </button>
+                                          )}
+
+                                          {adminModu && (
+                                            <>
+                                              <button onClick={() => handleKulupDuzenle(kulup)}
+                                                style={{
+                                                  padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#F8FAFC',
+                                                  color: '#475569', border: '1px solid #CBD5E1', borderRadius: '4px',
+                                                  fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
+                                                }}>
+                                                ✏️ Düzenle
+                                              </button>
+                                              <button onClick={() => handleKulupSil(kulup.id, kulup.ad)}
+                                                style={{
+                                                  padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#FEF2F2',
+                                                  color: '#991B1B', border: '1px solid #FCA5A5', borderRadius: '4px',
+                                                  fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
+                                                }}>
+                                                🗑️ Sil
+                                              </button>
+                                            </>
+                                          )}
+                                        </div>
+
+                                        {/* Tanıtım Açıklaması (Çerçeveli & Sabit 5 Satır Yükseklik) */}
+                                        <div style={{
+                                          width: '100%',
+                                          maxWidth: '480px',
+                                          background: '#F8FAFC',
+                                          border: '1px solid #E2E8F0',
+                                          borderRadius: '6px',
+                                          padding: '0.5rem 0.75rem',
+                                          height: '84px',
+                                          overflowY: 'auto',
+                                          boxSizing: 'border-box'
+                                        }}>
+                                          <p style={{
+                                            fontSize: '0.72rem',
+                                            color: '#475569',
+                                            margin: 0,
+                                            lineHeight: '1.4',
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-word',
+                                            textAlign: 'left'
+                                          }}>
+                                            {kulup.tanitim || 'Tanıtım açıklaması girilmemiş.'}
+                                          </p>
+                                        </div>
+                                      </div>
                                     </div>
 
                                     {/* Alt Kısım: Kulüp Alt Modül Kısayolları */}
