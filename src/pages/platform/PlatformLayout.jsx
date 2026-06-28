@@ -12,6 +12,7 @@ const PLATFORM_MENULER = [
   { yol: '/platform/rubrikler',    etiket: 'Rubrik Şablonlar', ikon: '📋' },
   { yol: '/platform/belirli-gunler', etiket: 'Belirli Gün & Tatiller', ikon: '📅' },
   { yol: '/platform/loglar',        etiket: 'İşlem Logları', ikon: '🗒️' },
+  { yol: '/platform/toplu-mail',   etiket: 'Toplu Mail Gönder', ikon: '✉️' },
   { yol: '/platform/sistem',       etiket: 'Sistem İşlemleri', ikon: '⚙️' },
   { yol: '/platform/hakkinda',     etiket: 'Hakkında',      ikon: 'ℹ️' },
 ]

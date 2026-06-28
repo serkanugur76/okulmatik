@@ -25,6 +25,7 @@ import KurumBelirliGunler     from './pages/kurum/KurumBelirliGunler'
 import PlatformSistemIslemleri from './pages/platform/PlatformSistemIslemleri'
 import KurumResmiIslemler     from './pages/kurum/KurumResmiIslemler'
 import KurumResmiEvraklar     from './pages/kurum/KurumResmiEvraklar'
+import PlatformTopluMail      from './pages/platform/PlatformTopluMail'
 
 function KorunanRoute({ izinliRoller, children }) {
   const { kullanici, profil, yukleniyor } = useAuth()
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="hakkinda"               element={<Hakkinda />} />
             <Route path="loglar"                 element={<PlatformLoglar />} />
             <Route path="sistem"                 element={<PlatformSistemIslemleri />} />
+            <Route path="toplu-mail"             element={<PlatformTopluMail />} />
           </Route>
           <Route path="/kurum" element={
             <KorunanRoute izinliRoller={['kurum_admin', 'ogretmen']}>
