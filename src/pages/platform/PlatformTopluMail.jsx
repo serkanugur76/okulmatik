@@ -77,35 +77,35 @@ export default function PlatformTopluMail() {
     }
   }, [logs])
 
-  // HTTP post bridge to SMTP.js API endpoint
-  const sendEmailSmtpJs = async (to, subject, htmlBody) => {
-    const url = "https://smtpjs.com/v3/smtpjs.aspx?";
-    const payload = new URLSearchParams();
-    payload.append("nocache", Math.random().toString());
-    payload.append("Action", "Send");
-    payload.append("host", smtpHost);
-    payload.append("port", smtpPort);
-    payload.append("username", smtpUsername);
-    payload.append("password", smtpPassword);
-    payload.append("to", to);
-    payload.append("from", fromName ? `${fromName} <${smtpUsername}>` : smtpUsername);
-    payload.append("subject", subject);
-    payload.append("body", htmlBody);
-
-    const response = await fetch(url, {
+  // HTTP post bridge to secure /api/send-email endpoint
+  const sendEmailApi = async (to, subject, htmlBody) => {
+    const response = await fetch('/api/send-email', {
       method: "POST",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
+        "Content-Type": "application/json"
       },
-      body: payload.toString()
+      body: JSON.stringify({
+        host: smtpHost,
+        port: smtpPort,
+        username: smtpUsername,
+        password: smtpPassword,
+        to,
+        from: fromName ? `${fromName} <${smtpUsername}>` : smtpUsername,
+        subject,
+        htmlBody
+      })
     });
 
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(`SMTP Relay HTTP error: ${response.status}`);
+      throw new Error(data.error || `HTTP error: ${response.status}`);
     }
 
-    const text = await response.text();
-    return text; // Returns exactly "OK" or descriptive error
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    return "OK";
   }
 
   // SMTP self connection test trigger
@@ -120,7 +120,7 @@ export default function PlatformTopluMail() {
     addLog(`🧪 SMTP Bağlantısı test ediliyor... (Alıcı: ${smtpUsername})`)
 
     try {
-      const result = await sendEmailSmtpJs(
+      const result = await sendEmailApi(
         smtpUsername,
         "Okulmatik SMTP Bağlantı Testi",
         `<p>Bu e-posta Okulmatik toplu mail dağıtım aracı tarafından SMTP ayarlarınızı doğrulamak amacıyla gönderilmiştir.</p>` +
@@ -339,7 +339,7 @@ export default function PlatformTopluMail() {
       const body = renderTemplate(messageTemplate, st)
 
       try {
-        const result = await sendEmailSmtpJs(st.eposta, subject, body)
+        const result = await sendEmailApi(st.eposta, subject, body)
 
         if (result === 'OK') {
           st.durum = 'gonderildi'
