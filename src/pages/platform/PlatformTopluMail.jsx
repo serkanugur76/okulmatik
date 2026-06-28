@@ -580,37 +580,7 @@ export default function PlatformTopluMail() {
           
 
 
-          {/* CARD 4: Canlı Ön İzleme */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.8)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(226, 232, 240, 0.8)',
-            borderRadius: '16px',
-            padding: '1.5rem',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
-          }}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              👁️ Canlı E-Posta Ön İzlemesi
-            </h2>
 
-            <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', background: '#fff', padding: '1rem', overflow: 'hidden' }}>
-              <div style={{ borderBottom: '1px solid #F1F5F9', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Konu: </span>
-                <span style={{ fontSize: '0.8rem', color: '#1E293B', fontWeight: '600' }}>{previewSubject}</span>
-              </div>
-              <div
-                style={{
-                  fontSize: '0.85rem',
-                  color: '#334155',
-                  lineHeight: '1.6',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  padding: '4px'
-                }}
-                dangerouslySetInnerHTML={{ __html: previewBody }}
-              />
-            </div>
-          </div>
 
           {/* CARD 5: Gönderim Paneli ve Loglar */}
           <div style={{
@@ -777,164 +747,199 @@ export default function PlatformTopluMail() {
               </button>
             </div>
 
-            {/* Modal İçeriği (İki Kolon: SMTP Ayarları ve Şablon Ayarları) */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
-              {/* SMTP Ayarları */}
-              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  ⚙️ SMTP Gönderici Ayarları
-                </h3>
-                <p style={{ color: '#64748B', fontSize: '0.78rem', marginBottom: '1rem' }}>
-                  Gmail kullanıyorsanız şifre yerine Google Uygulama Şifresi girmelisiniz.
-                </p>
+            {/* Modal İçeriği (İki Ana Kolon: Ayarlar Formları ve Canlı Ön İzleme) */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', alignItems: 'stretch' }}>
+              {/* Sol Kolon: Ayarlar */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* SMTP Ayarları */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    ⚙️ SMTP Gönderici Ayarları
+                  </h3>
+                  <p style={{ color: '#64748B', fontSize: '0.78rem', marginBottom: '1rem' }}>
+                    Gmail kullanıyorsanız şifre yerine Google Uygulama Şifresi girmelisiniz.
+                  </p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>SMTP Sunucu (Host):</label>
+                        <input
+                          type="text"
+                          value={smtpHost}
+                          onChange={e => setSmtpHost(e.target.value)}
+                          placeholder="smtp.gmail.com"
+                          style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Port:</label>
+                        <input
+                          type="text"
+                          value={smtpPort}
+                          onChange={e => setSmtpPort(e.target.value)}
+                          placeholder="587"
+                          style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                        />
+                      </div>
+                    </div>
+
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>SMTP Sunucu (Host):</label>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Gönderen Adı (From Name):</label>
                       <input
                         type="text"
-                        value={smtpHost}
-                        onChange={e => setSmtpHost(e.target.value)}
-                        placeholder="smtp.gmail.com"
+                        value={fromName}
+                        onChange={e => setFromName(e.target.value)}
+                        placeholder="Okul Yönetimi"
                         style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
                       />
                     </div>
+
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Port:</label>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Gönderici E-posta (Username):</label>
                       <input
-                        type="text"
-                        value={smtpPort}
-                        onChange={e => setSmtpPort(e.target.value)}
-                        placeholder="587"
+                        type="email"
+                        value={smtpUsername}
+                        onChange={e => setSmtpUsername(e.target.value)}
+                        placeholder="iletisim@okulmatik.com"
+                        style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Uygulama Şifresi / E-posta Şifresi:</label>
+                      <input
+                        type="password"
+                        value={smtpPassword}
+                        onChange={e => setSmtpPassword(e.target.value)}
+                        placeholder="••••••••••••••••"
                         style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Gönderen Adı (From Name):</label>
-                    <input
-                      type="text"
-                      value={fromName}
-                      onChange={e => setFromName(e.target.value)}
-                      placeholder="Okul Yönetimi"
-                      style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
-                    />
-                  </div>
+                  {testResult && (
+                    <div style={{
+                      background: testResult.success ? '#F0FDF4' : '#FFF1F2',
+                      border: `1px solid ${testResult.success ? '#BBF7D0' : '#FECDD3'}`,
+                      color: testResult.success ? '#166534' : '#991B1B',
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '600',
+                      marginTop: '1rem',
+                      wordBreak: 'break-word'
+                    }}>
+                      {testResult.success ? '✅' : '❌'} {testResult.msg}
+                    </div>
+                  )}
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Gönderici E-posta (Username):</label>
-                    <input
-                      type="email"
-                      value={smtpUsername}
-                      onChange={e => setSmtpUsername(e.target.value)}
-                      placeholder="iletisim@okulmatik.com"
-                      style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Uygulama Şifresi / E-posta Şifresi:</label>
-                    <input
-                      type="password"
-                      value={smtpPassword}
-                      onChange={e => setSmtpPassword(e.target.value)}
-                      placeholder="••••••••••••••••"
-                      style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
-                    />
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
+                    <button
+                      onClick={handleTestConnection}
+                      disabled={testingConnection}
+                      style={{
+                        flex: 1,
+                        padding: '0.6rem',
+                        background: '#fff',
+                        color: '#475569',
+                        border: '1.5px solid #E2E8F0',
+                        borderRadius: '8px',
+                        fontWeight: '700',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      {testingConnection ? '⏳ Test Ediliyor...' : '🧪 Bağlantıyı Test Et'}
+                    </button>
                   </div>
                 </div>
 
-                {testResult && (
-                  <div style={{
-                    background: testResult.success ? '#F0FDF4' : '#FFF1F2',
-                    border: `1px solid ${testResult.success ? '#BBF7D0' : '#FECDD3'}`,
-                    color: testResult.success ? '#166534' : '#991B1B',
-                    padding: '0.65rem 0.85rem',
-                    borderRadius: '8px',
-                    fontSize: '0.78rem',
-                    fontWeight: '600',
-                    marginTop: '1rem',
-                    wordBreak: 'break-word'
-                  }}>
-                    {testResult.success ? '✅' : '❌'} {testResult.msg}
-                  </div>
-                )}
+                {/* Şablon Ayarları */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    📝 E-posta Şablon Ayarları
+                  </h3>
 
-                <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                  <button
-                    onClick={handleTestConnection}
-                    disabled={testingConnection}
-                    style={{
-                      flex: 1,
-                      padding: '0.6rem',
-                      background: '#fff',
-                      color: '#475569',
-                      border: '1.5px solid #E2E8F0',
-                      borderRadius: '8px',
-                      fontWeight: '700',
-                      fontSize: '0.78rem',
-                      cursor: 'pointer',
-                      transition: 'background 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    {testingConnection ? '⏳ Test Ediliyor...' : '🧪 Bağlantıyı Test Et'}
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
+                        E-posta Konu Başlığı (Subject):
+                      </label>
+                      <input
+                        type="text"
+                        value={subjectTemplate}
+                        onChange={e => setSubjectTemplate(e.target.value)}
+                        style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                      />
+                      <span style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '0.15rem', display: 'block' }}>
+                        Değişkenler: <code>{`{ad}`}</code>, <code>{`{soyad}`}</code>
+                      </span>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
+                        Giriş Platformu Web Adresi:
+                      </label>
+                      <input
+                        type="text"
+                        value={webAddress}
+                        onChange={e => setWebAddress(e.target.value)}
+                        style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
+                        E-posta Mesaj Gövdesi (HTML):
+                      </label>
+                      <textarea
+                        value={messageTemplate}
+                        onChange={e => setMessageTemplate(e.target.value)}
+                        rows={6}
+                        style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.78rem', fontFamily: 'monospace', outline: 'none', color: '#1E293B', resize: 'vertical', background: '#fff' }}
+                      />
+                      <span style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '0.15rem', display: 'block', lineHeight: '1.4' }}>
+                        Etiketler: <code>{`{ad}`}</code>, <code>{`{soyad}`}</code>, <code>{`{kullanici_adi}`}</code>, <code>{`{sifre}`}</code>, <code>{`{anahtar_kod}`}</code>, <code>{`{web_adresi}`}</code>
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Şablon Ayarları */}
-              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  📝 E-posta Şablon Ayarları
-                </h3>
+              {/* Sağ Kolon: Canlı Ön İzleme */}
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <div style={{
+                  background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px',
+                  padding: '1.25rem', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box'
+                }}>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    👁️ Canlı E-Posta Ön İzlemesi
+                  </h3>
+                  <p style={{ color: '#64748B', fontSize: '0.78rem', marginBottom: '1.25rem' }}>
+                    Şablonda yaptığınız değişiklikler burada anlık olarak simüle edilir.
+                  </p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
-                      E-posta Konu Başlığı (Subject):
-                    </label>
-                    <input
-                      type="text"
-                      value={subjectTemplate}
-                      onChange={e => setSubjectTemplate(e.target.value)}
-                      style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                  <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', background: '#fff', padding: '1.25rem', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Konu: </span>
+                      <span style={{ fontSize: '0.8rem', color: '#1E293B', fontWeight: '600' }}>{previewSubject}</span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '0.85rem',
+                        color: '#334155',
+                        lineHeight: '1.6',
+                        flex: 1,
+                        outline: 'none'
+                      }}
+                      dangerouslySetInnerHTML={{ __html: previewBody }}
                     />
-                    <span style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '0.15rem', display: 'block' }}>
-                      Değişkenler: <code>{`{ad}`}</code>, <code>{`{soyad}`}</code>
-                    </span>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
-                      Giriş Platformu Web Adresi:
-                    </label>
-                    <input
-                      type="text"
-                      value={webAddress}
-                      onChange={e => setWebAddress(e.target.value)}
-                      style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
-                      E-posta Mesaj Gövdesi (HTML):
-                    </label>
-                    <textarea
-                      value={messageTemplate}
-                      onChange={e => setMessageTemplate(e.target.value)}
-                      rows={6}
-                      style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.78rem', fontFamily: 'monospace', outline: 'none', color: '#1E293B', resize: 'vertical', background: '#fff' }}
-                    />
-                    <span style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '0.15rem', display: 'block', lineHeight: '1.4' }}>
-                      Etiketler: <code>{`{ad}`}</code>, <code>{`{soyad}`}</code>, <code>{`{kullanici_adi}`}</code>, <code>{`{sifre}`}</code>, <code>{`{anahtar_kod}`}</code>, <code>{`{web_adresi}`}</code>
-                    </span>
                   </div>
                 </div>
               </div>
