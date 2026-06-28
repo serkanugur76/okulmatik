@@ -1538,6 +1538,20 @@ export default function KurumKulupler() {
                                       gap: '6px',
                                       alignItems: 'center'
                                     }}>
+                                      {/* Okul Düzeyi Seviyesi (Buton Görünümünde) */}
+                                      {kulup.okulDuzeyi && (
+                                        <span style={{
+                                          padding: '0.25rem 0.5rem', fontSize: '0.7rem',
+                                          background: kulup.okulDuzeyi === 'ilkokul' ? '#FEF3C7' : kulup.okulDuzeyi === 'ortaokul' ? '#E0F2FE' : kulup.okulDuzeyi === 'lise' ? '#FEE2E2' : '#F8FAFC',
+                                          color: kulup.okulDuzeyi === 'ilkokul' ? '#92400E' : kulup.okulDuzeyi === 'ortaokul' ? '#0369A1' : kulup.okulDuzeyi === 'lise' ? '#991B1B' : '#475569',
+                                          border: '1px solid',
+                                          borderColor: kulup.okulDuzeyi === 'ilkokul' ? '#FDE047' : kulup.okulDuzeyi === 'ortaokul' ? '#7DD3FC' : kulup.okulDuzeyi === 'lise' ? '#FCA5A5' : '#CBD5E1',
+                                          borderRadius: '4px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '3px'
+                                        }}>
+                                          🏫 {kulup.okulDuzeyi === 'ilkokul' ? 'İlkokul' : kulup.okulDuzeyi === 'ortaokul' ? 'Ortaokul' : kulup.okulDuzeyi === 'lise' ? 'Lise' : 'Genel'}
+                                        </span>
+                                      )}
+
                                       {/* Üye Sayısı (Aksiyon Butonlarıyla Aynı Hizada ve Görünümde) */}
                                       <span style={{
                                         padding: '0.25rem 0.5rem', fontSize: '0.7rem',
@@ -1620,20 +1634,6 @@ export default function KurumKulupler() {
                                       <div style={{ flex: '2 1 200px', minWidth: '180px' }}>
                                         <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '700', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                           {kulup.ad}
-                                          {kulup.okulDuzeyi && (
-                                            <span style={{
-                                              fontSize: '0.58rem',
-                                              padding: '1px 5px',
-                                              borderRadius: '999px',
-                                              fontWeight: '700',
-                                              background: kulup.okulDuzeyi === 'ilkokul' ? '#FEF3C7' : kulup.okulDuzeyi === 'ortaokul' ? '#E0F2FE' : kulup.okulDuzeyi === 'lise' ? '#FEE2E2' : '#F1F5F9',
-                                              color: kulup.okulDuzeyi === 'ilkokul' ? '#92400E' : kulup.okulDuzeyi === 'ortaokul' ? '#0369A1' : kulup.okulDuzeyi === 'lise' ? '#991B1B' : '#475569',
-                                              border: '1px solid',
-                                              borderColor: kulup.okulDuzeyi === 'ilkokul' ? '#FDE047' : kulup.okulDuzeyi === 'ortaokul' ? '#7DD3FC' : kulup.okulDuzeyi === 'lise' ? '#FCA5A5' : '#CBD5E1',
-                                            }}>
-                                              {kulup.okulDuzeyi === 'ilkokul' ? 'İlkokul' : kulup.okulDuzeyi === 'ortaokul' ? 'Ortaokul' : kulup.okulDuzeyi === 'lise' ? 'Lise' : 'Genel'}
-                                            </span>
-                                          )}
                                         </h3>
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '6px' }}>
