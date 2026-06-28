@@ -1664,9 +1664,26 @@ export default function KurumKulupler() {
                                         </div>
                                       </div>
 
-                                      {/* Tanıtım Açıklaması */}
-                                      <div style={{ flex: '3 1 220px', minWidth: '180px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: '#64748B', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                                      {/* Tanıtım Açıklaması (Çerçeveli & Sabit 5 Satır Yükseklik) */}
+                                      <div style={{
+                                        flex: '3 1 240px',
+                                        minWidth: '200px',
+                                        background: '#F8FAFC',
+                                        border: '1px solid #E2E8F0',
+                                        borderRadius: '6px',
+                                        padding: '0.5rem 0.75rem',
+                                        height: '84px',
+                                        overflowY: 'auto',
+                                        boxSizing: 'border-box'
+                                      }}>
+                                        <p style={{
+                                          fontSize: '0.72rem',
+                                          color: '#475569',
+                                          margin: 0,
+                                          lineHeight: '1.4',
+                                          whiteSpace: 'pre-wrap',
+                                          wordBreak: 'break-word'
+                                        }}>
                                           {kulup.tanitim || 'Tanıtım açıklaması girilmemiş.'}
                                         </p>
                                       </div>
