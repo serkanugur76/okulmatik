@@ -6,16 +6,17 @@ import * as XLSX from 'xlsx'
 export default function PlatformTopluMail() {
   const { profil, kullanici } = useAuth()
   
-  // SMTP Connection States (Loaded from sessionStorage for convenience)
-  const [smtpHost, setSmtpHost] = useState(() => sessionStorage.getItem('smtp_host') || 'smtp.gmail.com')
-  const [smtpPort, setSmtpPort] = useState(() => sessionStorage.getItem('smtp_port') || '587')
-  const [smtpUsername, setSmtpUsername] = useState(() => sessionStorage.getItem('smtp_username') || '')
-  const [smtpPassword, setSmtpPassword] = useState(() => sessionStorage.getItem('smtp_password') || '')
-  const [fromName, setFromName] = useState(() => sessionStorage.getItem('smtp_from_name') || 'Okulmatik')
+  // SMTP Connection States (Loaded from localStorage for convenience)
+  const [smtpHost, setSmtpHost] = useState(() => localStorage.getItem('smtp_host') || 'smtp.gmail.com')
+  const [smtpPort, setSmtpPort] = useState(() => localStorage.getItem('smtp_port') || '587')
+  const [smtpUsername, setSmtpUsername] = useState(() => localStorage.getItem('smtp_username') || '')
+  const [smtpPassword, setSmtpPassword] = useState(() => localStorage.getItem('smtp_password') || '')
+  const [fromName, setFromName] = useState(() => localStorage.getItem('smtp_from_name') || 'Okulmatik')
 
   // UI state for connection test
   const [testingConnection, setTestingConnection] = useState(false)
   const [testResult, setTestResult] = useState(null) // { success: boolean, msg: string }
+  const [saveStatus, setSaveStatus] = useState(null) // 'kaydedildi' | null
 
   // Excel data state
   const [students, setStudents] = useState([])
@@ -62,14 +63,18 @@ export default function PlatformTopluMail() {
   const sendingRef = useRef(false)
   const logsEndRef = useRef()
 
-  // Save connection details in sessionStorage on change
-  useEffect(() => {
-    sessionStorage.setItem('smtp_host', smtpHost)
-    sessionStorage.setItem('smtp_port', smtpPort)
-    sessionStorage.setItem('smtp_username', smtpUsername)
-    sessionStorage.setItem('smtp_password', smtpPassword)
-    sessionStorage.setItem('smtp_from_name', fromName)
-  }, [smtpHost, smtpPort, smtpUsername, smtpPassword, fromName])
+  // Save connection details in localStorage
+  const handleSaveSettings = () => {
+    localStorage.setItem('smtp_host', smtpHost)
+    localStorage.setItem('smtp_port', smtpPort)
+    localStorage.setItem('smtp_username', smtpUsername)
+    localStorage.setItem('smtp_password', smtpPassword)
+    localStorage.setItem('smtp_from_name', fromName)
+    
+    setSaveStatus('kaydedildi')
+    setTimeout(() => setSaveStatus(null), 3000)
+    addLog('💾 SMTP Ayarları tarayıcı hafızasına kaydedildi.')
+  }
 
   useEffect(() => {
     if (logsEndRef.current) {
@@ -495,30 +500,53 @@ export default function PlatformTopluMail() {
               </div>
             )}
 
-            <button
-              onClick={handleTestConnection}
-              disabled={testingConnection}
-              style={{
-                width: '100%',
-                padding: '0.65rem',
-                background: '#F1F5F9',
-                color: '#475569',
-                border: '1.5px solid #E2E8F0',
-                borderRadius: '8px',
-                fontWeight: '700',
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px'
-              }}
-              onMouseEnter={e => { if(!testingConnection) e.currentTarget.style.background = '#E2E8F0' }}
-              onMouseLeave={e => { if(!testingConnection) e.currentTarget.style.background = '#F1F5F9' }}
-            >
-              {testingConnection ? '⏳ Test E-postası Gönderiliyor...' : '🧪 Bağlantıyı Test Et'}
-            </button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
+              <button
+                onClick={handleSaveSettings}
+                style={{
+                  flex: 1,
+                  padding: '0.65rem',
+                  background: 'linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                💾 {saveStatus === 'kaydedildi' ? 'Kaydedildi!' : 'Ayarları Kaydet'}
+              </button>
+              <button
+                onClick={handleTestConnection}
+                disabled={testingConnection}
+                style={{
+                  flex: 1,
+                  padding: '0.65rem',
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+                onMouseEnter={e => { if(!testingConnection) e.currentTarget.style.background = '#E2E8F0' }}
+                onMouseLeave={e => { if(!testingConnection) e.currentTarget.style.background = '#F1F5F9' }}
+              >
+                {testingConnection ? '⏳ Test Ediliyor...' : '🧪 Bağlantıyı Test Et'}
+              </button>
+            </div>
           </div>
 
           {/* CARD 2: Excel Dosya Yükleme */}
