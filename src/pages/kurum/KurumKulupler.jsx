@@ -2804,32 +2804,49 @@ export default function KurumKulupler() {
       {/* ── MODAL 1: KULÜP EKLE / DÜZENLE FORMU ── */}
       {kulupModalAcik && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: '1.5rem', boxSizing: 'border-box'
         }}>
           <div style={{
-            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '460px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '750px',
+            maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
           }}>
             {/* Modal Başlığı */}
             <div style={{
-              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>
-              <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B' }}>
                 {duzenlenenKulupId ? '🏆 Kulüp Bilgilerini Güncelle' : '🏆 Yeni Sosyal Kulüp Oluştur'}
-              </span>
+              </h2>
               <button
                 onClick={() => { setKulupModalAcik(false); formTemizle() }}
-                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+                style={{
+                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
+                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
+                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: '4px', transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#EF4444';
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = '#DC2626';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = '#F1F5F9';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                }}
               >
-                ×
+                ✕ Kapat
               </button>
             </div>
 
             {/* Modal Formu */}
-            <form onSubmit={handleKulupKaydet} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            <form onSubmit={handleKulupKaydet} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               
               <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
                 Kulüp Adı:
@@ -2987,28 +3004,47 @@ export default function KurumKulupler() {
       {/* ── MODAL 2: ÖĞRENCİ ATAMA MODALI ── */}
       {ogrenciModalAcik && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: '1.5rem', boxSizing: 'border-box'
         }}>
           <div style={{
-            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '520px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '800px',
+            maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
           }}>
             {/* Modal Başlığı */}
             <div style={{
-              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>
               <div>
-                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>👥 Kulüp Öğrenci Listesini Düzenle</span>
-                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>{seciliKulup?.ad}</div>
+                <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B' }}>
+                  👥 Kulüp Öğrenci Listesini Düzenle
+                </h2>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px', fontWeight: '600' }}>{seciliKulup?.ad}</div>
               </div>
               <button
                 onClick={() => { setOgrenciModalAcik(false); setOgrenciArama('') }}
-                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+                style={{
+                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
+                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
+                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: '4px', transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#EF4444';
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = '#DC2626';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = '#F1F5F9';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                }}
               >
-                ×
+                ✕ Kapat
               </button>
             </div>
 
@@ -3023,8 +3059,7 @@ export default function KurumKulupler() {
               />
             </div>
 
-            {/* Öğrenci Listesi */}
-            <div style={{ maxHeight: '280px', overflowY: 'auto', padding: '0.75rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ maxHeight: '480px', overflowY: 'auto', padding: '0.75rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {filtrelenmisOgrenciler.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '1rem', color: '#94A3B8', fontSize: '0.8rem' }}>Sonuç bulunamadı.</div>
               ) : (
@@ -3094,33 +3129,52 @@ export default function KurumKulupler() {
       {/* ── MODAL 3: ETKİNLİK EKLEME MODALI ── */}
       {etkinlikModalAcik && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: '1.5rem', boxSizing: 'border-box'
         }}>
           <div style={{
-            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '440px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '750px',
+            maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
           }}>
             {/* Modal Başlığı */}
             <div style={{
-              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>
               <div>
-                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>🏁 Yeni Etkinlik / Turnuva Tanımla</span>
-                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>{seciliKulup?.ad}</div>
+                <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B' }}>
+                  🏁 Yeni Etkinlik / Turnuva Tanımla
+                </h2>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px', fontWeight: '600' }}>{seciliKulup?.ad}</div>
               </div>
               <button
                 onClick={() => setEtkinlikModalAcik(false)}
-                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+                style={{
+                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
+                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
+                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: '4px', transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#EF4444';
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = '#DC2626';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = '#F1F5F9';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                }}
               >
-                ×
+                ✕ Kapat
               </button>
             </div>
 
             {/* Modal Formu */}
-            <form onSubmit={handleEtkinlikKaydet} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            <form onSubmit={handleEtkinlikKaydet} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
                 Etkinlik / Yarışma Başlığı:
                 <input
@@ -3200,33 +3254,52 @@ export default function KurumKulupler() {
       {/* ── MODAL 4: KULÜP GEÇİŞ / ÇIKIŞ TALEP MODALI ── */}
       {talepModalAcik && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: '1.5rem', boxSizing: 'border-box'
         }}>
           <div style={{
-            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '460px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
+            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '750px',
+            maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
           }}>
             {/* Modal Başlığı */}
             <div style={{
-              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>
               <div>
-                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>📩 Kulüp Geçiş / Çıkış Talebi</span>
-                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>{seciliKulup?.ad}</div>
+                <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B' }}>
+                  📩 Kulüp Geçiş / Çıkış Talebi
+                </h2>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px', fontWeight: '600' }}>{seciliKulup?.ad}</div>
               </div>
               <button
                 onClick={() => setTalepModalAcik(false)}
-                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+                style={{
+                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
+                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
+                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: '4px', transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#EF4444';
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = '#DC2626';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = '#F1F5F9';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                }}
               >
-                ×
+                ✕ Kapat
               </button>
             </div>
 
             {/* Modal Formu */}
-            <form onSubmit={handleTalepOlustur} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            <form onSubmit={handleTalepOlustur} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               
               <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
                 Öğrenci Seçin:
@@ -3474,33 +3547,52 @@ export default function KurumKulupler() {
       {/* ── MODAL 7: MATERYAL LİSTESİ YÖNETİM MODALI ── */}
       {materyalModalAcik && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: '1.5rem', boxSizing: 'border-box'
         }}>
           <div style={{
-            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '560px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh'
+            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '850px',
+            maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
           }}>
             {/* Modal Başlığı */}
             <div style={{
-              background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff',
+              padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>
               <div>
-                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>📦 Kulüp Materyal Listesi Yönetimi</span>
-                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>{seciliKulup?.ad}</div>
+                <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B' }}>
+                  📦 Kulüp Materyal Listesi Yönetimi
+                </h2>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px', fontWeight: '600' }}>{seciliKulup?.ad}</div>
               </div>
               <button
                 onClick={() => setMateryalModalAcik(false)}
-                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+                style={{
+                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
+                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
+                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: '4px', transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#EF4444';
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = '#DC2626';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = '#F1F5F9';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                }}
               >
-                ×
+                ✕ Kapat
               </button>
             </div>
 
             {/* Modal Gövdesi */}
-            <div style={{ padding: '1.25rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1 }}>
+            <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1 }}>
               
               {/* Mevcut Materyaller Listesi */}
               <div>
