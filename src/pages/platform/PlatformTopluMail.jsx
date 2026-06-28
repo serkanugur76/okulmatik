@@ -18,7 +18,8 @@ export default function PlatformTopluMail() {
   const [testResult, setTestResult] = useState(null) // { success: boolean, msg: string }
   const [saveStatus, setSaveStatus] = useState(null) // 'kaydedildi' | null
   const [isDragOver, setIsDragOver] = useState(false)
-  const [ayarlarModalAcik, setAyarlarModalAcik] = useState(false)
+  const [smtpModalAcik, setSmtpModalAcik] = useState(false)
+  const [sablonModalAcik, setSablonModalAcik] = useState(false)
 
   // Excel data state
   const [students, setStudents] = useState([])
@@ -439,28 +440,51 @@ export default function PlatformTopluMail() {
             Excel dosyasından okunan kullanıcı adlarını, şifreleri ve aktivasyon kodlarını tanımladığınız SMTP e-posta sunucunuz üzerinden spama takılmadan öğrencilerin e-posta adreslerine gönderin.
           </p>
         </div>
-        <button
-          onClick={() => setAyarlarModalAcik(true)}
-          style={{
-            padding: '0.65rem 1.25rem',
-            background: 'linear-gradient(135deg, #1B3A6B 0%, #102A50 100%)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '10px',
-            fontWeight: '700',
-            fontSize: '0.85rem',
-            cursor: 'pointer',
-            boxShadow: '0 4px 6px -1px rgba(27, 58, 107, 0.25)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'transform 0.1s, opacity 0.2s'
-          }}
-          onMouseEnter={e => { e.currentTarget.style.opacity = 0.9 }}
-          onMouseLeave={e => { e.currentTarget.style.opacity = 1 }}
-        >
-          ⚙️ Gönderici & Şablon Ayarları
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setSmtpModalAcik(true)}
+            style={{
+              padding: '0.65rem 1.25rem',
+              background: '#F1F5F9',
+              color: '#475569',
+              border: '1.5px solid #E2E8F0',
+              borderRadius: '10px',
+              fontWeight: '700',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.15s'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#E2E8F0'; e.currentTarget.style.color = '#1E293B' }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#475569' }}
+          >
+            ⚙️ SMTP Gönderici Ayarları
+          </button>
+          <button
+            onClick={() => setSablonModalAcik(true)}
+            style={{
+              padding: '0.65rem 1.25rem',
+              background: 'linear-gradient(135deg, #1B3A6B 0%, #102A50 100%)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '10px',
+              fontWeight: '700',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 6px -1px rgba(27, 58, 107, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'transform 0.1s, opacity 0.2s'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = 0.9 }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = 1 }}
+          >
+            📝 Şablon & Ön İzleme
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
@@ -703,8 +727,8 @@ export default function PlatformTopluMail() {
         </div>
       </div>
 
-      {/* ── SMTP VE MAİL ŞABLON TANIMI AYARLARI OVERLAY MODALI ── */}
-      {ayarlarModalAcik && (
+      {/* ── SMTP GÖNDERİCİ AYARLARI MODALI ── */}
+      {smtpModalAcik && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
           background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
@@ -712,7 +736,7 @@ export default function PlatformTopluMail() {
           padding: '1.5rem', boxSizing: 'border-box'
         }}>
           <div style={{
-            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '950px',
+            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '520px',
             maxHeight: '90vh', display: 'flex', flexDirection: 'column',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
           }}>
@@ -722,10 +746,10 @@ export default function PlatformTopluMail() {
               display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>
               <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                ⚙️ Gönderici & Şablon Ayarları
+                ⚙️ SMTP Gönderici Ayarları
               </h2>
               <button
-                onClick={() => setAyarlarModalAcik(false)}
+                onClick={() => setSmtpModalAcik(false)}
                 style={{
                   padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
                   background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
@@ -747,178 +771,244 @@ export default function PlatformTopluMail() {
               </button>
             </div>
 
-            {/* Modal İçeriği (İki Ana Kolon: Ayarlar Formları ve Canlı Ön İzleme) */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', alignItems: 'stretch' }}>
-              {/* Sol Kolon: Ayarlar */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                {/* SMTP Ayarları */}
-                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    ⚙️ SMTP Gönderici Ayarları
-                  </h3>
-                  <p style={{ color: '#64748B', fontSize: '0.78rem', marginBottom: '1rem' }}>
-                    Gmail kullanıyorsanız şifre yerine Google Uygulama Şifresi girmelisiniz.
-                  </p>
+            {/* Modal İçeriği */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
+                <p style={{ color: '#64748B', fontSize: '0.78rem', marginBottom: '1rem', marginTop: 0 }}>
+                  E-postaların gönderileceği e-posta adresini ve sunucu (SMTP) ayarlarını girin. Gmail kullanıyorsanız şifre yerine Google Uygulama Şifresi girmelisiniz.
+                </p>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>SMTP Sunucu (Host):</label>
-                        <input
-                          type="text"
-                          value={smtpHost}
-                          onChange={e => setSmtpHost(e.target.value)}
-                          placeholder="smtp.gmail.com"
-                          style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Port:</label>
-                        <input
-                          type="text"
-                          value={smtpPort}
-                          onChange={e => setSmtpPort(e.target.value)}
-                          placeholder="587"
-                          style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
-                        />
-                      </div>
-                    </div>
-
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Gönderen Adı (From Name):</label>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>SMTP Sunucu (Host):</label>
                       <input
                         type="text"
-                        value={fromName}
-                        onChange={e => setFromName(e.target.value)}
-                        placeholder="Okul Yönetimi"
+                        value={smtpHost}
+                        onChange={e => setSmtpHost(e.target.value)}
+                        placeholder="smtp.gmail.com"
                         style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
                       />
                     </div>
-
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Gönderici E-posta (Username):</label>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Port:</label>
                       <input
-                        type="email"
-                        value={smtpUsername}
-                        onChange={e => setSmtpUsername(e.target.value)}
-                        placeholder="iletisim@okulmatik.com"
-                        style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Uygulama Şifresi / E-posta Şifresi:</label>
-                      <input
-                        type="password"
-                        value={smtpPassword}
-                        onChange={e => setSmtpPassword(e.target.value)}
-                        placeholder="••••••••••••••••"
+                        type="text"
+                        value={smtpPort}
+                        onChange={e => setSmtpPort(e.target.value)}
+                        placeholder="587"
                         style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
                       />
                     </div>
                   </div>
 
-                  {testResult && (
-                    <div style={{
-                      background: testResult.success ? '#F0FDF4' : '#FFF1F2',
-                      border: `1px solid ${testResult.success ? '#BBF7D0' : '#FECDD3'}`,
-                      color: testResult.success ? '#166534' : '#991B1B',
-                      padding: '0.65rem 0.85rem',
-                      borderRadius: '8px',
-                      fontSize: '0.78rem',
-                      fontWeight: '600',
-                      marginTop: '1rem',
-                      wordBreak: 'break-word'
-                    }}>
-                      {testResult.success ? '✅' : '❌'} {testResult.msg}
-                    </div>
-                  )}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Gönderen Adı (From Name):</label>
+                    <input
+                      type="text"
+                      value={fromName}
+                      onChange={e => setFromName(e.target.value)}
+                      placeholder="Okul Yönetimi"
+                      style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                    />
+                  </div>
 
-                  <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                    <button
-                      onClick={handleTestConnection}
-                      disabled={testingConnection}
-                      style={{
-                        flex: 1,
-                        padding: '0.6rem',
-                        background: '#fff',
-                        color: '#475569',
-                        border: '1.5px solid #E2E8F0',
-                        borderRadius: '8px',
-                        fontWeight: '700',
-                        fontSize: '0.78rem',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      {testingConnection ? '⏳ Test Ediliyor...' : '🧪 Bağlantıyı Test Et'}
-                    </button>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Gönderici E-posta (Username):</label>
+                    <input
+                      type="email"
+                      value={smtpUsername}
+                      onChange={e => setSmtpUsername(e.target.value)}
+                      placeholder="iletisim@okulmatik.com"
+                      style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Uygulama Şifresi / E-posta Şifresi:</label>
+                    <input
+                      type="password"
+                      value={smtpPassword}
+                      onChange={e => setSmtpPassword(e.target.value)}
+                      placeholder="••••••••••••••••"
+                      style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                    />
                   </div>
                 </div>
 
-                {/* Şablon Ayarları */}
-                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    📝 E-posta Şablon Ayarları
-                  </h3>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
-                        E-posta Konu Başlığı (Subject):
-                      </label>
-                      <input
-                        type="text"
-                        value={subjectTemplate}
-                        onChange={e => setSubjectTemplate(e.target.value)}
-                        style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
-                      />
-                      <span style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '0.15rem', display: 'block' }}>
-                        Değişkenler: <code>{`{ad}`}</code>, <code>{`{soyad}`}</code>
-                      </span>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
-                        Giriş Platformu Web Adresi:
-                      </label>
-                      <input
-                        type="text"
-                        value={webAddress}
-                        onChange={e => setWebAddress(e.target.value)}
-                        style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
-                        E-posta Mesaj Gövdesi (HTML):
-                      </label>
-                      <textarea
-                        value={messageTemplate}
-                        onChange={e => setMessageTemplate(e.target.value)}
-                        rows={6}
-                        style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.78rem', fontFamily: 'monospace', outline: 'none', color: '#1E293B', resize: 'vertical', background: '#fff' }}
-                      />
-                      <span style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '0.15rem', display: 'block', lineHeight: '1.4' }}>
-                        Etiketler: <code>{`{ad}`}</code>, <code>{`{soyad}`}</code>, <code>{`{kullanici_adi}`}</code>, <code>{`{sifre}`}</code>, <code>{`{anahtar_kod}`}</code>, <code>{`{web_adresi}`}</code>
-                      </span>
-                    </div>
+                {testResult && (
+                  <div style={{
+                    background: testResult.success ? '#F0FDF4' : '#FFF1F2',
+                    border: `1px solid ${testResult.success ? '#BBF7D0' : '#FECDD3'}`,
+                    color: testResult.success ? '#166534' : '#991B1B',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: '600',
+                    marginTop: '1rem',
+                    wordBreak: 'break-word'
+                  }}>
+                    {testResult.success ? '✅' : '❌'} {testResult.msg}
                   </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
+                  <button
+                    onClick={handleTestConnection}
+                    disabled={testingConnection}
+                    style={{
+                      flex: 1,
+                      padding: '0.6rem',
+                      background: '#fff',
+                      color: '#475569',
+                      border: '1.5px solid #E2E8F0',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    {testingConnection ? '⏳ Test Ediliyor...' : '🧪 Bağlantıyı Test Et'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '1rem 1.5rem', borderTop: '1px solid #E2E8F0', background: '#F8FAFC',
+              display: 'flex', justifyContent: 'flex-end', gap: '10px', alignItems: 'center'
+            }}>
+              <button
+                onClick={() => setSmtpModalAcik(false)}
+                style={{
+                  padding: '0.55rem 1.25rem', background: '#F1F5F9', border: '1.5px solid #E2E8F0',
+                  borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', color: '#475569'
+                }}
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={() => { handleSaveSettings(); setSmtpModalAcik(false); }}
+                style={{
+                  padding: '0.55rem 1.5rem', background: 'linear-gradient(135deg, #1B3A6B 0%, #102A50 100%)',
+                  color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer',
+                  boxShadow: '0 4px 6px -1px rgba(27, 58, 107, 0.25)'
+                }}
+              >
+                💾 Ayarları Kaydet ve Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MAİL ŞABLONU VE CANLI ÖN İZLEME MODALI ── */}
+      {sablonModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: '1.5rem', boxSizing: 'border-box'
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '1100px',
+            maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📝 E-posta Şablonu & Canlı Ön İzleme
+              </h2>
+              <button
+                onClick={() => setSablonModalAcik(false)}
+                style={{
+                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
+                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
+                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: '4px', transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#EF4444';
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = '#DC2626';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = '#F1F5F9';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                }}
+              >
+                ✕ Kapat
+              </button>
+            </div>
+
+            {/* Modal İçeriği */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', alignItems: 'stretch' }}>
+              {/* Sol Sütun: Şablon Ayarları */}
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.25rem', marginTop: 0 }}>
+                  📝 E-posta Şablon Ayarları
+                </h3>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
+                    E-posta Konu Başlığı (Subject):
+                  </label>
+                  <input
+                    type="text"
+                    value={subjectTemplate}
+                    onChange={e => setSubjectTemplate(e.target.value)}
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                  />
+                  <span style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '0.15rem', display: 'block' }}>
+                    Değişkenler: <code>{`{ad}`}</code>, <code>{`{soyad}`}</code>
+                  </span>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
+                    Giriş Platformu Web Adresi:
+                  </label>
+                  <input
+                    type="text"
+                    value={webAddress}
+                    onChange={e => setWebAddress(e.target.value)}
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B', background: '#fff' }}
+                  />
+                </div>
+
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>
+                    E-posta Mesaj Gövdesi (HTML):
+                  </label>
+                  <textarea
+                    value={messageTemplate}
+                    onChange={e => setMessageTemplate(e.target.value)}
+                    style={{ width: '100%', flex: 1, minHeight: '220px', padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.78rem', fontFamily: 'monospace', outline: 'none', color: '#1E293B', resize: 'vertical', background: '#fff' }}
+                  />
+                  <span style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '0.25rem', display: 'block', lineHeight: '1.4' }}>
+                    Etiketler: <code>{`{ad}`}</code>, <code>{`{soyad}`}</code>, <code>{`{kullanici_adi}`}</code>, <code>{`{sifre}`}</code>, <code>{`{anahtar_kod}`}</code>, <code>{`{web_adresi}`}</code>
+                  </span>
                 </div>
               </div>
 
-              {/* Sağ Kolon: Canlı Ön İzleme */}
+              {/* Sağ Sütun: Canlı Ön İzleme */}
               <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <div style={{
                   background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px',
                   padding: '1.25rem', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box'
                 }}>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem', marginTop: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     👁️ Canlı E-Posta Ön İzlemesi
                   </h3>
                   <p style={{ color: '#64748B', fontSize: '0.78rem', marginBottom: '1.25rem' }}>
@@ -951,7 +1041,7 @@ export default function PlatformTopluMail() {
               display: 'flex', justifyContent: 'flex-end', gap: '10px', alignItems: 'center'
             }}>
               <button
-                onClick={() => setAyarlarModalAcik(false)}
+                onClick={() => setSablonModalAcik(false)}
                 style={{
                   padding: '0.55rem 1.25rem', background: '#F1F5F9', border: '1.5px solid #E2E8F0',
                   borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', color: '#475569'
@@ -960,14 +1050,14 @@ export default function PlatformTopluMail() {
                 Vazgeç
               </button>
               <button
-                onClick={() => { handleSaveSettings(); setAyarlarModalAcik(false); }}
+                onClick={() => { handleSaveSettings(); setSablonModalAcik(false); }}
                 style={{
                   padding: '0.55rem 1.5rem', background: 'linear-gradient(135deg, #1B3A6B 0%, #102A50 100%)',
                   color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer',
                   boxShadow: '0 4px 6px -1px rgba(27, 58, 107, 0.25)'
                 }}
               >
-                💾 Ayarları Kaydet ve Kapat
+                💾 Şablonu Kaydet ve Kapat
               </button>
             </div>
           </div>
