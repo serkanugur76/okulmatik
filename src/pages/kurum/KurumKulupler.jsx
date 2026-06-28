@@ -1535,9 +1535,21 @@ export default function KurumKulupler() {
                                       top: '10px',
                                       right: '12px',
                                       display: 'flex',
-                                      gap: '4px',
+                                      gap: '6px',
                                       alignItems: 'center'
                                     }}>
+                                      {/* Üye Sayısı (Aksiyon Butonlarıyla Aynı Hizada ve Görünümde) */}
+                                      <span style={{
+                                        padding: '0.25rem 0.5rem', fontSize: '0.7rem',
+                                        background: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FEF2F2' : '#F8FAFC',
+                                        color: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#991B1B' : '#475569',
+                                        border: '1px solid',
+                                        borderColor: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FCA5A5' : '#CBD5E1',
+                                        borderRadius: '4px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '3px'
+                                      }}>
+                                        👥 {kulup.ogrenciIds?.length || 0} / {kulup.kontenjan || '∞'} Üye
+                                      </span>
+
                                       {adminModu ? (
                                         <button
                                           onClick={() => {
@@ -1573,23 +1585,6 @@ export default function KurumKulupler() {
                                         </button>
                                       )}
 
-                                      <button
-                                        onClick={() => {
-                                          setSeciliKulupId(kulup.id)
-                                          setMateryalTekAd('')
-                                          setMateryalTopluMetin('')
-                                          setMateryalEklemeTipi('tek')
-                                          setMateryalModalAcik(true)
-                                        }}
-                                        style={{
-                                          padding: '0.25rem 0.5rem', fontSize: '0.7rem', background: '#FFF7ED',
-                                          color: '#C2410C', border: '1px solid #FFEDD5', borderRadius: '4px',
-                                          fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
-                                        }}
-                                      >
-                                        📦 Materyal
-                                      </button>
-
                                       {adminModu && (
                                         <>
                                           <button onClick={() => handleKulupDuzenle(kulup)}
@@ -1621,7 +1616,7 @@ export default function KurumKulupler() {
                                       flexWrap: 'wrap',
                                       paddingRight: '220px' // Sağ üstteki buton grubuna alan bırakmak için
                                     }}>
-                                      {/* Sol Sütun: Başlık ve Rozet */}
+                                      {/* Sol Sütun: Başlık, Okul Düzeyi, Danışman ve Kurum */}
                                       <div style={{ flex: '2 1 200px', minWidth: '180px' }}>
                                         <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '700', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                           {kulup.ad}
@@ -1640,9 +1635,18 @@ export default function KurumKulupler() {
                                             </span>
                                           )}
                                         </h3>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '6px' }}>
+                                          {/* Danışman */}
+                                          <div style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <span>🧑‍🏫</span>
+                                            <strong>Danışman:</strong>
+                                            <span style={{ color: '#1E293B', fontWeight: '500' }}>{atananOgretmenIsimleri}</span>
+                                          </div>
+
+                                          {/* Kurum Adı */}
                                           {seviye !== 'altKurum' && (
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.68rem', color: '#64748B' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: '#64748B' }}>
                                               <span>🏢</span>
                                               <span>
                                                 {(() => {
@@ -1655,7 +1659,7 @@ export default function KurumKulupler() {
                                                   return okulObj.ad
                                                 })()}
                                               </span>
-                                            </span>
+                                            </div>
                                           )}
                                         </div>
                                       </div>
@@ -1667,21 +1671,9 @@ export default function KurumKulupler() {
                                         </p>
                                       </div>
 
-                                      {/* Danışman ve Rubrik Bilgisi */}
+                                      {/* Rubrik Bilgisi */}
                                       <div style={{ flex: '2 1 150px', minWidth: '130px', display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.7rem', color: '#475569' }}>
-                                        <div><strong>🧑‍🏫 Danışman:</strong> {atananOgretmenIsimleri}</div>
                                         <div><strong>📋 Rubrik:</strong> {rubrikIsmi || 'Atanmamış'}</div>
-                                      </div>
-
-                                      {/* Kontenjan Durumu */}
-                                      <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center' }}>
-                                        <span style={{
-                                          fontSize: '0.68rem', padding: '2px 8px', borderRadius: '999px', fontWeight: '700',
-                                          background: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#FEE2E2' : '#F1F5F9',
-                                          color: kulup.kontenjan && (kulup.ogrenciIds?.length || 0) >= kulup.kontenjan ? '#991B1B' : '#475569',
-                                        }}>
-                                          👥 {kulup.ogrenciIds?.length || 0} / {kulup.kontenjan || '∞'} Üye
-                                        </span>
                                       </div>
                                     </div>
 
@@ -1857,6 +1849,42 @@ export default function KurumKulupler() {
                                         }}
                                       >
                                         📊 Rubrik Değerlendirme
+                                      </button>
+
+                                      <button
+                                        onClick={() => {
+                                          setSeciliKulupId(kulup.id)
+                                          setMateryalTekAd('')
+                                          setMateryalTopluMetin('')
+                                          setMateryalEklemeTipi('tek')
+                                          setMateryalModalAcik(true)
+                                        }}
+                                        style={{
+                                          padding: '0.3rem 0.6rem',
+                                          fontSize: '0.7rem',
+                                          background: '#FFF7ED',
+                                          color: '#C2410C',
+                                          border: '1px solid #FFEDD5',
+                                          borderRadius: '6px',
+                                          fontWeight: '700',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => {
+                                          e.currentTarget.style.background = '#FFEDD5'
+                                          e.currentTarget.style.color = '#9A3412'
+                                          e.currentTarget.style.borderColor = '#FDBA74'
+                                        }}
+                                        onMouseLeave={e => {
+                                          e.currentTarget.style.background = '#FFF7ED'
+                                          e.currentTarget.style.color = '#C2410C'
+                                          e.currentTarget.style.borderColor = '#FFEDD5'
+                                        }}
+                                      >
+                                        📦 Materyal
                                       </button>
                                     </div>
                                   </div>
