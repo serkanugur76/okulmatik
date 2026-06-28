@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
-import { auth } from '../../services/firebase'
 import { useAuth } from '../../contexts/AuthContext'
 import { logKaydet } from '../../services/logService'
 import * as XLSX from 'xlsx'
@@ -8,11 +6,16 @@ import * as XLSX from 'xlsx'
 export default function PlatformTopluMail() {
   const { profil, kullanici } = useAuth()
   
-  // Connection state
-  const [gmailToken, setGmailToken] = useState(() => sessionStorage.getItem('gmail_api_token') || '')
-  const [senderEmail, setSenderEmail] = useState(() => sessionStorage.getItem('gmail_sender_email') || '')
-  const [isConnected, setIsConnected] = useState(() => !!sessionStorage.getItem('gmail_api_token'))
-  const [connecting, setConnecting] = useState(false)
+  // SMTP Connection States (Loaded from sessionStorage for convenience)
+  const [smtpHost, setSmtpHost] = useState(() => sessionStorage.getItem('smtp_host') || 'smtp.gmail.com')
+  const [smtpPort, setSmtpPort] = useState(() => sessionStorage.getItem('smtp_port') || '587')
+  const [smtpUsername, setSmtpUsername] = useState(() => sessionStorage.getItem('smtp_username') || '')
+  const [smtpPassword, setSmtpPassword] = useState(() => sessionStorage.getItem('smtp_password') || '')
+  const [fromName, setFromName] = useState(() => sessionStorage.getItem('smtp_from_name') || 'Okulmatik')
+
+  // UI state for connection test
+  const [testingConnection, setTestingConnection] = useState(false)
+  const [testResult, setTestResult] = useState(null) // { success: boolean, msg: string }
 
   // Excel data state
   const [students, setStudents] = useState([])
@@ -59,50 +62,87 @@ export default function PlatformTopluMail() {
   const sendingRef = useRef(false)
   const logsEndRef = useRef()
 
+  // Save connection details in sessionStorage on change
+  useEffect(() => {
+    sessionStorage.setItem('smtp_host', smtpHost)
+    sessionStorage.setItem('smtp_port', smtpPort)
+    sessionStorage.setItem('smtp_username', smtpUsername)
+    sessionStorage.setItem('smtp_password', smtpPassword)
+    sessionStorage.setItem('smtp_from_name', fromName)
+  }, [smtpHost, smtpPort, smtpUsername, smtpPassword, fromName])
+
   useEffect(() => {
     if (logsEndRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [logs])
 
-  // Google OAuth2 and scope activation
-  const handleConnectGmail = async () => {
-    setConnecting(true)
-    const provider = new GoogleAuthProvider()
-    provider.addScope('https://www.googleapis.com/auth/gmail.send')
+  // HTTP post bridge to SMTP.js API endpoint
+  const sendEmailSmtpJs = async (to, subject, htmlBody) => {
+    const url = "https://smtpjs.com/v3/smtpjs.aspx?";
+    const payload = new URLSearchParams();
+    payload.append("nocache", Math.random().toString());
+    payload.append("Action", "Send");
+    payload.append("host", smtpHost);
+    payload.append("port", smtpPort);
+    payload.append("username", smtpUsername);
+    payload.append("password", smtpPassword);
+    payload.append("to", to);
+    payload.append("from", fromName ? `${fromName} <${smtpUsername}>` : smtpUsername);
+    payload.append("subject", subject);
+    payload.append("body", htmlBody);
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: payload.toString()
+    });
+
+    if (!response.ok) {
+      throw new Error(`SMTP Relay HTTP error: ${response.status}`);
+    }
+
+    const text = await response.text();
+    return text; // Returns exactly "OK" or descriptive error
+  }
+
+  // SMTP self connection test trigger
+  const handleTestConnection = async () => {
+    if (!smtpHost || !smtpUsername || !smtpPassword) {
+      alert('Lütfen SMTP Sunucusu, Kullanıcı Adı ve Şifre alanlarını doldurun.')
+      return
+    }
+
+    setTestingConnection(true)
+    setTestResult(null)
+    addLog(`🧪 SMTP Bağlantısı test ediliyor... (Alıcı: ${smtpUsername})`)
+
     try {
-      const result = await signInWithPopup(auth, provider)
-      const credential = GoogleAuthProvider.credentialFromResult(result)
-      const token = credential?.accessToken
-      if (token) {
-        setGmailToken(token)
-        setSenderEmail(result.user.email || result.user.displayName || 'Google Kullanıcısı')
-        setIsConnected(true)
-        sessionStorage.setItem('gmail_api_token', token)
-        sessionStorage.setItem('gmail_sender_email', result.user.email || '')
-        addLog(`✅ Google ve Gmail API bağlantısı sağlandı (${result.user.email})`)
+      const result = await sendEmailSmtpJs(
+        smtpUsername,
+        "Okulmatik SMTP Bağlantı Testi",
+        `<p>Bu e-posta Okulmatik toplu mail dağıtım aracı tarafından SMTP ayarlarınızı doğrulamak amacıyla gönderilmiştir.</p>` +
+        `<p><strong>Durum:</strong> Başarılı! E-posta sunucu ayarlarınız eksiksiz çalışıyor.</p>`
+      )
+
+      if (result === 'OK') {
+        setTestResult({ success: true, msg: 'Bağlantı Başarılı! Test e-postası gelen kutunuza gönderildi.' })
+        addLog('✅ SMTP Bağlantı Testi Başarılı.')
       } else {
-        alert('Giriş sağlandı fakat erişim belirteci (Access Token) alınamadı.')
+        setTestResult({ success: false, msg: result })
+        addLog(`❌ SMTP Bağlantı Hatası: ${result}`)
       }
     } catch (error) {
-      console.error('Google bağlantı hatası:', error)
-      addLog(`❌ Bağlantı hatası: ${error.message}`)
-      alert('Gmail bağlantısı başarısız oldu: ' + error.message)
+      setTestResult({ success: false, msg: error.message })
+      addLog(`❌ SMTP Bağlantı Hatası: ${error.message}`)
     } finally {
-      setConnecting(false)
+      setTestingConnection(false)
     }
   }
 
-  const handleDisconnectGmail = () => {
-    setGmailToken('')
-    setSenderEmail('')
-    setIsConnected(false)
-    sessionStorage.removeItem('gmail_api_token')
-    sessionStorage.removeItem('gmail_sender_email')
-    addLog('ℹ️ Google API bağlantısı kesildi.')
-  }
-
-  // File parsing and header mapping
+  // Excel parser
   const handleExcelImport = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -249,29 +289,10 @@ export default function PlatformTopluMail() {
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
-  // RFC 822 Email compiler (supporting UTF-8 and clean headers)
-  const compileRawMessage = (to, subject, htmlBody) => {
-    const base64Subject = btoa(unescape(encodeURIComponent(subject)))
-    const mailLines = [
-      `To: ${to}`,
-      `Subject: =?utf-8?B?${base64Subject}?=`,
-      "MIME-Version: 1.0",
-      "Content-Type: text/html; charset=utf-8",
-      "Content-Transfer-Encoding: base64",
-      "",
-      btoa(unescape(encodeURIComponent(htmlBody)))
-    ]
-    const rawMsg = mailLines.join("\r\n")
-    return btoa(unescape(encodeURIComponent(rawMsg)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '')
-  }
-
   // Bulk mail trigger workflow
   const handleStartSending = async () => {
-    if (!isConnected || !gmailToken) {
-      alert('Lütfen öncelikle Google/Gmail API bağlantısını kurun.')
+    if (!smtpHost || !smtpUsername || !smtpPassword) {
+      alert('Lütfen öncelikle SMTP sunucu ayarlarını doldurun ve kaydedin.')
       return
     }
     if (students.length === 0) {
@@ -302,7 +323,7 @@ export default function PlatformTopluMail() {
         continue
       }
 
-      // Throttling: every 10 emails, delay for 5 seconds to bypass google send spam controls
+      // Throttling: every 10 emails, delay for 5 seconds to bypass mail server spam controls
       if (i > 0 && i % 10 === 0) {
         addLog('⏳ Spam engelleme koruması: 5 saniye bekleniyor...')
         for (let c = 5; c > 0; c--) {
@@ -316,30 +337,20 @@ export default function PlatformTopluMail() {
 
       const subject = renderSubject(subjectTemplate, st)
       const body = renderTemplate(messageTemplate, st)
-      const raw = compileRawMessage(st.eposta, subject, body)
 
       try {
-        const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${gmailToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ raw })
-        })
+        const result = await sendEmailSmtpJs(st.eposta, subject, body)
 
-        if (res.ok) {
+        if (result === 'OK') {
           st.durum = 'gonderildi'
           st.hataMesaji = ''
           sent++
           setSentCount(sent)
           addLog(`✅ E-posta gönderildi: ${st.ad} ${st.soyad} (${st.eposta})`)
         } else {
-          const errData = await res.json().catch(() => ({}))
-          const errMsg = errData.error?.message || `Durum Kodu: ${res.status}`
           st.durum = 'hata'
-          st.hataMesaji = errMsg
-          addLog(`❌ Gönderim başarısız: ${st.ad} ${st.soyad} (${st.eposta}) - Hata: ${errMsg}`)
+          st.hataMesaji = result
+          addLog(`❌ Gönderim başarısız: ${st.ad} ${st.soyad} (${st.eposta}) - Hata: ${result}`)
         }
       } catch (err) {
         st.durum = 'hata'
@@ -366,7 +377,7 @@ export default function PlatformTopluMail() {
         modul: 'kullanicilar',
         hedefAd: 'Toplu Mail Dağıtımı',
         kurumId: profil?.kurumId || '',
-        detay: `Toplu giriş bilgileri dağıtımı tamamlandı. Başarılı: ${sent}/${students.length} mail.`
+        detay: `Toplu giriş bilgileri dağıtımı tamamlandı (SMTP: ${smtpUsername}). Başarılı: ${sent}/${students.length} mail.`
       })
     } catch (e) {
       console.warn('Sistem logu yazılamadı:', e)
@@ -386,15 +397,15 @@ export default function PlatformTopluMail() {
           ✉️ Toplu Mail Gönderici (Giriş Bilgileri)
         </h1>
         <p style={{ color: '#64748B', fontSize: '0.925rem', marginTop: '0.25rem' }}>
-          Excel dosyasından okunan kullanıcı adlarını, şifreleri ve aktivasyon kodlarını Google Gmail altyapınız üzerinden spama takılmadan öğrencilerin e-posta adreslerine gönderin.
+          Excel dosyasından okunan kullanıcı adlarını, şifreleri ve aktivasyon kodlarını tanımladığınız SMTP e-posta sunucunuz üzerinden spama takılmadan öğrencilerin e-posta adreslerine gönderin.
         </p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', lg: 'repeat(12, 1fr)', gap: '1.5rem', alignItems: 'start' }}>
-        {/* SOL KOLON - Ayarlar ve Excel */}
+        {/* SOL KOLON - SMTP Ayarları ve Excel Yükleme */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
-          {/* CARD 1: Google API Connection */}
+          {/* CARD 1: SMTP Settings Configuration */}
           <div style={{
             background: 'rgba(255, 255, 255, 0.8)',
             backdropFilter: 'blur(10px)',
@@ -404,69 +415,110 @@ export default function PlatformTopluMail() {
             boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
           }}>
             <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              🔑 Gmail API Bağlantısı
+              ⚙️ SMTP Gönderici Ayarları
             </h2>
             <p style={{ color: '#64748B', fontSize: '0.825rem', marginBottom: '1.25rem' }}>
-              E-postaların kendi mail adresiniz üzerinden gönderilmesi için Google hesabınızla yetkilendirme sağlamalısınız. Güvenliğiniz için şifreniz hiçbir sunucuya kaydedilmez.
+              E-postaların gönderileceği e-posta adresini ve sunucu (SMTP) ayarlarını girin. Gmail kullanıyorsanız şifre yerine <strong>Google Uygulama Şifresi</strong> girmelisiniz.
             </p>
 
-            {isConnected ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>SMTP Sunucu (Host):</label>
+                  <input
+                    type="text"
+                    value={smtpHost}
+                    onChange={e => setSmtpHost(e.target.value)}
+                    placeholder="Örn: smtp.gmail.com"
+                    style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginBottom: '0.2/rem' }}>Port:</label>
+                  <input
+                    type="text"
+                    value={smtpPort}
+                    onChange={e => setSmtpPort(e.target.value)}
+                    placeholder="587"
+                    style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Gönderen Adı (From Name):</label>
+                <input
+                  type="text"
+                  value={fromName}
+                  onChange={e => setFromName(e.target.value)}
+                  placeholder="Örn: Okul Yönetimi"
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Gönderici E-posta (Username):</label>
+                <input
+                  type="email"
+                  value={smtpUsername}
+                  onChange={e => setSmtpUsername(e.target.value)}
+                  placeholder="Örn: iletisim@okulmatik.com"
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginBottom: '0.2rem' }}>Uygulama Şifresi / E-posta Şifresi:</label>
+                <input
+                  type="password"
+                  value={smtpPassword}
+                  onChange={e => setSmtpPassword(e.target.value)}
+                  placeholder="••••••••••••••••"
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', color: '#1E293B' }}
+                />
+              </div>
+            </div>
+
+            {testResult && (
               <div style={{
+                background: testResult.success ? '#F0FDF4' : '#FFF1F2',
+                border: `1px solid ${testResult.success ? '#BBF7D0' : '#FECDD3'}`,
+                color: testResult.success ? '#166534' : '#991B1B',
+                padding: '0.65rem 0.85rem',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                fontWeight: '600',
+                marginBottom: '1rem',
+                wordBreak: 'break-word'
+              }}>
+                {testResult.success ? '✅' : '❌'} {testResult.msg}
+              </div>
+            )}
+
+            <button
+              onClick={handleTestConnection}
+              disabled={testingConnection}
+              style={{
+                width: '100%',
+                padding: '0.65rem',
+                background: '#F1F5F9',
+                color: '#475569',
+                border: '1.5px solid #E2E8F0',
+                borderRadius: '8px',
+                fontWeight: '700',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0.75rem 1rem',
-                background: '#F0FDF4',
-                border: '1px solid #BBF7D0',
-                borderRadius: '12px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '1.25rem' }}>🟢</span>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#166534' }}>Bağlantı Aktif</span>
-                    <span style={{ fontSize: '0.75rem', color: '#15803D' }}>{senderEmail}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={handleDisconnectGmail}
-                  style={{
-                    padding: '6px 12px',
-                    background: '#FEE2E2',
-                    border: '1px solid #FCA5A5',
-                    color: '#991B1B',
-                    borderRadius: '8px',
-                    fontSize: '0.75rem',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Bağlantıyı Kes
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleConnectGmail}
-                disabled={connecting}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  background: 'linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '10px',
-                  fontWeight: '700',
-                  fontSize: '0.875rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                {connecting ? '⏳ Google Bağlantısı Açılıyor...' : '🔗 Gmail API İzni Ver & Bağlan'}
-              </button>
-            )}
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+              onMouseEnter={e => { if(!testingConnection) e.currentTarget.style.background = '#E2E8F0' }}
+              onMouseLeave={e => { if(!testingConnection) e.currentTarget.style.background = '#F1F5F9' }}
+            >
+              {testingConnection ? '⏳ Test E-postası Gönderiliyor...' : '🧪 Bağlantıyı Test Et'}
+            </button>
           </div>
 
           {/* CARD 2: Excel Dosya Yükleme */}
@@ -771,18 +823,18 @@ export default function PlatformTopluMail() {
               ) : (
                 <button
                   onClick={handleStartSending}
-                  disabled={!isConnected || students.length === 0}
+                  disabled={!smtpHost || !smtpUsername || !smtpPassword || students.length === 0}
                   style={{
                     flex: 1,
                     padding: '0.75rem',
-                    background: (!isConnected || students.length === 0) ? '#CBD5E1' : 'linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)',
+                    background: (!smtpHost || !smtpUsername || !smtpPassword || students.length === 0) ? '#CBD5E1' : 'linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '10px',
                     fontWeight: '700',
                     fontSize: '0.875rem',
-                    cursor: (!isConnected || students.length === 0) ? 'not-allowed' : 'pointer',
-                    boxShadow: (!isConnected || students.length === 0) ? 'none' : '0 4px 6px -1px rgba(79, 70, 229, 0.4)'
+                    cursor: (!smtpHost || !smtpUsername || !smtpPassword || students.length === 0) ? 'not-allowed' : 'pointer',
+                    boxShadow: (!smtpHost || !smtpUsername || !smtpPassword || students.length === 0) ? 'none' : '0 4px 6px -1px rgba(79, 70, 229, 0.4)'
                   }}
                 >
                   🛫 Toplu Gönderimi Başlat
