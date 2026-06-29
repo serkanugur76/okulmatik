@@ -20,6 +20,7 @@ export default function PlatformTopluMail() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [smtpModalAcik, setSmtpModalAcik] = useState(false)
   const [sablonModalAcik, setSablonModalAcik] = useState(false)
+  const [showGoogleGuide, setShowGoogleGuide] = useState(false)
 
   // Excel data state
   const [students, setStudents] = useState([])
@@ -775,8 +776,61 @@ export default function PlatformTopluMail() {
             <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
               <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
                 <p style={{ color: '#64748B', fontSize: '0.78rem', marginBottom: '1rem', marginTop: 0 }}>
-                  E-postaların gönderileceği e-posta adresini ve sunucu (SMTP) ayarlarını girin. Gmail kullanıyorsanız şifre yerine Google Uygulama Şifresi girmelisiniz.
+                  E-postaların gönderileceği e-posta adresini ve sunucu (SMTP) ayarlarını girin.
                 </p>
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowGoogleGuide(!showGoogleGuide)}
+                    style={{
+                      width: '100%',
+                      padding: '0.55rem',
+                      background: showGoogleGuide ? '#EFF6FF' : '#F1F5F9',
+                      color: showGoogleGuide ? '#1E40AF' : '#475569',
+                      border: `1.5px solid ${showGoogleGuide ? '#BFDBFE' : '#E2E8F0'}`,
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    💡 Gmail / Google SMTP Kurulum Kılavuzu {showGoogleGuide ? '▲' : '▼'}
+                  </button>
+
+                  {showGoogleGuide && (
+                    <div style={{
+                      marginTop: '0.75rem',
+                      padding: '1rem',
+                      background: '#FFFBEB',
+                      border: '1px solid #FDE68A',
+                      borderRadius: '8px',
+                      color: '#92400E',
+                      fontSize: '0.75rem',
+                      lineHeight: '1.45'
+                    }}>
+                      <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', fontWeight: '800', color: '#B45309' }}>
+                        Google Hesabı ile Toplu Mail Gönderme Adımları:
+                      </h4>
+                      <ol style={{ margin: 0, paddingLeft: '1.15rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <li>
+                          <strong>İki Adımlı Doğrulamayı Etkinleştirin:</strong> E-posta göndereceğiniz Google hesabınızın güvenlik ayarlarından "İki Adımlı Doğrulama" (2-Step Verification) özelliğini aktif hale getirin.
+                        </li>
+                        <li>
+                          <strong>Uygulama Şifresi Oluşturun:</strong> Google Hesabınızı Yönetin &gt; Güvenlik sekmesine gidin. Arama çubuğuna <strong>"Uygulama şifreleri"</strong> (App Passwords) yazın veya bu sayfaya yönlenin. Yeni bir şifre adı (örn: <em>Okulmatik Toplu Mail</em>) belirleyip <strong>"Oluştur"</strong> butonuna basın.
+                        </li>
+                        <li>
+                          <strong>Şifreyi Buraya Yapıştırın:</strong> Google'ın oluşturduğu 16 karakterlik özel şifreyi kopyalayın ve aşağıdaki <strong>"Uygulama Şifresi"</strong> alanına yapıştırın. (Normal giriş şifreniz güvenlik nedeniyle SMTP üzerinden toplu gönderime izin vermez.)
+                        </li>
+                      </ol>
+                    </div>
+                  )}
+                </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem' }}>
