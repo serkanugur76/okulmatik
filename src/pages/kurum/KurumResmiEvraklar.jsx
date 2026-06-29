@@ -214,6 +214,8 @@ export default function KurumResmiEvraklar() {
   // A. Sene Başı Öğretmenler Kurulu State (Örnek isimler kaldırıldı, varsayılanlar boş)
   const [kurulForm, setKurulForm] = useState({
     akademikYil: '2025-2026',
+    baslatanEmail: '',
+    baslatanAd: '',
     kararNo: '',
     tarih: '',
     saat: '',
@@ -254,6 +256,8 @@ export default function KurumResmiEvraklar() {
         setToplantiDurumu('yapilmadi')
         setKurulForm({
           akademikYil: '2025-2026',
+          baslatanEmail: '',
+          baslatanAd: '',
           kararNo: '',
           tarih: '',
           saat: '',
@@ -1746,7 +1750,10 @@ export default function KurumResmiEvraklar() {
                               return
                             }
                             try {
-                              await saveToFirestore({}, 'davet_aktif')
+                              await saveToFirestore({
+                                baslatanEmail: kullanici?.email || '',
+                                baslatanAd: profil?.ad || kullanici?.displayName || kullanici?.email || ''
+                              }, 'davet_aktif')
                               alert('Süreç başlatıldı, öğretmen ekranlarında resmi davetiye mesajı aktif edildi.')
                             } catch (err) {
                               console.error('Hata:', err)
@@ -1799,6 +1806,10 @@ export default function KurumResmiEvraklar() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <button
                             onClick={async () => {
+                              if (kurulForm.baslatanEmail && kullanici?.email && kurulForm.baslatanEmail !== kullanici.email) {
+                                alert(`Bu evrağı yalnızca süreci başlatan yönetici (${kurulForm.baslatanEmail}) onaylayıp kapatabilir.`);
+                                return;
+                              }
                               try {
                                 await saveToFirestore({}, 'onaylandi_kapatildi')
                                 alert('Toplantı tutanağı resmi olarak onaylandı ve süreç kapatıldı. Çıktı almaya hazırdır.')
@@ -1809,7 +1820,8 @@ export default function KurumResmiEvraklar() {
                             }}
                             style={{
                               width: '100%', padding: '12px', backgroundColor: '#10B981', color: '#FFFFFF',
-                              border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem'
+                              border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.9rem',
+                              opacity: (kurulForm.baslatanEmail && kullanici?.email && kurulForm.baslatanEmail !== kullanici.email) ? 0.6 : 1
                             }}
                           >
                             ✅ Toplantıyı Onayla ve Kapat
@@ -1817,6 +1829,10 @@ export default function KurumResmiEvraklar() {
                           
                           <button
                             onClick={async () => {
+                              if (kurulForm.baslatanEmail && kullanici?.email && kurulForm.baslatanEmail !== kullanici.email) {
+                                alert(`Bu evrağı yalnızca süreci başlatan yönetici (${kurulForm.baslatanEmail}) revizyona gönderebilir.`);
+                                return;
+                              }
                               if (window.confirm('Bu tutanağı düzeltilmesi için yazman öğretmenlere geri göndermek istediğinize emin misiniz?')) {
                                 try {
                                   await saveToFirestore({}, 'yazman_doldurma')
@@ -1829,11 +1845,22 @@ export default function KurumResmiEvraklar() {
                             }}
                             style={{
                               width: '100%', padding: '10px', backgroundColor: '#EF4444', color: '#FFFFFF',
-                              border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem'
+                              border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem',
+                              opacity: (kurulForm.baslatanEmail && kullanici?.email && kurulForm.baslatanEmail !== kullanici.email) ? 0.6 : 1
                             }}
                           >
                             ↩️ Düzeltme İçin Geri Gönder (Revizyon)
                           </button>
+
+                          {kurulForm.baslatanEmail && kullanici?.email && kurulForm.baslatanEmail !== kullanici.email && (
+                            <div style={{
+                              padding: '8px 12px', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5',
+                              borderRadius: '8px', color: '#991B1B', fontSize: '0.78rem', fontWeight: '600', textAlign: 'center',
+                              lineHeight: '1.4'
+                            }}>
+                              ⚠️ Bu resmi süreci <strong>{kurulForm.baslatanEmail}</strong> başlattığı için, evrakı yalnızca o onaylayıp kapatabilir.
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -1848,6 +1875,10 @@ export default function KurumResmiEvraklar() {
                           {isMudur && (
                             <button
                               onClick={async () => {
+                                if (kurulForm.baslatanEmail && kullanici?.email && kurulForm.baslatanEmail !== kullanici.email) {
+                                  alert(`Bu evrağı yalnızca süreci başlatan yönetici (${kurulForm.baslatanEmail}) yeniden düzenlemeye açabilir.`);
+                                  return;
+                                }
                                 if (window.confirm('Onaylanmış tutanağı yeniden düzenlemeye açmak istediğinize emin misiniz? Sorumlu öğretmenler ve siz evrak üzerinde tekrar düzenleme yapabileceksiniz.')) {
                                   try {
                                     await saveToFirestore({}, 'yazman_doldurma')
@@ -1861,11 +1892,22 @@ export default function KurumResmiEvraklar() {
                               style={{
                                 width: '100%', padding: '10px', backgroundColor: '#D97706', color: '#FFFFFF',
                                 border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem',
-                                transition: 'background-color 0.15s'
+                                transition: 'background-color 0.15s',
+                                opacity: (kurulForm.baslatanEmail && kullanici?.email && kurulForm.baslatanEmail !== kullanici.email) ? 0.6 : 1
                               }}
                             >
                               🔓 Yeniden Düzenlemeyi Etkinleştir (Revizyon)
                             </button>
+                          )}
+
+                          {kurulForm.baslatanEmail && kullanici?.email && kurulForm.baslatanEmail !== kullanici.email && (
+                            <div style={{
+                              padding: '8px 12px', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5',
+                              borderRadius: '8px', color: '#991B1B', fontSize: '0.78rem', fontWeight: '600', textAlign: 'center',
+                              lineHeight: '1.4', marginTop: '4px'
+                            }}>
+                              ⚠️ Bu resmi süreci <strong>{kurulForm.baslatanEmail}</strong> başlattığı için, evrakı yalnızca o yeniden düzenlemeye açabilir.
+                            </div>
                           )}
                         </div>
                       )}
