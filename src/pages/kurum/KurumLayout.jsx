@@ -1057,6 +1057,16 @@ function KurumLayoutInner() {
             <span className="logout-text">Çıkış Yap</span>
             <span className="logout-icon" style={{ display: 'none' }}>🚪</span>
           </button>
+
+          <div style={{
+            textAlign: 'center',
+            fontSize: '0.65rem',
+            color: 'rgba(255, 255, 255, 0.35)',
+            marginTop: '0.75rem',
+            fontFamily: 'monospace'
+          }}>
+            v{__APP_VERSION_INFO__.full}
+          </div>
         </div>
       </aside>
 

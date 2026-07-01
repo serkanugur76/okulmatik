@@ -28,6 +28,7 @@ function kurumAdminEtiketi(k, erisimKurumlar) {
 
 const DERS_LİSTESİ = [
   'Türkçe', 'Matematik', 'Fen Bilimleri', 'Sosyal Bilgiler', 'İngilizce',
+  'Seçmeli Yabancı Dil',
   'Din Kültürü ve Ahlak Bilgisi', 'Görsel Sanatlar', 'Müzik',
   'Beden Eğitimi ve Spor', 'Bilişim Teknolojileri', 'Teknoloji ve Tasarım',
   'Trafik Güvenliği', 'Türk Dili ve Edebiyatı', 'Tarih', 'Coğrafya',

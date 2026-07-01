@@ -128,7 +128,8 @@ export default function KurumResmiEvraklar() {
       { id: 'matematik', ad: 'Matematik', sabit: true },
       { id: 'sosyal_bilgiler', ad: 'Sosyal Bilgiler (İnkılap Tarihi)', sabit: true },
       { id: 'fen_bilimleri', ad: 'Fen Bilimleri', sabit: true },
-      { id: 'yabanci_dil', ad: 'Yabancı Dil', sabit: true },
+      { id: 'ingilizce', ad: 'İngilizce', sabit: true },
+      { id: 'secmeli_yabanci_dil', ad: 'Seçmeli Yabancı Dil', sabit: true },
       { id: 'din_kulturu', ad: 'Din Kültürü', sabit: true },
       { id: 'muzik', ad: 'Müzik', sabit: true },
       { id: 'gorsel_sanatlar', ad: 'Görsel Sanatlar', sabit: true },
@@ -1414,43 +1415,6 @@ export default function KurumResmiEvraklar() {
             {/* B. ZÜMRE TUTANAĞI FORMU */}
             {seciliSablonId === 2 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                
-                {/* Branş Seçim Dropdown */}
-                <div style={{
-                  background: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
-                  borderRadius: '10px',
-                  padding: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px'
-                }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '800', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>📚</span> İşlem Yapılacak Branş Zümresi:
-                  </label>
-                  <select
-                    value={seciliBransId}
-                    onChange={e => setSeciliBransId(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      fontSize: '0.82rem',
-                      fontWeight: '700',
-                      border: '1.5px solid #CBD5E1',
-                      borderRadius: '6px',
-                      backgroundColor: '#FFFFFF',
-                      color: '#1E293B',
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {tumBranslar.map(b => (
-                      <option key={b.id} value={b.id}>
-                        {b.ad} {!b.sabit ? '(Seçmeli)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
