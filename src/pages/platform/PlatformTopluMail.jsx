@@ -2,9 +2,13 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { logKaydet } from '../../services/logService'
 import * as XLSX from 'xlsx'
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../../services/firebase'
+import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
 export default function PlatformTopluMail() {
   const { profil, kullanici } = useAuth()
+  const { erisimKurumlar } = useKurumYonetim()
   
   // SMTP Connection States (Loaded from localStorage for convenience)
   const [smtpHost, setSmtpHost] = useState(() => localStorage.getItem('smtp_host') || 'smtp.gmail.com')
@@ -25,6 +29,61 @@ export default function PlatformTopluMail() {
   // Excel data state
   const [students, setStudents] = useState([])
   const [selectedStudentIndex, setSelectedStudentIndex] = useState(null)
+
+  const [seciliKurumId, setSeciliKurumId] = useState('')
+  const [loadingKurumStudents, setLoadingKurumStudents] = useState(false)
+
+  const altOkullar = useMemo(() => {
+    if (!erisimKurumlar) return []
+    return erisimKurumlar.filter(k => k.tip === 'altKurum')
+  }, [erisimKurumlar])
+
+  const handleFetchFromKurum = async () => {
+    if (!seciliKurumId) {
+      alert('Lütfen öncelikle bir kurum seçin.')
+      return
+    }
+
+    const kurum = erisimKurumlar.find(k => k.id === seciliKurumId)
+    const kurumAd = kurum ? kurum.ad : 'Seçili Kurum'
+
+    setLoadingKurumStudents(true)
+    addLog(`🔄 ${kurumAd} kurumuna ait öğrenciler veritabanından çekiliyor...`)
+
+    try {
+      const snap = await getDocs(collection(db, 'kurumlar', seciliKurumId, 'ogrenciler'))
+      const list = []
+      snap.forEach(doc => {
+        const d = doc.data()
+        list.push({
+          id: doc.id,
+          ad: d.ad || '',
+          soyad: d.soyad || '',
+          eposta: d.email || d.eposta || '',
+          kullaniciAdi: d.kullaniciAdi || d.ogrenciNo || '',
+          sifre: d.sifre || '',
+          anahtarKod: d.anahtarKod || '',
+          durum: 'bekliyor',
+          hataMesaji: ''
+        })
+      })
+
+      list.sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+
+      setStudents(list)
+      setTotalCount(list.length)
+      setSentCount(0)
+      setSelectedStudentIndex(list.length > 0 ? 0 : null)
+      addLog(`✅ ${kurumAd} kurumundan ${list.length} öğrenci başarıyla yüklendi.`)
+      alert(`${kurumAd} kurumundan ${list.length} öğrenci başarıyla yüklendi.`)
+    } catch (err) {
+      console.error(err)
+      addLog(`❌ Öğrenci çekme hatası: ${err.message}`)
+      alert('Öğrenciler çekilirken hata oluştu: ' + err.message)
+    } finally {
+      setLoadingKurumStudents(false)
+    }
+  }
   
   // Template state
   const [subjectTemplate, setSubjectTemplate] = useState('Erişim Bilgileriniz - {ad} {soyad}')
@@ -540,7 +599,7 @@ export default function PlatformTopluMail() {
         {/* SOL KOLON - Excel Yükleme */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
-          {/* CARD 2: Excel Dosya Yükleme */}
+          {/* CARD 2: Excel veya Veritabanı Alıcı Yükleme */}
           <div style={{
             background: 'rgba(255, 255, 255, 0.8)',
             backdropFilter: 'blur(10px)',
@@ -551,7 +610,7 @@ export default function PlatformTopluMail() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
               <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1E293B', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📂 Alıcı Listesi (Excel)
+                📂 Alıcı Listesi
               </h2>
               <button
                 onClick={handleDownloadTemplate}
@@ -570,8 +629,73 @@ export default function PlatformTopluMail() {
               </button>
             </div>
             <p style={{ color: '#64748B', fontSize: '0.825rem', marginBottom: '1.25rem' }}>
-              Öğrencilerin Ad, Soyad, E-posta, KullaniciAdi, Sifre ve isteğe bağlı AnahtarKod bilgilerini içeren Excel dosyanızı yükleyin.
+              Gönderim yapacağınız öğrencileri bir kurum seçerek doğrudan veritabanından çekebilir ya da şablon Excel dosyasını yükleyebilirsiniz.
             </p>
+
+            {/* Veritabanı Seçim ve Yükleme Paneli */}
+            <div style={{
+              background: '#F0F9FF',
+              border: '1px solid #BAE6FD',
+              borderRadius: '12px',
+              padding: '1rem',
+              marginBottom: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem'
+            }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#0369A1', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                🏢 Veritabanından Kurum Seçin:
+              </label>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <select
+                  value={seciliKurumId}
+                  onChange={e => setSeciliKurumId(e.target.value)}
+                  style={{
+                    flex: 1,
+                    minWidth: '180px',
+                    padding: '0.5rem',
+                    border: '1.5px solid #CBD5E1',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    color: '#334155',
+                    background: '#fff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">— Alt Kurum/Okul Seçin —</option>
+                  {altOkullar.map(k => (
+                    <option key={k.id} value={k.id}>
+                      {k.ad}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleFetchFromKurum}
+                  disabled={loadingKurumStudents || !seciliKurumId}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: (!seciliKurumId || loadingKurumStudents) ? '#CBD5E1' : 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    cursor: (!seciliKurumId || loadingKurumStudents) ? 'not-allowed' : 'pointer',
+                    boxShadow: (!seciliKurumId || loadingKurumStudents) ? 'none' : '0 2px 4px rgba(2, 132, 199, 0.2)',
+                    transition: 'all 0.2s',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {loadingKurumStudents ? '⏳ Yükleniyor...' : '🔍 Öğrencileri Yükle'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '1rem 0' }}>
+              <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+              <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>veya</span>
+              <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+            </div>
 
             <div
               onClick={() => xlsxInputRef.current?.click()}
