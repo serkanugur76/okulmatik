@@ -1,7 +1,36 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { db } from '../../services/firebase'
 
 export default function PlatformVersiyonlar() {
-  const [acikVersiyon, setAcikVersiyon] = useState('v1.5.0')
+  const [versiyonlar, setVersiyonlar] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [acikVersiyon, setAcikVersiyon] = useState('')
+
+  useEffect(() => {
+    const q = query(collection(db, 'versiyonlar'), orderBy('olusturmaTarihi', 'desc'))
+    const unsubscribe = onSnapshot(q, snap => {
+      const list = snap.docs.map(doc => {
+        const d = doc.data()
+        return {
+          id: doc.id,
+          versiyon: d.versiyon || '',
+          baslik: d.baslik || '',
+          tarih: d.tarih || '',
+          rozet: d.rozet || '',
+          renk: d.renk || '#10B981',
+          bg: d.bg || '#ECFDF5',
+          maddeler: d.maddeler || []
+        }
+      })
+      setVersiyonlar(list)
+      setLoading(false)
+    }, err => {
+      console.error('Error fetching version history:', err)
+      setLoading(false)
+    })
+    return () => unsubscribe()
+  }, [])
 
   const SURUMLER = [
     {
@@ -136,6 +165,20 @@ export default function PlatformVersiyonlar() {
     }
   ]
 
+  const birlesmisVersiyonlar = useMemo(() => {
+    const dbVersions = [...versiyonlar]
+    const staticVersions = SURUMLER.filter(
+      s => !dbVersions.some(dbV => dbV.versiyon.toLowerCase() === s.versiyon.toLowerCase())
+    )
+    return [...dbVersions, ...staticVersions]
+  }, [versiyonlar])
+
+  useEffect(() => {
+    if (birlesmisVersiyonlar.length > 0 && !acikVersiyon) {
+      setAcikVersiyon(birlesmisVersiyonlar[0].versiyon)
+    }
+  }, [birlesmisVersiyonlar, acikVersiyon])
+
   const TIP_STIL = {
     yenilik: { etiket: 'Yenilik', bg: '#DBEAFE', color: '#1E40AF' },
     opt: { etiket: 'İyileştirme', bg: '#EDE9FE', color: '#5B21B6' },
@@ -176,7 +219,11 @@ export default function PlatformVersiyonlar() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {SURUMLER.map(s => {
+        {loading ? (
+          <div style={{ textAlign: 'center', color: '#64748B', padding: '2rem', fontSize: '0.9rem' }}>
+            ⏳ Sürüm bilgileri yükleniyor...
+          </div>
+        ) : birlesmisVersiyonlar.map(s => {
           const acik = acikVersiyon === s.versiyon
           return (
             <div key={s.versiyon} style={{

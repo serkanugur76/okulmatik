@@ -1,0 +1,30 @@
+name: Update Version History in Firestore
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-size: 20
+
+      - name: Update Version in Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMMIT_HASH: ${{ github.sha }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "⚠️ FIREBASE_SERVICE_ACCOUNT is not set in Repository Secrets. Skipping update."
+            exit 0
+          fi
+          node scripts/update_version.js
