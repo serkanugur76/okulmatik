@@ -420,7 +420,7 @@ function PlatformMain() {
           textAlign: 'center',
           padding: '2rem',
         }}>
-          {/* Floating Arrow Animation pointing to sidebar select */}
+          {/* Floating Arrow Animation pointing to sidebar select - desktop only */}
           <style dangerouslySetInnerHTML={{ __html: `
             @keyframes float-arrow {
               0% { transform: translate(0, 0) rotate(45deg); }
@@ -435,16 +435,22 @@ function PlatformMain() {
               top: 130px;
               left: 40px;
             }
+            @media (max-width: 768px) {
+              .pointing-arrow {
+                display: none !important;
+              }
+            }
           `}} />
           <div className="pointing-arrow">↖</div>
 
           <div style={{
             maxWidth: '500px',
+            width: '100%',
             background: 'rgba(255, 255, 255, 0.8)',
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.5)',
             borderRadius: '24px',
-            padding: '3rem 2.5rem',
+            padding: '2.5rem 2rem',
             boxShadow: '0 20px 40px rgba(15, 23, 42, 0.04)',
             display: 'flex',
             flexDirection: 'column',
@@ -452,12 +458,51 @@ function PlatformMain() {
             gap: '1.25rem'
           }}>
             <div style={{ fontSize: '3.5rem', filter: 'drop-shadow(0 10px 10px rgba(0,0,0,0.05))' }}>🏫</div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>
               İşlem Yapılacak Kurumu Seçin
             </h2>
-            <p style={{ fontSize: '0.925rem', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
-              Kurum operasyonlarını yönetmek için lütfen <strong>sol menüdeki Kurum Operasyonları seçicisinden</strong> bir okul veya kampüs seçin.
+            <p style={{ fontSize: '0.9rem', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
+              Kurum operasyonlarını yönetmek için lütfen çalışacağınız bir okul veya kampüs seçin.
             </p>
+
+            {/* Central Selector for easy activation (especially on mobile) */}
+            <div style={{ width: '100%', marginTop: '0.5rem' }}>
+              <select
+                value={secilenKurumId || ''}
+                onChange={e => setSecilenKurumId(e.target.value || null)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  fontSize: '0.9rem',
+                  fontWeight: '700',
+                  color: '#1E293B',
+                  background: '#fff',
+                  border: '1.5px solid #CBD5E1',
+                  borderRadius: '12px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                }}
+              >
+                <option value="">— Kurum Seçin —</option>
+                {kurumGruplari.flatMap(({ root, kampusGruplari }) => [
+                  <optgroup key={`root-${root.id}`} label={`🏛 ${root.ad.toUpperCase()}`}>
+                    <option value={root.id}>🏛 {root.ad}</option>
+                  </optgroup>,
+                  ...kampusGruplari.map(({ kampus, altKurumlar: altlar }) => (
+                    <optgroup key={kampus.id} label={`  🏫 ${kampus.ad}`}>
+                      <option value={kampus.id}>🏫 {kampus.ad}</option>
+                      {altlar.map(ak => (
+                        <option key={ak.id} value={ak.id}>
+                          └ {ak.ad}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )),
+                ])}
+              </select>
+            </div>
+
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -468,9 +513,9 @@ function PlatformMain() {
               borderRadius: '999px',
               fontSize: '0.8rem',
               fontWeight: '700',
-              marginTop: '0.5rem'
+              marginTop: '0.25rem'
             }}>
-              <span>💡</span> <span>Sol menüde yer alan dropdown listeden seçim yapabilirsiniz.</span>
+              <span>💡</span> <span>İşlem yapmak istediğiniz kurumu seçip başlayabilirsiniz.</span>
             </div>
           </div>
         </div>
@@ -530,6 +575,42 @@ function PlatformMain() {
         >
           ⬅ Geri Git
         </button>
+        {erisimKurumlar.length > 1 && (
+          <select
+            value={secilenKurumId || ''}
+            onChange={e => setSecilenKurumId(e.target.value || null)}
+            style={{
+              padding: '0.35rem 0.5rem',
+              fontSize: '0.75rem',
+              fontWeight: '700',
+              color: '#1E293B',
+              background: '#F8FAFC',
+              border: '1px solid #CBD5E1',
+              borderRadius: '8px',
+              maxWidth: '150px',
+              outline: 'none',
+              marginLeft: '0.5rem',
+              textOverflow: 'ellipsis'
+            }}
+          >
+            <option value="">— Kurum Seç —</option>
+            {kurumGruplari.flatMap(({ root, campuses, kampusGruplari }) => [
+              <optgroup key={`root-${root.id}`} label={`🏛 ${root.ad.toUpperCase()}`}>
+                <option value={root.id}>🏛 {root.ad}</option>
+              </optgroup>,
+              ...kampusGruplari.map(({ kampus, altKurumlar: altlar }) => (
+                <optgroup key={kampus.id} label={`  🏫 ${kampus.ad}`}>
+                  <option value={kampus.id}>🏫 {kampus.ad}</option>
+                  {altlar.map(ak => (
+                    <option key={ak.id} value={ak.id}>
+                      └ {ak.ad}
+                    </option>
+                  ))}
+                </optgroup>
+              )),
+            ])}
+          </select>
+        )}
         <div style={{
           fontSize: '0.85rem',
           fontWeight: '600',

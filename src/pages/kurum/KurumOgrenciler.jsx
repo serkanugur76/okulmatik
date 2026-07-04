@@ -31,7 +31,7 @@ function parseSinif(ad) {
 
 export default function KurumOgrenciler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
-  const { profil, kullanici } = useAuth()
+  const { profil, kullanici, kurumId } = useAuth()
 
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
@@ -48,7 +48,16 @@ export default function KurumOgrenciler() {
   }, [secilenKurumId, erisimKurumlar])
 
   const listKurumId = seviye === 'altKurum' ? secilenKurumId : null
-  const secilebilir = erisimKurumlar.filter(k => { if (!k.parentId) return false; const u = erisimKurumlar.find(x => x.id === k.parentId); return !!u?.parentId })
+  const secilebilir = useMemo(() => {
+    const benimKurum = erisimKurumlar.find(x => x.id === kurumId)
+    const adminSeviyesi = benimKurum ? benimKurum.tip : 'root'
+    return erisimKurumlar.filter(k => {
+      if (k.tip !== 'altKurum') return false
+      if (adminSeviyesi === 'kurum') return k.rootKurumId === kurumId
+      if (adminSeviyesi === 'kampus') return k.parentId === kurumId
+      return k.id === kurumId
+    })
+  }, [erisimKurumlar, kurumId])
 
   const [ogrencilerMap, setOgrencilerMap] = useState({}) // { kurumId: ogrenci[] }
   const [siniflarMap, setSiniflarMap]     = useState({}) // { kurumId: sinif[] }

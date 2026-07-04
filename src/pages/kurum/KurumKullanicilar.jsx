@@ -78,26 +78,29 @@ export default function KurumKullanicilar() {
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
   const seviye = !secilenKurum?.parentId ? 'root' : !ust?.parentId ? 'kampus' : 'altKurum'
 
+  const benimKurum = erisimKurumlar.find(x => x.id === kurumId)
+  const adminSeviyesi = benimKurum ? benimKurum.tip : 'root'
+
   // Kurum hiyerarşisi — kampüsler alfabetik, altKurumlar okul seviyesine göre
   const rootKurumlar   = erisimKurumlar.filter(k => {
     if (!kurumId) return false
-    if (seviye === 'root') return k.id === kurumId
-    if (seviye === 'kampus') return k.id === secilenKurum?.parentId
-    return k.id === ust?.parentId
+    if (adminSeviyesi === 'kurum') return k.id === kurumId
+    if (adminSeviyesi === 'kampus') return k.id === benimKurum?.parentId
+    return k.id === benimKurum?.rootKurumId
   })
   const kampusKurumlar = erisimKurumlar
     .filter(k => {
       if (!kurumId) return false
-      if (seviye === 'root') return k.parentId === kurumId && k.tip === 'kampus'
-      if (seviye === 'kampus') return k.id === kurumId
-      return k.id === secilenKurum?.parentId
+      if (adminSeviyesi === 'kurum') return k.parentId === kurumId && k.tip === 'kampus'
+      if (adminSeviyesi === 'kampus') return k.id === kurumId
+      return k.id === benimKurum?.parentId
     })
     .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
   const altKurumlar    = erisimKurumlar
     .filter(k => {
       if (!kurumId) return false
-      if (seviye === 'root') return k.rootKurumId === kurumId && k.tip === 'altKurum'
-      if (seviye === 'kampus') return k.parentId === kurumId && k.tip === 'altKurum'
+      if (adminSeviyesi === 'kurum') return k.rootKurumId === kurumId && k.tip === 'altKurum'
+      if (adminSeviyesi === 'kampus') return k.parentId === kurumId && k.tip === 'altKurum'
       return k.id === kurumId
     })
     .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))

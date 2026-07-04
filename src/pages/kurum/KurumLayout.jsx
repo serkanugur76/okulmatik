@@ -1173,6 +1173,91 @@ function KurumLayoutInner() {
           >
             ⬅ Geri Git
           </button>
+          {erisimKurumlar.length > 1 && (
+            <select
+              value={secilenKurumId || ''}
+              onChange={e => setSecilenKurumId(e.target.value || null)}
+              style={{
+                padding: '0.35rem 0.5rem',
+                fontSize: '0.75rem',
+                fontWeight: '700',
+                color: '#1E293B',
+                background: '#F8FAFC',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                maxWidth: '150px',
+                outline: 'none',
+                marginLeft: '0.5rem',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              <option value="">— Kurum Seç —</option>
+              {(() => {
+                const rootlar = erisimKurumlar.filter(k => !k.parentId || !erisimKurumlar.some(p => p.id === k.parentId))
+                const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
+                  .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+                const altlar = erisimKurumlar.filter(k => k.tip === 'altKurum')
+
+                function okulSira(ad = '') {
+                  const s = ad.toLocaleLowerCase('tr')
+                  if (s.includes('ilkokul'))  return 1
+                  if (s.includes('ortaokul')) return 2
+                  if (s.includes('lise'))     return 3
+                  return 4
+                }
+
+                return rootlar.flatMap(root => {
+                  const options = []
+                  if (isSelectable(root)) {
+                    options.push(
+                      <option key={root.id} value={root.id}>
+                        {root.tip === 'kampus' ? '🏫' : (root.tip === 'altKurum' ? '🏢' : '🏛')} {root.ad}
+                      </option>
+                    )
+                  }
+                  
+                  const kampusAltlar = kampusler.filter(k => k.parentId === root.id)
+                  const directOkullar = altlar.filter(k => k.parentId === root.id)
+                    .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+
+                  kampusAltlar.forEach(kp => {
+                    if (isSelectable(kp)) {
+                      options.push(
+                        <option key={kp.id} value={kp.id}>
+                          &nbsp;&nbsp;🏫 {kp.ad}
+                        </option>
+                      )
+                    }
+                    
+                    const kpOkullar = altlar.filter(k => k.parentId === kp.id)
+                      .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+                    
+                    kpOkullar.forEach(okul => {
+                      if (isSelectable(okul)) {
+                        options.push(
+                          <option key={okul.id} value={okul.id}>
+                            &nbsp;&nbsp;&nbsp;&nbsp;└ {okul.ad}
+                          </option>
+                        )
+                      }
+                    })
+                  })
+
+                  directOkullar.forEach(okul => {
+                    if (isSelectable(okul)) {
+                      options.push(
+                        <option key={okul.id} value={okul.id}>
+                          &nbsp;&nbsp;&nbsp;&nbsp;└ {okul.ad}
+                        </option>
+                      )
+                    }
+                  })
+
+                  return options
+                })
+              })()}
+            </select>
+          )}
           <div style={{
             fontSize: '0.85rem',
             fontWeight: '600',
@@ -1239,7 +1324,7 @@ function KurumLayoutInner() {
             textAlign: 'center',
             padding: '2rem',
           }}>
-            {/* Floating Arrow Animation pointing to sidebar select */}
+            {/* Floating Arrow Animation pointing to sidebar select - desktop only */}
             <style dangerouslySetInnerHTML={{ __html: `
               @keyframes float-arrow {
                 0% { transform: translate(0, 0) rotate(45deg); }
@@ -1254,16 +1339,22 @@ function KurumLayoutInner() {
                 top: 40px;
                 left: 40px;
               }
+              @media (max-width: 768px) {
+                .pointing-arrow {
+                  display: none !important;
+                }
+              }
             `}} />
             <div className="pointing-arrow">↖</div>
 
             <div style={{
               maxWidth: '500px',
+              width: '100%',
               background: 'rgba(255, 255, 255, 0.8)',
               backdropFilter: 'blur(20px)',
               border: '1px solid rgba(255, 255, 255, 0.5)',
               borderRadius: '24px',
-              padding: '3rem 2.5rem',
+              padding: '2.5rem 2rem',
               boxShadow: '0 20px 40px rgba(15, 23, 42, 0.04)',
               display: 'flex',
               flexDirection: 'column',
@@ -1271,12 +1362,100 @@ function KurumLayoutInner() {
               gap: '1.25rem'
             }}>
               <div style={{ fontSize: '3.5rem', filter: 'drop-shadow(0 10px 10px rgba(0,0,0,0.05))' }}>🏫</div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>
                 Aktif Okul / Kampüs Seçin
               </h2>
-              <p style={{ fontSize: '0.925rem', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
-                Uygulama modüllerini ve verileri görüntülemek için lütfen <strong>sol menünün üst kısmında</strong> yer alan seçiciden işlem yapacağınız okulu belirleyin.
+              <p style={{ fontSize: '0.9rem', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
+                Uygulama modüllerini ve verileri görüntülemek için lütfen çalışacağınız kurumu veya kampüsü seçin.
               </p>
+
+              {/* Central Selector for easy activation (especially on mobile) */}
+              <div style={{ width: '100%', marginTop: '0.5rem' }}>
+                <select
+                  value={secilenKurumId || ''}
+                  onChange={e => setSecilenKurumId(e.target.value || null)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    fontSize: '0.9rem',
+                    fontWeight: '700',
+                    color: '#1E293B',
+                    background: '#fff',
+                    border: '1.5px solid #CBD5E1',
+                    borderRadius: '12px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                  }}
+                >
+                  <option value="">— Kurum Seçin —</option>
+                  {(() => {
+                    const rootlar = erisimKurumlar.filter(k => !k.parentId || !erisimKurumlar.some(p => p.id === k.parentId))
+                    const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
+                      .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+                    const altlar = erisimKurumlar.filter(k => k.tip === 'altKurum')
+
+                    function okulSira(ad = '') {
+                      const s = ad.toLocaleLowerCase('tr')
+                      if (s.includes('ilkokul'))  return 1
+                      if (s.includes('ortaokul')) return 2
+                      if (s.includes('lise'))     return 3
+                      return 4
+                    }
+
+                    return rootlar.flatMap(root => {
+                      const options = []
+                      if (isSelectable(root)) {
+                        options.push(
+                          <option key={root.id} value={root.id}>
+                            {root.tip === 'kampus' ? '🏫' : (root.tip === 'altKurum' ? '🏢' : '🏛')} {root.ad}
+                          </option>
+                        )
+                      }
+                      
+                      const kampusAltlar = kampusler.filter(k => k.parentId === root.id)
+                      const directOkullar = altlar.filter(k => k.parentId === root.id)
+                        .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+
+                      kampusAltlar.forEach(kp => {
+                        if (isSelectable(kp)) {
+                          options.push(
+                            <option key={kp.id} value={kp.id}>
+                              &nbsp;&nbsp;🏫 {kp.ad}
+                            </option>
+                          )
+                        }
+                        
+                        const kpOkullar = altlar.filter(k => k.parentId === kp.id)
+                          .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+                        
+                        kpOkullar.forEach(okul => {
+                          if (isSelectable(okul)) {
+                            options.push(
+                              <option key={okul.id} value={okul.id}>
+                                &nbsp;&nbsp;&nbsp;&nbsp;└ {okul.ad}
+                              </option>
+                            )
+                          }
+                        })
+                      })
+
+                      directOkullar.forEach(okul => {
+                        if (isSelectable(okul)) {
+                          options.push(
+                            <option key={okul.id} value={okul.id}>
+                              &nbsp;&nbsp;&nbsp;&nbsp;└ {okul.ad}
+                            </option>
+                          )
+                        }
+                      })
+
+                      return options
+                    })
+                  })()}
+                </select>
+              </div>
+
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1287,9 +1466,9 @@ function KurumLayoutInner() {
                 borderRadius: '999px',
                 fontSize: '0.8rem',
                 fontWeight: '700',
-                marginTop: '0.5rem'
+                marginTop: '0.25rem'
               }}>
-                <span>💡</span> <span>Sol üst köşedeki dropdown menüyü kullanabilirsiniz.</span>
+                <span>💡</span> <span>İşlem yapmak istediğiniz kurumu seçip başlayabilirsiniz.</span>
               </div>
             </div>
           </div>
