@@ -431,17 +431,65 @@ export default function PlatformTopluMail() {
 
   return (
     <div style={{ paddingBottom: '60px' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .mail-header-title {
+          font-size: 1.75rem;
+          font-weight: 800;
+          color: #1E293B;
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          margin: 0;
+        }
+        .mail-header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+        .mail-header-buttons {
+          display: flex;
+          gap: 10px;
+        }
+        @media (max-width: 768px) {
+          .mail-header-title {
+            font-size: 1.35rem !important;
+            justify-content: center;
+            text-align: center;
+          }
+          .mail-header-desc {
+            text-align: center;
+            font-size: 0.85rem !important;
+          }
+          .mail-header-row {
+            flex-direction: column;
+            align-items: stretch !important;
+            text-align: center;
+            gap: 0.75rem !important;
+          }
+          .mail-header-buttons {
+            flex-direction: column !important;
+            width: 100% !important;
+          }
+          .mail-header-buttons button {
+            width: 100% !important;
+            justify-content: center;
+          }
+        }
+      `}} />
       {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="mail-header-row">
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '0.6rem', margin: 0 }}>
-            ✉️ Toplu Mail Gönderici (Giriş Bilgileri)
+          <h1 className="mail-header-title">
+            ✉️ Toplu Mail Gönderici
           </h1>
-          <p style={{ color: '#64748B', fontSize: '0.925rem', marginTop: '0.25rem', margin: '0.25rem 0 0' }}>
+          <p className="mail-header-desc" style={{ color: '#64748B', fontSize: '0.925rem', marginTop: '0.25rem', margin: '0.25rem 0 0' }}>
             Excel dosyasından okunan kullanıcı adlarını, şifreleri ve aktivasyon kodlarını tanımladığınız SMTP e-posta sunucunuz üzerinden spama takılmadan öğrencilerin e-posta adreslerine gönderin.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div className="mail-header-buttons">
           <button
             onClick={() => setSmtpModalAcik(true)}
             style={{
