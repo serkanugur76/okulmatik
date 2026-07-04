@@ -26,6 +26,7 @@ import PlatformSistemIslemleri from './pages/platform/PlatformSistemIslemleri'
 import KurumResmiIslemler     from './pages/kurum/KurumResmiIslemler'
 import KurumResmiEvraklar     from './pages/kurum/KurumResmiEvraklar'
 import PlatformTopluMail      from './pages/platform/PlatformTopluMail'
+import PlatformVersiyonlar    from './pages/platform/PlatformVersiyonlar'
 
 function KorunanRoute({ izinliRoller, children }) {
   const { kullanici, profil, yukleniyor, platformAdmin } = useAuth()
@@ -95,6 +96,7 @@ export default function App() {
             <Route path="loglar"                 element={<PlatformLoglar />} />
             <Route path="sistem"                 element={<PlatformSistemIslemleri />} />
             <Route path="toplu-mail"             element={<PlatformTopluMail />} />
+            <Route path="versiyonlar"             element={<PlatformVersiyonlar />} />
           </Route>
           <Route path="/kurum" element={
             <KorunanRoute izinliRoller={['kurum_admin', 'ogretmen']}>

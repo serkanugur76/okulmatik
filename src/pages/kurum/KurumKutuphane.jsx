@@ -853,6 +853,103 @@ export default function KurumKutuphane() {
 
   return (
     <div style={{ paddingBottom: '60px' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .kutuphane-mobile-view {
+          display: none;
+        }
+        .kutuphane-desktop-view {
+          display: block;
+        }
+        @media (max-width: 768px) {
+          .kutuphane-mobile-view {
+            display: block;
+          }
+          .kutuphane-desktop-view {
+            display: none;
+          }
+          .library-navigation-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            border-bottom: none !important;
+            gap: 0.75rem !important;
+          }
+          .library-actions {
+            width: 100% !important;
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 6px !important;
+          }
+          .library-actions label, .library-actions button {
+            width: 100% !important;
+            box-sizing: border-box !important;
+            justify-content: center !important;
+            margin: 0 !important;
+            padding: 8px 12px !important;
+            font-size: 0.8rem !important;
+          }
+          .primary-btn-mob {
+            grid-column: span 2 !important;
+          }
+          .library-tabs-container {
+            width: 100% !important;
+            overflow-x: auto !important;
+            white-space: nowrap !important;
+            padding-bottom: 4px !important;
+            border-bottom: 2px solid #E2E8F0 !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          .library-tabs-container button {
+            padding: 8px 4px !important;
+            font-size: 0.85rem !important;
+            flex-shrink: 0 !important;
+          }
+          .library-filters {
+            flex-direction: column !important;
+            gap: 8px !important;
+          }
+          .library-filter-input, .library-filter-select {
+            width: 100% !important;
+          }
+          .library-modal-overlay {
+            padding: 0 !important;
+          }
+          .library-modal-content {
+            height: 100vh !important;
+            max-height: 100vh !important;
+            border-radius: 0 !important;
+            max-width: 100% !important;
+          }
+          .library-modal-body {
+            flex: 1 !important;
+            overflow-y: auto !important;
+            padding: 1rem !important;
+          }
+          .library-stats-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+          }
+          .library-stats-grid .stat-card {
+            padding: 0.75rem !important;
+            gap: 8px !important;
+          }
+          .library-stats-grid .stat-card-icon {
+            width: 36px !important;
+            height: 36px !important;
+            font-size: 1.15rem !important;
+            border-radius: 8px !important;
+          }
+          .library-stats-grid .stat-card-label {
+            font-size: 0.65rem !important;
+          }
+          .library-stats-grid .stat-card-value {
+            font-size: 1.2rem !important;
+          }
+          .modal-form-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+          }
+        }
+      `}} />
       {/* Header section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
         <div>
@@ -909,36 +1006,36 @@ export default function KurumKutuphane() {
       ) : (
         <>
           {/* Dashboard statistics section */}
-          <div style={styles.statsGrid}>
+          <div className="library-stats-grid" style={styles.statsGrid}>
             <div style={styles.statCard} className="stat-card">
-              <div style={{ ...styles.statIcon, background: '#E0E7FF', color: '#4F46E5' }}>📚</div>
+              <div className="stat-card-icon" style={{ ...styles.statIcon, background: '#E0E7FF', color: '#4F46E5' }}>📚</div>
               <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Farklı Başlık</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.toplamFarkli}</div>
+                <div className="stat-card-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Farklı Başlık</div>
+                <div className="stat-card-value" style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.toplamFarkli}</div>
               </div>
             </div>
 
             <div style={styles.statCard} className="stat-card">
-              <div style={{ ...styles.statIcon, background: '#ECFDF5', color: '#10B981' }}>📖</div>
+              <div className="stat-card-icon" style={{ ...styles.statIcon, background: '#ECFDF5', color: '#10B981' }}>📖</div>
               <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Toplam Kitap</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.toplamKitapAdet}</div>
+                <div className="stat-card-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Toplam Kitap</div>
+                <div className="stat-card-value" style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.toplamKitapAdet}</div>
               </div>
             </div>
 
             <div style={styles.statCard} className="stat-card">
-              <div style={{ ...styles.statIcon, background: '#FFF7ED', color: '#F97316' }}>🔄</div>
+              <div className="stat-card-icon" style={{ ...styles.statIcon, background: '#FFF7ED', color: '#F97316' }}>🔄</div>
               <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Ödünç Verilen</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.aktifOdunc}</div>
+                <div className="stat-card-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Ödünç Verilen</div>
+                <div className="stat-card-value" style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.aktifOdunc}</div>
               </div>
             </div>
 
             <div style={styles.statCard} className="stat-card">
-              <div style={{ ...styles.statIcon, background: '#FEF2F2', color: '#EF4444' }}>⚠️</div>
+              <div className="stat-card-icon" style={{ ...styles.statIcon, background: '#FEF2F2', color: '#EF4444' }}>⚠️</div>
               <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Süresi Geciken</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.gecikenOdunc}</div>
+                <div className="stat-card-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase' }}>Süresi Geciken</div>
+                <div className="stat-card-value" style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginTop: '0.15rem' }}>{istatistikler.gecikenOdunc}</div>
               </div>
             </div>
           </div>
@@ -968,9 +1065,9 @@ export default function KurumKutuphane() {
           )}
 
           {/* Action & Navigation Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #E2E8F0', marginBottom: '1.5rem', paddingBottom: '0.1rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div className="library-navigation-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #E2E8F0', marginBottom: '1.5rem', paddingBottom: '0.1rem', flexWrap: 'wrap', gap: '1rem' }}>
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: '1.5rem' }}>
+            <div className="library-tabs-container" style={{ display: 'flex', gap: '1.5rem' }}>
               <button onClick={() => setSekme('kitaplar')} style={{
                 background: 'none', border: 'none', padding: '0.75rem 0.5rem', fontSize: '0.95rem', fontWeight: '700', cursor: 'pointer',
                 color: sekme === 'kitaplar' ? '#4F46E5' : '#64748B',
@@ -1002,31 +1099,31 @@ export default function KurumKutuphane() {
             {/* Actions for current tab */}
             {sekme === 'kitaplar' ? (
               kutuphaneYonetebilir && (
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="library-actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                   {/* Excel Upload Input */}
-                  <label style={{ ...styles.btn, ...styles.secondaryBtn, display: 'inline-flex', position: 'relative', overflow: 'hidden' }}>
+                  <label className="secondary-btn-mob" style={{ ...styles.btn, ...styles.secondaryBtn, display: 'inline-flex', position: 'relative', overflow: 'hidden' }}>
                     📥 Excel'den Yükle
                     <input type="file" accept=".xlsx, .xls" onChange={handleExcelDosyaSecimi} style={{ position: 'absolute', top: 0, right: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }} />
                   </label>
 
                   {excelDosya && (
-                    <button onClick={handleExcelYukle} disabled={excelYukleniyor} style={{ ...styles.btn, background: '#10B981', color: '#fff', opacity: excelYukleniyor ? 0.7 : 1 }}>
+                    <button className="excel-upload-btn-mob primary-btn-mob" onClick={handleExcelYukle} disabled={excelYukleniyor} style={{ ...styles.btn, background: '#10B981', color: '#fff', opacity: excelYukleniyor ? 0.7 : 1 }}>
                       {excelYukleniyor ? 'Yükleniyor...' : `✓ ${excelDosya.name} Yükle`}
                     </button>
                   )}
 
-                  <button onClick={handleSablonIndir} style={{ ...styles.btn, ...styles.secondaryBtn }}>
+                  <button className="secondary-btn-mob" onClick={handleSablonIndir} style={{ ...styles.btn, ...styles.secondaryBtn }}>
                     📄 Şablon İndir
                   </button>
 
-                  <button onClick={() => openKitapModal(null)} style={{ ...styles.btn, ...styles.primaryBtn }}>
+                  <button className="primary-btn-mob" onClick={() => openKitapModal(null)} style={{ ...styles.btn, ...styles.primaryBtn }}>
                     ➕ Yeni Kitap Ekle
                   </button>
                 </div>
               )
             ) : (
               kutuphaneYonetebilir && (
-                <button onClick={() => openOduncModal('')} style={{ ...styles.btn, ...styles.primaryBtn }}>
+                <button className="primary-btn-mob" onClick={() => openOduncModal('')} style={{ ...styles.btn, ...styles.primaryBtn }}>
                   🔄 Kitap Ödünç Ver
                 </button>
               )
@@ -1037,12 +1134,12 @@ export default function KurumKutuphane() {
           {sekme === 'kitaplar' && (
             <div>
               {/* Filters */}
-              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-                <input value={kitapArama} onChange={e => setKitapArama(e.target.value)}
+              <div className="library-filters" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                <input className="library-filter-input" value={kitapArama} onChange={e => setKitapArama(e.target.value)}
                   placeholder="Barkod, kitap adı, yazar veya yayınevi ara..."
                   style={{ ...styles.input, width: '300px' }} />
 
-                <select value={kitapTurFiltre} onChange={e => setKitapTurFiltre(e.target.value)}
+                <select className="library-filter-select" value={kitapTurFiltre} onChange={e => setKitapTurFiltre(e.target.value)}
                   style={{ ...styles.select, width: '180px' }}>
                   <option value="">— Tüm Türler —</option>
                   {kitapTurleri.map(t => (
@@ -1057,8 +1154,8 @@ export default function KurumKutuphane() {
                 )}
               </div>
 
-              {/* Table */}
-              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              {/* Desktop Table View */}
+              <div className="kutuphane-desktop-view" style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
@@ -1122,6 +1219,117 @@ export default function KurumKutuphane() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Card View */}
+              <div className="kutuphane-mobile-view">
+                {filtreliKitaplar.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem', color: '#64748B', background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                    Aradığınız kriterlere uygun kitap bulunamadı.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                    {filtreliKitaplar.map(k => (
+                      <div key={k.id} style={{
+                        background: '#fff',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '14px',
+                        padding: '1rem',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700', color: '#1B3A6B', lineHeight: '1.3' }}>{k.ad}</h4>
+                            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
+                              {k.yazar || 'Yazarı Belirtilmemiş'}
+                            </div>
+                          </div>
+                          <div style={{
+                            background: k.mevcutAdet > 0 ? '#ECFDF5' : '#FEF2F2',
+                            color: k.mevcutAdet > 0 ? '#065F46' : '#991B1B',
+                            padding: '4px 10px',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                            fontWeight: '700',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0
+                          }}>
+                            {k.mevcutAdet} / {k.toplamAdet}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '0.75rem' }}>
+                          {k.yayinevi && (
+                            <span style={{ fontSize: '0.7rem', color: '#475569', background: '#F1F5F9', padding: '3px 8px', borderRadius: '6px', fontWeight: '500' }}>
+                              🏢 {k.yayinevi}
+                            </span>
+                          )}
+                          {k.tur && (
+                            <span style={{ fontSize: '0.7rem', color: '#4F46E5', background: '#EEF2FF', padding: '3px 8px', borderRadius: '6px', fontWeight: '600' }}>
+                              🏷️ {k.tur}
+                            </span>
+                          )}
+                          {k.konum && (
+                            <span style={{ fontSize: '0.7rem', color: '#B45309', background: '#FFFBEB', padding: '3px 8px', borderRadius: '6px', fontWeight: '600', fontFamily: 'monospace' }}>
+                              📍 Raf: {k.konum}
+                            </span>
+                          )}
+                          <span style={{ fontSize: '0.7rem', color: '#64748B', background: '#F8FAFC', padding: '3px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+                            🔢 {k.barkod}
+                          </span>
+                        </div>
+
+                        {kutuphaneYonetebilir && (
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
+                            {k.mevcutAdet > 0 ? (
+                              <button
+                                onClick={() => openOduncModal(k.id)}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '4px',
+                                  background: '#EEF2FF', color: '#4F46E5', border: 'none',
+                                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer'
+                                }}
+                              >
+                                🔄 Ödünç Ver
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '4px',
+                                  background: '#F1F5F9', color: '#94A3B8', border: 'none',
+                                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'not-allowed'
+                                }}
+                              >
+                                Stokta Yok
+                              </button>
+                            )}
+                            <button
+                              onClick={() => openKitapModal(k)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '4px',
+                                background: '#F0F9FF', color: '#0369A1', border: 'none',
+                                padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer'
+                              }}
+                            >
+                              ✏️ Düzenle
+                            </button>
+                            <button
+                              onClick={() => handleKitapSil(k)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '4px',
+                                background: '#FEF2F2', color: '#991B1B', border: 'none',
+                                padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer'
+                              }}
+                            >
+                              Sil
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1129,12 +1337,12 @@ export default function KurumKutuphane() {
           {sekme === 'odunc' && (
             <div>
               {/* Filters */}
-              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-                <input value={oduncArama} onChange={e => setOduncArama(e.target.value)}
+              <div className="library-filters" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                <input className="library-filter-input" value={oduncArama} onChange={e => setOduncArama(e.target.value)}
                   placeholder="Kitap adı, barkod veya üye adı ara..."
                   style={{ ...styles.input, width: '300px' }} />
 
-                <select value={oduncFiltre} onChange={e => setOduncFiltre(e.target.value)}
+                <select className="library-filter-select" value={oduncFiltre} onChange={e => setOduncFiltre(e.target.value)}
                   style={{ ...styles.select, width: '180px' }}>
                   <option value="hepsi">Tüm Kayıtlar</option>
                   <option value="odunc">Aktif Ödünçtekiler</option>
@@ -1149,8 +1357,8 @@ export default function KurumKutuphane() {
                 )}
               </div>
 
-              {/* Table */}
-              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              {/* Desktop Table View */}
+              <div className="kutuphane-desktop-view" style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
@@ -1226,6 +1434,90 @@ export default function KurumKutuphane() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Card View */}
+              <div className="kutuphane-mobile-view">
+                {filtreliOduncKayitlari.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem', color: '#64748B', background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                    Aradığınız kriterlere uygun ödünç/iade kaydı bulunamadı.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                    {filtreliOduncKayitlari.map(o => {
+                      const gecikmis = isGecikmis(o)
+                      return (
+                        <div key={o.id} style={{
+                          background: '#fff',
+                          border: '1px solid #E2E8F0',
+                          borderRadius: '14px',
+                          padding: '1rem',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700', color: '#1B3A6B', lineHeight: '1.3' }}>{o.kitapAd}</h4>
+                              <div style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: '#64748B', marginTop: '2px' }}>
+                                Barkod: {o.kitapBarkod}
+                              </div>
+                            </div>
+                            <div style={{ flexShrink: 0 }}>
+                              {o.durum === 'iade' ? (
+                                <span style={{ fontSize: '0.7rem', background: '#D1FAE5', color: '#065F46', padding: '4px 10px', borderRadius: '8px', fontWeight: '700', whiteSpace: 'nowrap' }}>✓ İade Edildi</span>
+                              ) : gecikmis ? (
+                                <span style={{ fontSize: '0.7rem', background: '#FEE2E2', color: '#991B1B', padding: '4px 10px', borderRadius: '8px', fontWeight: '700', whiteSpace: 'nowrap' }}>⚠️ Gecikmiş</span>
+                              ) : (
+                                <span style={{ fontSize: '0.7rem', background: '#FEF3C7', color: '#92400E', padding: '4px 10px', borderRadius: '8px', fontWeight: '700', whiteSpace: 'nowrap' }}>🔄 Ödünçte</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div style={{ background: '#F8FAFC', borderRadius: '8px', padding: '0.65rem 0.85rem', marginTop: '0.75rem' }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              👤 {o.uyeAd}
+                              <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold', background: o.uyeTur === 'ogrenci' ? '#E0F2FE' : '#D1FAE5', color: o.uyeTur === 'ogrenci' ? '#0369A1' : '#065F46' }}>
+                                {o.uyeTur === 'ogrenci' ? 'Öğrenci' : 'Öğretmen'}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>{o.uyeDetay}</div>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '0.75rem', fontSize: '0.75rem', color: '#475569' }}>
+                            <div>
+                              <span style={{ color: '#64748B', display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: '600' }}>Veriliş Tarihi</span>
+                              <strong>{o.verilisTarihi ? new Date(o.verilisTarihi.seconds ? o.verilisTarihi.seconds * 1000 : o.verilisTarihi).toLocaleDateString('tr-TR') : '—'}</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: gecikmis ? '#EF4444' : '#64748B', display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: '600' }}>Beklenen İade</span>
+                              <strong style={{ color: gecikmis ? '#EF4444' : 'inherit' }}>{o.iadeBeklenenTarih ? new Date(o.iadeBeklenenTarih).toLocaleDateString('tr-TR') : '—'}</strong>
+                            </div>
+                            {o.iadeTarihi && (
+                              <div style={{ gridColumn: 'span 2', marginTop: '4px', borderTop: '1px dashed #E2E8F0', paddingTop: '4px' }}>
+                                <span style={{ color: '#065F46', display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: '600' }}>İade Edildiği Tarih</span>
+                                <strong style={{ color: '#065F46' }}>{new Date(o.iadeTarihi.seconds ? o.iadeTarihi.seconds * 1000 : o.iadeTarihi).toLocaleDateString('tr-TR')}</strong>
+                              </div>
+                            )}
+                          </div>
+
+                          {kutuphaneYonetebilir && o.durum === 'odunc' && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
+                              <button
+                                onClick={() => handleIadeAl(o)}
+                                style={{
+                                  background: '#10B981', color: '#fff', border: 'none',
+                                  padding: '8px 16px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer',
+                                  width: '100%'
+                                }}
+                              >
+                                ✓ Kitap İade Al
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1233,12 +1525,12 @@ export default function KurumKutuphane() {
           {sekme === 'uyeler' && (
             <div>
               {/* Filters */}
-              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-                <input value={uyeArama} onChange={e => setUyeArama(e.target.value)}
+              <div className="library-filters" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                <input className="library-filter-input" value={uyeArama} onChange={e => setUyeArama(e.target.value)}
                   placeholder="Üye adı, sınıf, numara veya e-posta ara..."
                   style={{ ...styles.input, width: '300px' }} />
 
-                <select value={uyeTurFiltre} onChange={e => setUyeTurFiltre(e.target.value)}
+                <select className="library-filter-select" value={uyeTurFiltre} onChange={e => setUyeTurFiltre(e.target.value)}
                   style={{ ...styles.select, width: '180px' }}>
                   <option value="hepsi">Tüm Üyeler</option>
                   <option value="ogrenci">Sadece Öğrenciler</option>
@@ -1253,8 +1545,8 @@ export default function KurumKutuphane() {
                 )}
               </div>
 
-              {/* Table */}
-              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              {/* Desktop Table View */}
+              <div className="kutuphane-desktop-view" style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
@@ -1324,6 +1616,85 @@ export default function KurumKutuphane() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Card View */}
+              <div className="kutuphane-mobile-view">
+                {filtreliUyeler.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem', color: '#64748B', background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                    Aradığınız kriterlere uygun üye bulunamadı.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                    {filtreliUyeler.map(u => (
+                      <div key={u.id} style={{
+                        background: '#fff',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '14px',
+                        padding: '1rem',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700', color: '#1B3A6B', lineHeight: '1.3' }}>{u.ad}</h4>
+                            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
+                              {u.detay}
+                            </div>
+                          </div>
+                          <div style={{ flexShrink: 0 }}>
+                            <span style={{ fontSize: '0.7rem', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold', background: u.tur === 'ogrenci' ? '#E0F2FE' : '#D1FAE5', color: u.tur === 'ogrenci' ? '#0369A1' : '#065F46', whiteSpace: 'nowrap' }}>
+                              {u.tur === 'ogrenci' ? 'Öğrenci' : 'Öğretmen'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.75rem', background: '#F8FAFC', borderRadius: '8px', padding: '0.5rem 0.85rem' }}>
+                          <div>
+                            <span style={{ color: '#64748B', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: '600', display: 'block' }}>Aktif Ödünçte</span>
+                            <strong style={{ fontSize: '0.85rem', color: u.activeCount > 0 ? '#EF4444' : '#1E293B' }}>{u.activeCount} Kitap</strong>
+                          </div>
+                          <div style={{ borderLeft: '1px solid #E2E8F0', paddingLeft: '1.5rem' }}>
+                            <span style={{ color: '#64748B', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: '600', display: 'block' }}>Toplam İşlem</span>
+                            <strong style={{ fontSize: '0.85rem', color: '#475569' }}>{u.totalCount} İşlem</strong>
+                          </div>
+                        </div>
+
+                        {(kutuphaneYonetebilir || (!ogretmenModu && u.tur === 'ogretmen')) && (
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid #F1F5F9', paddingTop: '0.75rem' }}>
+                            {kutuphaneYonetebilir && (
+                              <button
+                                onClick={() => openOduncModalUye(u)}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '4px',
+                                  background: '#EEF2FF', color: '#4F46E5', border: 'none',
+                                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer',
+                                  flex: u.tur === 'ogrenci' ? 1 : 'none'
+                                }}
+                              >
+                                🔄 Kitap Ödünç Ver
+                              </button>
+                            )}
+                            {!ogretmenModu && u.tur === 'ogretmen' && (
+                              <button
+                                onClick={() => toggleKutuphaneYetkisi(u)}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '4px',
+                                  background: u.raw?.modulIzinler?.kutuphane_yonet ? '#FEF2F2' : '#EFF6FF',
+                                  color: u.raw?.modulIzinler?.kutuphane_yonet ? '#991B1B' : '#1D4ED8',
+                                  border: '1px solid',
+                                  borderColor: u.raw?.modulIzinler?.kutuphane_yonet ? '#FCA5A5' : '#BFDBFE',
+                                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer'
+                                }}
+                              >
+                                {u.raw?.modulIzinler?.kutuphane_yonet ? '🚫 Yetki Kaldır' : '🔑 Yetki Ver'}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </>
@@ -1331,8 +1702,8 @@ export default function KurumKutuphane() {
 
       {/* BOOK ADD/EDIT MODAL */}
       {kitapModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
+        <div className="library-modal-overlay" style={styles.modalOverlay}>
+          <div className="library-modal-content" style={styles.modalContent}>
             <div style={{ padding: '1.25rem 1.5rem', background: 'linear-gradient(135deg, #1B3A6B 0%, #1E40AF 100%)', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontWeight: '700', fontSize: '1.1rem' }}>
                 {duzenlenenKitap ? '📖 Kitap Düzenle' : '📚 Yeni Kitap Ekle'}
@@ -1340,7 +1711,7 @@ export default function KurumKutuphane() {
               <button onClick={() => setKitapModal(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.25rem', cursor: 'pointer' }}>✕</button>
             </div>
 
-            <form onSubmit={handleKitapKaydet} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <form className="library-modal-body" onSubmit={handleKitapKaydet} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={styles.label}>Barkod / ISBN *</label>
                 <input value={kitapForm.barkod} onChange={e => setKitapForm(prev => ({ ...prev, barkod: e.target.value }))}
@@ -1353,7 +1724,7 @@ export default function KurumKutuphane() {
                   required placeholder="Kitap adını girin..." style={styles.input} />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="modal-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={styles.label}>Yazar</label>
                   <input value={kitapForm.yazar} onChange={e => setKitapForm(prev => ({ ...prev, yazar: e.target.value }))}
@@ -1366,7 +1737,7 @@ export default function KurumKutuphane() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="modal-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={styles.label}>Tür / Kategori</label>
                   <input value={kitapForm.tur} onChange={e => setKitapForm(prev => ({ ...prev, tur: e.target.value }))}
@@ -1401,14 +1772,14 @@ export default function KurumKutuphane() {
 
       {/* LEND / BORROW MODAL */}
       {oduncModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
+        <div className="library-modal-overlay" style={styles.modalOverlay}>
+          <div className="library-modal-content" style={styles.modalContent}>
             <div style={{ padding: '1.25rem 1.5rem', background: 'linear-gradient(135deg, #1B3A6B 0%, #1E40AF 100%)', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontWeight: '700', fontSize: '1.1rem' }}>🔄 Kitap Ödünç Ver</h3>
               <button onClick={() => setOduncModal(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.25rem', cursor: 'pointer' }}>✕</button>
             </div>
 
-            <form onSubmit={handleOduncVer} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <form className="library-modal-body" onSubmit={handleOduncVer} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={styles.label}>Ödünç Verilecek Kitap *</label>
                 <select value={oduncForm.kitapId} onChange={e => setOduncForm(prev => ({ ...prev, kitapId: e.target.value }))}

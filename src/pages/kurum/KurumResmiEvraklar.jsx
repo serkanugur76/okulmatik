@@ -772,12 +772,33 @@ export default function KurumResmiEvraklar() {
             margin: 0 !important;
           }
         }
+        .evrak-grid-container {
+          display: grid;
+          grid-template-columns: 1.2fr 1.8fr;
+          gap: 2rem;
+          align-items: start;
+        }
+        @media (max-width: 992px) {
+          .evrak-grid-container {
+            grid-template-columns: 1fr !important;
+            gap: 1.5rem !important;
+          }
+        }
+        @media (max-width: 768px) {
+          #print-area {
+            padding: 1.5rem 1rem !important;
+          }
+          .evrak-signature-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1.5rem !important;
+          }
+        }
       `}} />
 
       <h1 id="resmi-evraklar-title" style={{ display: 'none' }}>Evrak Üretimi ve Şablon Formu</h1>
 
       {/* İki Sütunlu Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: '2rem', alignItems: 'start' }} className="no-print">
+      <div className="evrak-grid-container no-print">
         
         {/* SOL SÜTUN: Şablon Seçici & Form Alanı */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -2135,7 +2156,7 @@ export default function KurumResmiEvraklar() {
         </div>
 
         {/* SAĞ SÜTUN: A4 Canlı Önizleme */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', overflowX: 'auto' }}>
           
 
 
@@ -2392,7 +2413,7 @@ export default function KurumResmiEvraklar() {
             {/* İMZALAR */}
             {!(seciliSablonId === 1 && !isMudur && toplantiDurumu === 'yapilmadi') && (
               <div className="print-no-break" style={{ marginTop: '2.5rem', borderTop: '1px dashed #E2E8F0', paddingTop: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', textAlign: 'center', fontSize: '0.8rem' }}>
+              <div className="evrak-signature-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', textAlign: 'center', fontSize: '0.8rem' }}>
                 
                 {/* Sol İmza Grubu (Öğretmenler) */}
                 <div>

@@ -531,6 +531,20 @@ function KurumLayoutInner() {
   } = useKurumYonetim()
   const navigate = useNavigate()
   const location = useLocation()
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const getSayfaEtiketi = () => {
+    const flatMenus = aktifMenuler.reduce((acc, m) => {
+      if (m.altMenuler) acc.push(...m.altMenuler)
+      else acc.push(m)
+      return acc
+    }, [])
+    const found = flatMenus.find(m => m.yol === location.pathname)
+    if (found) return found.etiket
+    const lastPart = location.pathname.split('/').pop()
+    if (lastPart === 'kurum') return 'Dashboard'
+    return lastPart ? lastPart.charAt(0).toUpperCase() + lastPart.slice(1) : 'Okulmatik'
+  }
+  const [isAccountOpen, setIsAccountOpen] = useState(false)
 
   const [acikSubMenuler, setAcikSubMenuler] = useState(() => {
     return {
@@ -585,13 +599,13 @@ function KurumLayoutInner() {
 
   // Seçili kurum için breadcrumb: root → kampüs → altKurum
   function buildBreadcrumb(kurum) {
-    if (!kurum) return rootKurum ? [rootKurum.ad] : []
-    const parts = [kurum.ad]
+    if (!kurum) return rootKurum ? [{ id: rootKurum.id, ad: rootKurum.ad }] : []
+    const parts = [{ id: kurum.id, ad: kurum.ad }]
     let current = kurum
     while (current.parentId) {
       const parent = erisimKurumlar.find(k => k.id === current.parentId)
       if (!parent) break
-      parts.unshift(parent.ad)
+      parts.unshift({ id: parent.id, ad: parent.ad })
       current = parent
     }
     return parts
@@ -625,113 +639,155 @@ function KurumLayoutInner() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
       <style dangerouslySetInnerHTML={{ __html: `
+        .breadcrumb-link {
+          color: #4F46E5;
+          text-decoration: none;
+          cursor: pointer;
+          transition: color 0.15s ease;
+        }
+        .breadcrumb-link:hover {
+          color: #3730A3;
+          text-decoration: underline;
+        }
         @media (max-width: 768px) {
+          .mobile-header-bar {
+            display: flex !important;
+          }
           .sidebar-aside {
-            width: 64px !important;
+            display: none !important;
           }
           .sidebar-main {
-            margin-left: 64px !important;
-            padding: 1rem !important;
+            margin-left: 0 !important;
+            padding: 1rem 1rem 80px 1rem !important;
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
           }
-          .sidebar-logo-container {
-            justify-content: center !important;
-            margin-bottom: 0 !important;
-          }
-          .sidebar-logo {
-            text-align: center !important;
-            font-size: 1.5rem !important;
-          }
-          .logo-text {
-            display: none !important;
-          }
-          .sidebar-badge {
-            display: none !important;
-          }
-          .sidebar-select-label {
-            display: none !important;
-          }
-          .sidebar-select-container {
-            margin-top: 0.5rem !important;
-            padding: 0 0.5rem !important;
-          }
-          .select-wrapper {
-            width: 36px !important;
-            height: 36px !important;
-            margin: 0 auto !important;
-            border-radius: 50% !important;
-            background: rgba(255, 255, 255, 0.12) !important;
+          .mobile-bottom-nav {
             display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            position: relative !important;
-            overflow: hidden !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: #ffffff;
+            border-top: 1px solid #E2E8F0;
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+            z-index: 999;
+            justify-content: space-around;
+            align-items: center;
+            padding: 0 10px;
           }
-          .kurum-select {
-            opacity: 0 !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            z-index: 2 !important;
-            cursor: pointer !important;
-            margin: 0 !important;
-            padding: 0 !important;
+          .mobile-nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: none;
+            border: none;
+            color: #64748B;
+            font-size: 0.65rem;
+            font-weight: 600;
+            cursor: pointer;
+            gap: 4px;
+            flex: 1;
+            padding: 8px 0;
+            transition: all 0.15s;
           }
-          .select-visual {
+          .mobile-nav-btn.active {
+            color: #1B3A6B;
+          }
+          .mobile-nav-icon {
+            font-size: 1.25rem;
+          }
+          .mobile-drawer-overlay {
+            display: block !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease-out;
+          }
+          .mobile-drawer-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+          }
+          .mobile-drawer {
             display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: 1.1rem !important;
-            pointer-events: none !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border-radius: 20px 20px 0 0;
+            box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+            z-index: 1001;
+            transform: translateY(100%);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-direction: column;
+            padding: 1.5rem 1.25rem;
+            max-height: 80vh;
+            overflow-y: auto;
           }
-          .sidebar-nav-item {
-            padding: 0.75rem 0 !important;
-            justify-content: center !important;
-            border-left-width: 3px !important;
+          .mobile-drawer.open {
+            transform: translateY(0);
           }
-          .nav-text {
-            display: none !important;
+          .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #F1F5F9;
           }
-          .nav-arrow {
-            display: none !important;
+          .drawer-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #1E293B;
           }
-          .sidebar-submenu {
-            padding-left: 0 !important;
-            background: rgba(0, 0, 0, 0.2) !important;
+          .drawer-close {
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            color: #94A3B8;
+            cursor: pointer;
           }
-          .sidebar-sub-item {
-            padding: 0.65rem 0 !important;
-            justify-content: center !important;
-            border-left-width: 3px !important;
+          .drawer-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
           }
-          .sidebar-user-container {
-            justify-content: center !important;
-            margin-bottom: 0 !important;
+          .drawer-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 12px 8px;
+            text-decoration: none;
+            color: #334155;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-align: center;
+            gap: 6px;
+            transition: all 0.2s;
           }
-          .sidebar-user-info {
-            display: none !important;
+          .drawer-item:active {
+            background: #EFF6FF;
+            border-color: #3B82F6;
           }
-          .sidebar-badges-container {
-            display: none !important;
+          .drawer-item-icon {
+            font-size: 1.5rem;
           }
-          .sidebar-logout-btn {
-            width: 36px !important;
-            height: 36px !important;
-            padding: 0 !important;
-            border-radius: 50% !important;
-            margin: 0.5rem auto 0 auto !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-          }
-          .logout-text {
-            display: none !important;
-          }
-          .logout-icon {
-            display: inline !important;
-            font-size: 1.1rem !important;
-          }
+        }
+        .mobile-bottom-nav, .mobile-drawer-overlay, .mobile-drawer {
+          display: none;
         }
       `}} />
       <aside className="sidebar-aside" style={{
@@ -764,7 +820,7 @@ function KurumLayoutInner() {
             </div>
             
             {(() => {
-              const rootlar = erisimKurumlar.filter(k => !k.parentId)
+              const rootlar = erisimKurumlar.filter(k => !k.parentId || !erisimKurumlar.some(p => p.id === k.parentId))
               const kampusler = erisimKurumlar.filter(k => k.tip === 'kampus')
                 .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
               const altlar = erisimKurumlar.filter(k => k.tip === 'altKurum')
@@ -812,7 +868,7 @@ function KurumLayoutInner() {
                       if (isSelectable(root)) {
                         options.push(
                           <option key={root.id} value={root.id} style={{ background: '#1B3A6B', color: '#fff' }}>
-                            🏛 {root.ad}
+                            {root.tip === 'kampus' ? '🏫' : (root.tip === 'altKurum' ? '🏢' : '🏛')} {root.ad}
                           </option>
                         )
                       }
@@ -1071,6 +1127,46 @@ function KurumLayoutInner() {
       </aside>
 
       <main className="sidebar-main" style={{ marginLeft: '240px', flex: 1, padding: '2rem', position: 'relative' }}>
+        {/* Mobile Header Bar with Back Button */}
+        <div className="mobile-header-bar" style={{
+          display: 'none',
+          alignItems: 'center',
+          gap: '0.75rem',
+          background: '#ffffff',
+          border: '1px solid #E2E8F0',
+          borderRadius: '12px',
+          padding: '0.6rem 1rem',
+          marginBottom: '1rem',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+        }}>
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              background: '#F1F5F9',
+              border: 'none',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              color: '#475569',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            ⬅ Geri Git
+          </button>
+          <div style={{
+            fontSize: '0.85rem',
+            fontWeight: '600',
+            color: '#64748B',
+            marginLeft: 'auto'
+          }}>
+            {getSayfaEtiketi()}
+          </div>
+        </div>
         {/* Breadcrumb + Logo satırı */}
         {secilenKurumId && (() => {
           const logo = secilenKurum?.logoUrl
@@ -1083,10 +1179,24 @@ function KurumLayoutInner() {
               {/* Breadcrumb: öğretmen modunda gizli */}
               {!ogretmenModu ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#64748B' }}>
-                  {breadcrumb.map((ad, i, arr) => (
-                    <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span style={{ color: i === arr.length - 1 ? '#1E293B' : '#94A3B8', fontWeight: i === arr.length - 1 ? '600' : '400' }}>
-                        {ad}
+                  {breadcrumb.map((item, i, arr) => (
+                    <span key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span
+                        className={i === arr.length - 1 ? '' : 'breadcrumb-link'}
+                        onClick={() => {
+                          if (i < arr.length - 1) {
+                            setSecilenKurumId(item.id);
+                          }
+                        }}
+                        style={i === arr.length - 1 ? {
+                          color: '#1E293B',
+                          fontWeight: '600',
+                          cursor: 'default'
+                        } : {
+                          fontWeight: '500'
+                        }}
+                      >
+                        {item.ad}
                       </span>
                       {i < arr.length - 1 && <span style={{ color: '#CBD5E1' }}>›</span>}
                     </span>
@@ -1170,6 +1280,176 @@ function KurumLayoutInner() {
           </div>
         )}
       </main>
+
+      {/* Mobil Alt Navigasyon Barı */}
+      {secilenKurumId && (
+        <div className="mobile-bottom-nav">
+          <button
+            onClick={() => { navigate('/kurum'); setIsDrawerOpen(false); setIsAccountOpen(false); }}
+            className={`mobile-nav-btn ${location.pathname === '/kurum' ? 'active' : ''}`}
+          >
+            <span className="mobile-nav-icon">🏠</span>
+            <span>Ana Sayfa</span>
+          </button>
+
+          <button
+            onClick={() => {
+              navigate('/kurum/resmi-islemler/is-plani');
+              setIsDrawerOpen(false);
+              setIsAccountOpen(false);
+            }}
+            className={`mobile-nav-btn ${location.pathname.includes('/resmi-islemler') ? 'active' : ''}`}
+          >
+            <span className="mobile-nav-icon">📄</span>
+            <span>Resmi Evrak</span>
+          </button>
+
+          <button
+            onClick={() => {
+              navigate('/kurum/rubrikler');
+              setIsDrawerOpen(false);
+              setIsAccountOpen(false);
+            }}
+            className={`mobile-nav-btn ${location.pathname.includes('/rubrikler') || location.pathname.includes('/degerlendirmeler') ? 'active' : ''}`}
+          >
+            <span className="mobile-nav-icon">📝</span>
+            <span>Değerlendirme</span>
+          </button>
+
+          <button
+            onClick={() => { setIsDrawerOpen(!isDrawerOpen); setIsAccountOpen(false); }}
+            className={`mobile-nav-btn ${isDrawerOpen ? 'active' : ''}`}
+          >
+            <span className="mobile-nav-icon">☰</span>
+            <span>Modüller</span>
+          </button>
+
+          <button
+            onClick={() => { setIsAccountOpen(!isAccountOpen); setIsDrawerOpen(false); }}
+            className={`mobile-nav-btn ${isAccountOpen ? 'active' : ''}`}
+          >
+            <span className="mobile-nav-icon">👤</span>
+            <span>Hesap</span>
+          </button>
+        </div>
+      )}
+
+      {/* Modüller Drawer Çekmecesi */}
+      <div
+        className={`mobile-drawer-overlay ${isDrawerOpen ? 'open' : ''}`}
+        onClick={() => setIsDrawerOpen(false)}
+      />
+      <div className={`mobile-drawer ${isDrawerOpen ? 'open' : ''}`}>
+        <div className="drawer-header">
+          <span className="drawer-title">🧩 Tüm Aktif Modüller</span>
+          <button className="drawer-close" onClick={() => setIsDrawerOpen(false)}>✕</button>
+        </div>
+        <div className="drawer-grid">
+          {(() => {
+            const drawerLinks = []
+            aktifMenuler.forEach(m => {
+              if (m.altMenuler) {
+                m.altMenuler.forEach(sub => {
+                  drawerLinks.push({ yol: sub.yol, etiket: sub.etiket, ikon: sub.ikon })
+                })
+              } else if (m.yol !== '/kurum') {
+                drawerLinks.push({ yol: m.yol, etiket: m.etiket, ikon: m.ikon })
+              }
+            })
+            return drawerLinks.map(link => (
+              <NavLink
+                key={link.yol}
+                to={link.yol}
+                onClick={() => setIsDrawerOpen(false)}
+                className="drawer-item"
+              >
+                <span className="drawer-item-icon">{link.ikon}</span>
+                <span>{link.etiket}</span>
+              </NavLink>
+            ))
+          })()}
+        </div>
+      </div>
+
+      {/* Hesap/Profil Drawer Çekmecesi */}
+      <div
+        className={`mobile-drawer-overlay ${isAccountOpen ? 'open' : ''}`}
+        onClick={() => setIsAccountOpen(false)}
+      />
+      <div className={`mobile-drawer ${isAccountOpen ? 'open' : ''}`}>
+        <div className="drawer-header">
+          <span className="drawer-title">👤 Kullanıcı Hesabı</span>
+          <button className="drawer-close" onClick={() => setIsAccountOpen(false)}>✕</button>
+        </div>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', margin: '1rem 0' }}>
+          <div style={{
+            width: '60px', height: '60px', borderRadius: '50%',
+            background: '#1B3A6B', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: '700', fontSize: '1.25rem', border: '3px solid #E2E8F0'
+          }}>
+            {(() => {
+              const name = profil?.ad || profil?.email || '?';
+              const parts = name.split(' ');
+              if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+              return name[0].toUpperCase();
+            })()}
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontWeight: '800', color: '#1E293B', fontSize: '1rem' }}>{profil?.ad}</div>
+            <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>{profil?.email}</div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center', margin: '0.5rem 0' }}>
+            {rozet && (
+              <span style={{
+                fontSize: '0.7rem', fontWeight: '700',
+                color: rozet.renk, background: rozet.bg,
+                border: `1px solid ${rozet.renk}40`,
+                borderRadius: '999px', padding: '3px 10px',
+              }}>
+                {rozet.etiket}
+              </span>
+            )}
+            {profil?.rol === 'ogretmen' && profil?.modulIzinler?.rubrik_olustur && (
+              <span style={{
+                fontSize: '0.7rem', fontWeight: '700',
+                background: 'rgba(245,158,11,0.15)', color: '#D97706', border: '1px solid rgba(245,158,11,0.25)',
+                borderRadius: '999px', padding: '3px 10px',
+              }}>
+                ⭐ Koordinatör
+              </span>
+            )}
+          </div>
+
+          <div style={{ width: '100%', borderTop: '1px solid #F1F5F9', margin: '1rem 0' }} />
+
+          <button
+            onClick={() => { setIsAccountOpen(false); handleCikis(); }}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: '#FEF2F2',
+              color: '#EF4444',
+              border: '1px solid #FEE2E2',
+              borderRadius: '10px',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#FEE2E2'}
+            onMouseLeave={e => e.currentTarget.style.background = '#FEF2F2'}
+          >
+            <span>🚪</span> <span>Oturumu Kapat</span>
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

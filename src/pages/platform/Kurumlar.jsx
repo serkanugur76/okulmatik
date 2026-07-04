@@ -68,6 +68,7 @@ export default function Kurumlar() {
   const [logoYukleniyor, setLogoYukleniyor] = useState(null) // kurumId
   const [logoHedef, setLogoHedef]     = useState(null)       // logo yüklenecek kurum
   const dosyaInputRef                 = useRef(null)
+  const [openMenuId, setOpenMenuId]   = useState(null)
 
   useEffect(() => {
     const q = query(collection(db, 'kurumlar'), orderBy('olusturmaTarihi', 'asc'))
@@ -255,6 +256,37 @@ export default function Kurumlar() {
 
   return (
     <div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 768px) {
+          .modal-box {
+            max-height: 80vh !important;
+            padding: 1.25rem !important;
+          }
+          .modal-field {
+            margin-bottom: 0.75rem !important;
+          }
+          .modal-input {
+            padding: 0.5rem 0.75rem !important;
+            font-size: 0.85rem !important;
+          }
+          .modal-label {
+            font-size: 0.8rem !important;
+          }
+          .table-wrapper {
+            overflow: visible !important;
+          }
+          .desktop-only {
+            display: none !important;
+          }
+          .mobile-only-cell {
+            display: table-cell !important;
+          }
+          .mobile-only-flex {
+            display: inline-flex !important;
+          }
+        }
+      `}} />
+
       {/* Gizli dosya input — logo yüklemek için */}
       <input
         ref={dosyaInputRef}
@@ -274,23 +306,24 @@ export default function Kurumlar() {
         </button>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+      <div className="table-wrapper" style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
               <th style={s.th}>Ad</th>
-              <th style={s.thCenter} title="Tip">🏷️</th>
-              <th style={s.th}>E-posta</th>
-              <th style={s.thCenter} title="Logo">🖼️</th>
-              <th style={s.thCenter} title="Google Workspace">G</th>
-              <th style={s.thCenter} title="Durum">●</th>
-              <th style={s.thCenter} title="İşlemler">⚙️</th>
+              <th style={s.thCenter} className="desktop-only" title="Tip">🏷️</th>
+              <th style={s.th} className="desktop-only">E-posta</th>
+              <th style={s.thCenter} className="desktop-only" title="Logo">🖼️</th>
+              <th style={s.thCenter} className="desktop-only" title="Google Workspace">G</th>
+              <th style={s.thCenter} className="desktop-only" title="Durum">●</th>
+              <th style={s.thCenter} className="desktop-only" title="İşlemler">⚙️</th>
+              <th style={{ display: 'none', ...s.thCenter }} className="mobile-only-cell" title="İşlemler">⚙️</th>
             </tr>
           </thead>
           <tbody>
             {gorunenListe.length === 0 ? (
               <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '3rem' }}>Henüz kurum eklenmemiş</td></tr>
-            ) : gorunenListe.map(k => {
+            ) : gorunenListe.map((k, index) => {
               const tipBilgi = TIP_ETİKET[k.tip] || TIP_ETİKET.kurum
               const cocukSayisi = kurumlar.filter(x => x.parentId === k.id).length
               const altKurumSayisi = torunlar(k.id, kurumlar).length
@@ -311,17 +344,47 @@ export default function Kurumlar() {
                       {cocukSayisi === 0 && <span style={{ width: '16px' }} />}
                       <span style={{ fontWeight: k.tip === 'kurum' ? '600' : '400' }}>{k.ad}</span>
                       {cocukSayisi > 0 && <span style={{ fontSize: '0.7rem', color: '#94A3B8' }}>({cocukSayisi})</span>}
+                      {/* Durum Noktası - Sadece Mobilde Adın Yanında Gösterilir */}
+                      <span
+                        className="mobile-only-flex"
+                        title={k.durum === 'aktif' ? 'Aktif' : 'Pasif'}
+                        style={{
+                          display: 'none', width: '8px', height: '8px', borderRadius: '50%',
+                          background: k.durum === 'aktif' ? '#10B981' : '#EF4444',
+                          boxShadow: `0 0 0 2px ${k.durum === 'aktif' ? '#D1FAE5' : '#FEE2E2'}`,
+                          marginLeft: '6px'
+                        }}
+                      />
+                    </div>
+                    {/* Hiyerarşik ve Meta Bilgi Alt Satırı - Sadece Mobilde */}
+                    <div className="mobile-only-flex" style={{ display: 'none', fontSize: '0.7rem', color: '#64748B', marginTop: '4px', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{
+                        padding: '2px 6px', borderRadius: '4px', fontWeight: '700', fontSize: '0.62rem',
+                        backgroundColor: tipBilgi.bg, color: tipBilgi.renk
+                      }}>
+                        {tipBilgi.etiket}
+                      </span>
+                      {k.email && <span style={{ whiteSpace: 'nowrap' }}>• {k.email}</span>}
+                      {k.logoUrl && (
+                        <img src={k.logoUrl} alt="logo" style={{ height: '18px', maxWidth: '36px', objectFit: 'contain', borderRadius: '2px', border: '1px solid #E2E8F0' }} />
+                      )}
+                      {k.googleAltyapisi && (
+                        <span title="Google Workspace" style={{ display: 'inline-flex', width: '16px', height: '16px', borderRadius: '50%', background: '#E8F0FE', color: '#1557B0', fontWeight: '800', fontSize: '0.6rem', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>G</span>
+                      )}
+                      {googleMiras && (
+                        <span title="Google Miras" style={{ display: 'inline-flex', width: '16px', height: '16px', borderRadius: '50%', background: '#EFF6FF', color: '#93C5FD', fontWeight: '800', fontSize: '0.6rem', alignItems: 'center', justifyContent: 'center', border: '1px dashed #BFDBFE', fontFamily: 'sans-serif' }}>G</span>
+                      )}
                     </div>
                   </td>
                   {/* Tip */}
-                  <td style={s.tdCenter}>
+                  <td style={s.tdCenter} className="desktop-only">
                     <span title={tipBilgi.etiket} style={{ fontSize: '1.1rem', cursor: 'default' }}>
                       {TIP_İKON[k.tip] || '🏢'}
                     </span>
                   </td>
-                  <td style={s.td}>{k.email || '—'}</td>
+                  <td style={s.td} className="desktop-only">{k.email || '—'}</td>
                   {/* Logo */}
-                  <td style={s.tdCenter}>
+                  <td style={s.tdCenter} className="desktop-only">
                     {logoYukleniyor === k.id ? (
                       <span style={{ fontSize: '0.7rem', color: '#94A3B8' }}>⏳</span>
                     ) : k.logoUrl ? (
@@ -345,7 +408,7 @@ export default function Kurumlar() {
                     )}
                   </td>
                   {/* Google */}
-                  <td style={s.tdCenter}>
+                  <td style={s.tdCenter} className="desktop-only">
                     {k.googleAltyapisi ? (
                       <span title="Google Workspace altyapısı aktif"
                         style={{ display: 'inline-flex', width: '24px', height: '24px', borderRadius: '50%', background: '#E8F0FE', color: '#1557B0', fontWeight: '800', fontSize: '0.8rem', alignItems: 'center', justifyContent: 'center', cursor: 'default', fontFamily: 'sans-serif' }}>G</span>
@@ -357,13 +420,13 @@ export default function Kurumlar() {
                     )}
                   </td>
                   {/* Durum */}
-                  <td style={s.tdCenter}>
+                  <td style={s.tdCenter} className="desktop-only">
                     <span
                       title={k.durum === 'aktif' ? 'Aktif' : 'Pasif'}
                       style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: k.durum === 'aktif' ? '#10B981' : '#EF4444', cursor: 'default', boxShadow: `0 0 0 3px ${k.durum === 'aktif' ? '#D1FAE5' : '#FEE2E2'}` }} />
                   </td>
-                  {/* İşlemler */}
-                  <td style={s.tdCenter}>
+                  {/* İşlemler - Desktop */}
+                  <td style={s.tdCenter} className="desktop-only">
                     <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'center', flexWrap: 'nowrap' }}>
                       <button title="Düzenle" style={s.iBtn} onClick={() => düzenleModalAc(k)}>✏️</button>
                       {k.tip !== 'altKurum' && (
@@ -382,6 +445,101 @@ export default function Kurumlar() {
                       </button>
                     </div>
                   </td>
+                  {/* İşlemler - Mobil Dropdown Menu */}
+                  <td style={{ ...s.tdCenter, display: 'none' }} className="mobile-only-cell">
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <button
+                        onClick={() => setOpenMenuId(openMenuId === k.id ? null : k.id)}
+                        style={{
+                          background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px',
+                          padding: '6px 12px', fontSize: '1rem', cursor: 'pointer', color: '#475569',
+                          fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        }}
+                      >
+                        ⋮
+                      </button>
+                      {openMenuId === k.id && (
+                        <>
+                          <div 
+                            onClick={() => setOpenMenuId(null)}
+                            style={{ position: 'fixed', inset: 0, zIndex: 9998 }} 
+                          />
+                          {(() => {
+                            const isNearBottom = index > 0 && (gorunenListe.length - index <= 2);
+                            return (
+                              <div style={{
+                                position: 'absolute',
+                                right: 0,
+                                zIndex: 9999,
+                                minWidth: '170px',
+                                padding: '4px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '2px',
+                                backgroundColor: '#FFFFFF',
+                                border: '1px solid #E2E8F0',
+                                borderRadius: '10px',
+                                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                                ...(isNearBottom ? {
+                                  bottom: '100%',
+                                  marginBottom: '6px'
+                                } : {
+                                  top: '100%',
+                                  marginTop: '6px'
+                                })
+                              }}>
+                                <button
+                                  onClick={() => { setOpenMenuId(null); düzenleModalAc(k); }}
+                                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#1E293B' }}
+                                >
+                                  <span>✏️</span> Düzenle
+                                </button>
+                                {k.tip !== 'altKurum' && (
+                                  <button
+                                    onClick={() => { setOpenMenuId(null); altEkleModalAc(k); }}
+                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#0369A1' }}
+                                  >
+                                    <span>➕</span> {k.tip === 'kurum' ? 'Kampüs Ekle' : 'Alt Kurum Ekle'}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => { setOpenMenuId(null); durumDegistir(k); }}
+                                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: k.durum === 'aktif' ? '#991B1B' : '#065F46' }}
+                                >
+                                  <span>{k.durum === 'aktif' ? '⏸️' : '▶️'}</span> {k.durum === 'aktif' ? 'Pasif Yap' : 'Aktif Yap'}
+                                </button>
+                                <div style={{ height: '1px', backgroundColor: '#F1F5F9', margin: '4px 0' }} />
+                                {k.logoUrl ? (
+                                  <>
+                                    <button
+                                      onClick={() => { setOpenMenuId(null); logoYukleBaslat(k); }}
+                                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#0369A1' }}
+                                    >
+                                      <span>🖼️</span> Logo Değiştir
+                                    </button>
+                                    <button
+                                      onClick={() => { setOpenMenuId(null); logoSil(k); }}
+                                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#991B1B' }}
+                                    >
+                                      <span>🗑️</span> Logoyu Sil
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={() => { setOpenMenuId(null); logoYukleBaslat(k); }}
+                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#0369A1' }}
+                                  >
+                                    <span>🖼️</span> Logo Yükle
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               )
             })}
@@ -390,9 +548,9 @@ export default function Kurumlar() {
       </div>
 
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '16px' }}
           onClick={e => e.target === e.currentTarget && modalKapat()}>
-          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+          <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', width: '100%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.5rem' }}>
               {duzenlenen ? 'Düzenle' : (form.tip === 'kampus' ? 'Yeni Kampüs Ekle' : form.tip === 'altKurum' ? 'Yeni Alt Kurum Ekle' : 'Yeni Kurum Ekle')}
             </h2>
@@ -402,26 +560,26 @@ export default function Kurumlar() {
               </p>
             )}
             <form onSubmit={kaydet}>
-              <div style={s.alan}>
-                <label style={s.etiket}>Ad *</label>
-                <input style={s.girdi} value={form.ad} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} placeholder={form.tip === 'kampus' ? 'Mezitli Kampüsü' : form.tip === 'altKurum' ? 'İlkokul' : 'Kurum adı'} autoFocus />
+              <div className="modal-field" style={s.alan}>
+                <label className="modal-label" style={s.etiket}>Ad *</label>
+                <input className="modal-input" style={s.girdi} value={form.ad} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} placeholder={form.tip === 'kampus' ? 'Mezitli Kampüsü' : form.tip === 'altKurum' ? 'İlkokul' : 'Kurum adı'} autoFocus />
               </div>
-              <div style={s.alan}>
-                <label style={s.etiket}>E-posta</label>
-                <input style={s.girdi} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="okul@example.com" />
+              <div className="modal-field" style={s.alan}>
+                <label className="modal-label" style={s.etiket}>E-posta</label>
+                <input className="modal-input" style={s.girdi} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="okul@example.com" />
               </div>
-              <div style={s.alan}>
-                <label style={s.etiket}>Telefon</label>
-                <input style={s.girdi} value={form.telefon} onChange={e => setForm(f => ({ ...f, telefon: e.target.value }))} placeholder="0212 000 00 00" />
+              <div className="modal-field" style={s.alan}>
+                <label className="modal-label" style={s.etiket}>Telefon</label>
+                <input className="modal-input" style={s.girdi} value={form.telefon} onChange={e => setForm(f => ({ ...f, telefon: e.target.value }))} placeholder="0212 000 00 00" />
               </div>
-              <div style={s.alan}>
-                <label style={s.etiket}>Adres</label>
-                <textarea style={{ ...s.girdi, resize: 'vertical', minHeight: '60px' }} value={form.adres} onChange={e => setForm(f => ({ ...f, adres: e.target.value }))} />
+              <div className="modal-field" style={s.alan}>
+                <label className="modal-label" style={s.etiket}>Adres</label>
+                <textarea className="modal-input" style={{ ...s.girdi, resize: 'vertical', minHeight: '60px' }} value={form.adres} onChange={e => setForm(f => ({ ...f, adres: e.target.value }))} />
               </div>
               {form.tip === 'altKurum' && (
-                <div style={s.alan}>
-                  <label style={s.etiket}>Okul Türü</label>
-                  <select style={s.girdi} value={form.okulTuru} onChange={e => setForm(f => ({ ...f, okulTuru: e.target.value }))}>
+                <div className="modal-field" style={s.alan}>
+                  <label className="modal-label" style={s.etiket}>Okul Türü</label>
+                  <select className="modal-input" style={s.girdi} value={form.okulTuru} onChange={e => setForm(f => ({ ...f, okulTuru: e.target.value }))}>
                     <option value="">Seçin (isteğe bağlı)</option>
                     <option value="ilkokul">İlkokul (1–4. Sınıf)</option>
                     <option value="ortaokul">Ortaokul (5–8. Sınıf)</option>
@@ -429,9 +587,9 @@ export default function Kurumlar() {
                   </select>
                 </div>
               )}
-              <div style={s.alan}>
-                <label style={s.etiket}>Durum</label>
-                <select style={s.girdi} value={form.durum} onChange={e => setForm(f => ({ ...f, durum: e.target.value }))}>
+              <div className="modal-field" style={s.alan}>
+                <label className="modal-label" style={s.etiket}>Durum</label>
+                <select className="modal-input" style={s.girdi} value={form.durum} onChange={e => setForm(f => ({ ...f, durum: e.target.value }))}>
                   <option value="aktif">Aktif</option>
                   <option value="pasif">Pasif</option>
                 </select>

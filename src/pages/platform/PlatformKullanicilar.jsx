@@ -50,6 +50,7 @@ export default function PlatformKullanicilar() {
   const [sekme, setSekme]               = useState('aktif') // 'aktif' | 'bekleyen'
   const [acikGruplar, setAcikGruplar]   = useState(new Set())
   const [kurumSiniflar, setKurumSiniflar] = useState({}) // { [kurumId]: [siniflar] }
+  const [openMenuId, setOpenMenuId]   = useState(null)
 
   function toggleGrup(id) {
     setAcikGruplar(prev => {
@@ -288,34 +289,90 @@ export default function PlatformKullanicilar() {
 
   return (
     <div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 768px) {
+          .platform-actions-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .filter-wrapper {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .search-input {
+            width: 100% !important;
+          }
+          .add-user-btn {
+            width: 100% !important;
+          }
+          .modal-box {
+            max-height: 80vh !important;
+            padding: 1.25rem !important;
+          }
+          .modal-field {
+            margin-bottom: 0.75rem !important;
+          }
+          .modal-input {
+            padding: 0.5rem 0.75rem !important;
+            font-size: 0.85rem !important;
+          }
+          .modal-label {
+            font-size: 0.8rem !important;
+          }
+          .table-wrapper {
+            overflow: visible !important;
+          }
+          .desktop-only {
+            display: none !important;
+          }
+          .mobile-only-cell {
+            display: table-cell !important;
+          }
+          .mobile-only-flex {
+            display: inline-flex !important;
+          }
+        }
+      `}} />
+
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Kullanıcılar</h1>
       <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Platform genelindeki tüm kullanıcılar</p>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <div className="platform-actions-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div className="filter-wrapper" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', flex: 1, minWidth: '280px' }}>
           <input value={filtre} onChange={e => setFiltre(e.target.value)}
             placeholder="Ad veya e-posta ile ara..."
-            style={{ padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', width: '280px', color: '#1E293B' }} />
-          {['aktif', 'bekleyen'].map(s2 => (
-            <button key={s2} onClick={() => setSekme(s2)}
-              style={{ padding: '0.5rem 1rem', border: '1.5px solid', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer',
-                borderColor: sekme === s2 ? '#1B3A6B' : '#E2E8F0',
-                background: sekme === s2 ? '#1B3A6B' : '#fff',
-                color: sekme === s2 ? '#fff' : '#64748B' }}>
-              {s2 === 'aktif' ? `Aktif (${kullanicilar.length})` : `Davet Bekleyen (${bekleyenler.length})`}
-            </button>
-          ))}
+            className="search-input"
+            style={{ padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', width: '240px', color: '#1E293B' }} />
+          <div style={{ display: 'flex', gap: '0.375rem' }}>
+            {['aktif', 'bekleyen'].map(s2 => (
+              <button key={s2} onClick={() => setSekme(s2)}
+                style={{ padding: '0.5rem 0.75rem', border: '1.5px solid', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer',
+                  borderColor: sekme === s2 ? '#1B3A6B' : '#E2E8F0',
+                  background: sekme === s2 ? '#1B3A6B' : '#fff',
+                  color: sekme === s2 ? '#fff' : '#64748B' }}>
+                {s2 === 'aktif' ? `Aktif (${kullanicilar.length})` : `Bekleyen (${bekleyenler.length})`}
+              </button>
+            ))}
+          </div>
         </div>
-        <button onClick={yeniModalAc} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+        <button onClick={yeniModalAc} className="add-user-btn" style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
           + Kullanıcı Davet Et
         </button>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+      <div className="table-wrapper" style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
         {sekme === 'aktif' ? (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>{['Ad', 'E-posta', 'Rol', 'Kurum', 'Atamalar', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+              <tr>
+                <th style={s.th}>Ad / Kullanıcı</th>
+                <th style={s.th} className="desktop-only">E-posta</th>
+                <th style={s.th} className="desktop-only">Rol</th>
+                <th style={s.th} className="desktop-only">Kurum</th>
+                <th style={s.th} className="desktop-only">Atamalar</th>
+                <th style={s.th} className="desktop-only">İşlemler</th>
+                <th style={{ display: 'none', ...s.th }} className="mobile-only-cell">İşlemler</th>
+              </tr>
             </thead>
             <tbody>
               {aktifGruplar.length === 0 ? (
@@ -327,7 +384,7 @@ export default function PlatformKullanicilar() {
                   <tr key={`grup-${grup.id}`}
                     onClick={() => toggleGrup(grup.id)}
                     style={{ cursor: 'pointer', background: '#F8FAFC', borderTop: '2px solid #E2E8F0' }}>
-                    <td colSpan={6} style={{ padding: '0.6rem 1rem' }}>
+                    <td colSpan={6} className="desktop-only" style={{ padding: '0.6rem 1rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{acik ? '▼' : '▶'}</span>
                         <span style={{ fontSize: '0.75rem' }}>{grup.ikon}</span>
@@ -336,6 +393,18 @@ export default function PlatformKullanicilar() {
                         </span>
                         <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: '400' }}>
                           ({grup.kullanicilar.length} kullanıcı)
+                        </span>
+                      </div>
+                    </td>
+                    <td colSpan={2} className="mobile-only-cell" style={{ display: 'none', padding: '0.6rem 1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{acik ? '▼' : '▶'}</span>
+                        <span style={{ fontSize: '0.75rem' }}>{grup.ikon}</span>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1E293B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {grup.ad}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: '400' }}>
+                          ({grup.kullanicilar.length})
                         </span>
                       </div>
                     </td>
@@ -371,11 +440,35 @@ export default function PlatformKullanicilar() {
                                 })()}
                               </div>
                             )}
-                            <strong style={{ color: '#1B3A6B' }}>{k.ad || '—'}</strong>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <strong style={{ color: '#1B3A6B' }}>{k.ad || '—'}</strong>
+                              {/* Mobil Meta Bilgileri Alt Satırı */}
+                              <div className="mobile-only-flex" style={{ display: 'none', fontSize: '0.7rem', color: '#64748B', marginTop: '4px', gap: '4px', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <span>{k.email}</span>
+                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                  <span style={{ padding: '1px 8px', borderRadius: '999px', fontSize: '0.62rem', fontWeight: '700', background: rol.bg, color: rol.renk }}>
+                                    {rol.etiket}
+                                  </span>
+                                  {koordinator && (
+                                    <span style={{ padding: '1px 8px', borderRadius: '999px', fontSize: '0.62rem', fontWeight: '700', background: '#FEF3C7', color: '#92400E' }}>
+                                      Koordinatör
+                                    </span>
+                                  )}
+                                  {k.rol === 'ogretmen' && toplamSinif > 0 && (
+                                    <span style={{ padding: '1px 8px', borderRadius: '999px', fontSize: '0.62rem', fontWeight: '700', background: '#DBEAFE', color: '#1E40AF' }}>
+                                      {toplamSinif} sınıf
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: '0.65rem', color: '#94A3B8', marginTop: '2px' }}>
+                                  🏢 {kurum?.ad || (k.kurumId ? k.kurumId : 'Atanmamış')}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </td>
-                        <td style={s.td}>{k.email}</td>
-                        <td style={s.td}>
+                        <td style={s.td} className="desktop-only">{k.email}</td>
+                        <td style={s.td} className="desktop-only">
                           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                             <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '600', background: rol.bg, color: rol.renk }}>
                               {rol.etiket}
@@ -387,16 +480,53 @@ export default function PlatformKullanicilar() {
                             )}
                           </div>
                         </td>
-                        <td style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8', fontSize: '0.82rem' }}>
+                        <td className="desktop-only" style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8', fontSize: '0.82rem' }}>
                           {kurum?.ad || (k.kurumId ? k.kurumId : '— Atanmamış')}
                         </td>
-                        <td style={s.td}>
+                        <td style={s.td} className="desktop-only">
                           {k.rol === 'ogretmen' && toplamSinif > 0
                             ? <span style={{ fontSize: '0.75rem', color: '#1B3A6B', fontWeight: '600' }}>{toplamSinif} sınıf</span>
                             : <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>—</span>}
                         </td>
-                        <td style={s.td}>
+                        <td style={s.td} className="desktop-only">
                           <button style={s.eylem} onClick={() => duzenleModalAc(k)}>Düzenle</button>
+                        </td>
+                        {/* İşlemler - Mobil Dropdown Menu */}
+                        <td style={{ ...s.td, display: 'none', verticalAlign: 'middle', textAlign: 'center' }} className="mobile-only-cell">
+                          <div style={{ position: 'relative', display: 'inline-block' }}>
+                            <button
+                              onClick={() => setOpenMenuId(openMenuId === k.id ? null : k.id)}
+                              style={{
+                                background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px',
+                                padding: '6px 12px', fontSize: '1rem', cursor: 'pointer', color: '#475569',
+                                fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              ⋮
+                            </button>
+                            {openMenuId === k.id && (
+                              <>
+                                <div 
+                                  onClick={() => setOpenMenuId(null)}
+                                  style={{ position: 'fixed', inset: 0, zIndex: 9998 }} 
+                                />
+                                <div style={{
+                                  position: 'absolute', right: 0, bottom: '100%', marginBottom: '6px',
+                                  backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px',
+                                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                                  zIndex: 9999, minWidth: '130px', padding: '4px', display: 'flex', flexDirection: 'column'
+                                }}>
+                                  <button
+                                    onClick={() => { setOpenMenuId(null); duzenleModalAc(k); }}
+                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#1E293B' }}
+                                  >
+                                    <span>✏️</span> Düzenle
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )
@@ -408,7 +538,14 @@ export default function PlatformKullanicilar() {
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>{['E-posta', 'Rol', 'Kurum', 'Giriş Yöntemi', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+              <tr>
+                <th style={s.th}>E-posta / Kullanıcı</th>
+                <th style={s.th} className="desktop-only">Rol</th>
+                <th style={s.th} className="desktop-only">Kurum</th>
+                <th style={s.th} className="desktop-only">Giriş Yöntemi</th>
+                <th style={s.th} className="desktop-only">İşlemler</th>
+                <th style={{ display: 'none', ...s.th }} className="mobile-only-cell">İşlemler</th>
+              </tr>
             </thead>
             <tbody>
               {bekleyenListe.length === 0 ? (
@@ -418,24 +555,78 @@ export default function PlatformKullanicilar() {
                 const kurum = kurumlar.find(x => x.id === k.kurumId)
                 return (
                   <tr key={k.id}>
-                    <td style={s.td}>{k.email}</td>
                     <td style={s.td}>
+                      <div>
+                        <strong>{k.email}</strong>
+                        <div className="mobile-only-flex" style={{ display: 'none', fontSize: '0.7rem', color: '#64748B', marginTop: '4px', gap: '6px', flexDirection: 'column' }}>
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            <span style={{ padding: '1px 8px', borderRadius: '999px', fontSize: '0.62rem', fontWeight: '700', background: rol.bg, color: rol.renk }}>
+                              {rol.etiket}
+                            </span>
+                            <span style={{ padding: '1px 8px', borderRadius: '999px', fontSize: '0.62rem', fontWeight: '700', background: '#F1F5F9', color: k.googleAltyapisi ? '#1557B0' : '#475569' }}>
+                              {k.googleAltyapisi ? 'Google' : 'E-posta'}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '0.65rem', color: '#94A3B8', marginTop: '2px' }}>
+                            🏢 {kurum?.ad || (k.kurumId ? k.kurumId : 'Atanmamış')}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={s.td} className="desktop-only">
                       <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', background: rol.bg, color: rol.renk }}>
                         {rol.etiket}
                       </span>
                     </td>
-                    <td style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8' }}>
+                    <td className="desktop-only" style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8' }}>
                       {kurum?.ad || (k.kurumId ? k.kurumId : '— Atanmamış')}
                     </td>
-                    <td style={s.td}>
+                    <td style={s.td} className="desktop-only">
                       <span style={{ fontSize: '0.75rem', color: k.googleAltyapisi ? '#1557B0' : '#374151' }}>
                         {k.googleAltyapisi ? 'Google' : 'E-posta / Şifre'}
                       </span>
                     </td>
-                    <td style={s.td}>
+                    <td style={s.td} className="desktop-only">
                       <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => davetSil(k.email)}>
                         İptal Et
                       </button>
+                    </td>
+                    {/* İşlemler - Mobil Dropdown Menu */}
+                    <td style={{ ...s.td, display: 'none', verticalAlign: 'middle', textAlign: 'center' }} className="mobile-only-cell">
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <button
+                          onClick={() => setOpenMenuId(openMenuId === k.id ? null : k.id)}
+                          style={{
+                            background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px',
+                            padding: '6px 12px', fontSize: '1rem', cursor: 'pointer', color: '#475569',
+                            fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                          }}
+                        >
+                          ⋮
+                        </button>
+                        {openMenuId === k.id && (
+                          <>
+                            <div 
+                              onClick={() => setOpenMenuId(null)}
+                              style={{ position: 'fixed', inset: 0, zIndex: 9998 }} 
+                            />
+                            <div style={{
+                              position: 'absolute', right: 0, bottom: '100%', marginBottom: '6px',
+                              backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px',
+                              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                              zIndex: 9999, minWidth: '130px', padding: '4px', display: 'flex', flexDirection: 'column'
+                            }}>
+                              <button
+                                onClick={() => { setOpenMenuId(null); davetSil(k.email); }}
+                                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#991B1B' }}
+                              >
+                                <span>🗑️</span> İptal Et
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -446,9 +637,9 @@ export default function PlatformKullanicilar() {
       </div>
 
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, overflowY: 'auto', padding: '2rem 1rem' }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '16px' }}
           onClick={e => e.target === e.currentTarget && modalKapat()}>
-          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: form.rol === 'ogretmen' ? '580px' : '420px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+          <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', width: '100%', maxWidth: form.rol === 'ogretmen' ? '580px' : '480px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.5rem' }}>
               {duzenlenen ? 'Kullanıcıyı Düzenle' : 'Kullanıcı Davet Et'}
             </h2>
@@ -459,28 +650,28 @@ export default function PlatformKullanicilar() {
             )}
             <form onSubmit={kaydet}>
               {duzenlenen && (
-                <div style={s.alan}>
-                  <label style={s.etiket}>Ad Soyad</label>
-                  <input style={s.girdi} value={form.ad || ''} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} autoFocus />
+                <div className="modal-field" style={s.alan}>
+                  <label className="modal-label" style={s.etiket}>Ad Soyad</label>
+                  <input className="modal-input" style={s.girdi} value={form.ad || ''} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} autoFocus />
                 </div>
               )}
-              <div style={s.alan}>
-                <label style={s.etiket}>E-posta *</label>
-                <input style={s.girdi} type="email" value={form.email}
+              <div className="modal-field" style={s.alan}>
+                <label className="modal-label" style={s.etiket}>E-posta *</label>
+                <input className="modal-input" style={s.girdi} type="email" value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                   disabled={!!duzenlenen} autoFocus={!duzenlenen} />
               </div>
-              <div style={s.alan}>
-                <label style={s.etiket}>Rol</label>
-                <select style={s.girdi} value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value, kurumId: '', sinifAtamalari: [], branslar: [], rubrikOlustur: false }))}>
+              <div className="modal-field" style={s.alan}>
+                <label className="modal-label" style={s.etiket}>Rol</label>
+                <select className="modal-input" style={s.girdi} value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value, kurumId: '', sinifAtamalari: [], branslar: [], rubrikOlustur: false }))}>
                   <option value="platform_admin">Platform Admin</option>
                   <option value="kurum_admin">Kurum Admin</option>
                   <option value="ogretmen">Öğretmen</option>
                 </select>
               </div>
               {(form.rol === 'kurum_admin' || form.rol === 'ogretmen') && (
-                <div style={s.alan}>
-                  <label style={s.etiket}>Kurum *</label>
+                <div className="modal-field" style={s.alan}>
+                  <label className="modal-label" style={s.etiket}>Kurum *</label>
                   <KurumSecici value={form.kurumId} onChange={v => setForm(f => ({ ...f, kurumId: v }))} kurumlar={kurumlar} style={s.girdi} />
                 </div>
               )}
@@ -553,7 +744,7 @@ export default function PlatformKullanicilar() {
                           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.625rem', alignItems: 'center' }}>
                             <select value={atama.kurumId}
                               onChange={e => atamaKurumDegistir(idx, e.target.value)}
-                              style={{ ...s.girdi, flex: 1, fontSize: '0.85rem' }}>
+                              style={{ ...s.girdi, flex: 1, minWidth: 0, fontSize: '0.85rem' }}>
                               <option value="">— Okul / Kurum seçin —</option>
                               {altKurumlar.map(k => {
                                 const kampus = kurumlar.find(x => x.id === k.parentId)
@@ -565,7 +756,7 @@ export default function PlatformKullanicilar() {
                               })}
                             </select>
                             <button type="button" onClick={() => atamaKaldir(idx)}
-                              style={{ padding: '5px 10px', background: 'none', border: '1px solid #FECACA', borderRadius: '6px', color: '#991B1B', cursor: 'pointer', fontSize: '0.75rem' }}>
+                              style={{ padding: '5px 10px', background: 'none', border: '1px solid #FECACA', borderRadius: '6px', color: '#991B1B', cursor: 'pointer', fontSize: '0.75rem', flexShrink: 0, whiteSpace: 'nowrap' }}>
                               Kaldır
                             </button>
                           </div>

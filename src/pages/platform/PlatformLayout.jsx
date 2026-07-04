@@ -14,6 +14,7 @@ const PLATFORM_MENULER = [
   { yol: '/platform/loglar',        etiket: 'İşlem Logları', ikon: '🗒️' },
   { yol: '/platform/toplu-mail',   etiket: 'Toplu Mail Gönder', ikon: '✉️' },
   { yol: '/platform/sistem',       etiket: 'Sistem İşlemleri', ikon: '⚙️' },
+  { yol: '/platform/versiyonlar',  etiket: 'Versiyon Geçmişi', ikon: '✨' },
   { yol: '/platform/hakkinda',     etiket: 'Hakkında',      ikon: 'ℹ️' },
 ]
 
@@ -112,28 +113,44 @@ function PlatformSidebar() {
     return 4
   }
 
-  const rootKurumlar   = erisimKurumlar.filter(k => !k.parentId)
-  const kampusKurumlar = erisimKurumlar
-    .filter(k => k.parentId && erisimKurumlar.find(x => x.id === k.parentId && !x.parentId))
-    .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
-  const altKurumlar    = erisimKurumlar.filter(k => {
-    if (!k.parentId) return false
-    const ust = erisimKurumlar.find(x => x.id === k.parentId)
-    return !!ust?.parentId
-  })
+  const rootKurumlar = erisimKurumlar.filter(
+    k => !k.parentId || !erisimKurumlar.some(p => p.id === k.parentId)
+  )
 
-  // optgroup yapısı: root → [ { kampus, altlar[] } ]
-  const kurumGruplari = rootKurumlar.map(root => ({
-    root,
-    kampusGruplari: kampusKurumlar
-      .filter(k => k.parentId === root.id)
-      .map(kp => ({
-        kampus: kp,
-        altKurumlar: altKurumlar
-          .filter(k => k.parentId === kp.id)
-          .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr')),
-      })),
-  }))
+  const kurumGruplari = rootKurumlar.map(root => {
+    if (root.tip === 'kampus') {
+      const altlarUnderKampus = erisimKurumlar.filter(k => k.parentId === root.id && k.tip === 'altKurum')
+        .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+      return {
+        root,
+        kampusGruplari: [
+          {
+            kampus: root,
+            altKurumlar: altlarUnderKampus
+          }
+        ]
+      }
+    } else if (root.tip === 'altKurum') {
+      return {
+        root,
+        kampusGruplari: []
+      }
+    } else {
+      const kampuses = erisimKurumlar.filter(k => k.parentId === root.id && k.tip === 'kampus')
+        .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+      return {
+        root,
+        kampusGruplari: kampuses.map(kp => {
+          const altlar = erisimKurumlar.filter(k => k.parentId === kp.id && k.tip === 'altKurum')
+            .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+          return {
+            kampus: kp,
+            altKurumlar: altlar
+          }
+        })
+      }
+    }
+  })
 
   const seciliKurumObj = erisimKurumlar.find(k => k.id === secilenKurumId)
   const selectEmoji = (() => {
@@ -368,6 +385,21 @@ function PlatformMain() {
   const { erisimKurumlar, secilenKurumId, secilenKurum, setSecilenKurumId } = useKurumYonetim()
   const navigate = useNavigate()
   const location = useLocation()
+  const getSayfaEtiketi = () => {
+    const allMenus = [
+      ...PLATFORM_MENULER,
+      ...KURUM_MENULER
+    ].reduce((acc, m) => {
+      if (m.altMenuler) acc.push(...m.altMenuler)
+      else acc.push(m)
+      return acc
+    }, [])
+    const found = allMenus.find(m => m.yol === location.pathname)
+    if (found) return found.etiket
+    const lastPart = location.pathname.split('/').pop()
+    if (lastPart === 'platform') return 'Dashboard'
+    return lastPart ? lastPart.charAt(0).toUpperCase() + lastPart.slice(1) : 'Okulmatik'
+  }
 
   async function handleCikis() {
     await cikisYap()
@@ -448,12 +480,12 @@ function PlatformMain() {
 
   function buildBreadcrumb(kurum) {
     if (!kurum) return []
-    const parts = [kurum.ad]
+    const parts = [{ id: kurum.id, ad: kurum.ad }]
     let current = { ...kurum }
     while (current.parentId) {
       const parent = erisimKurumlar.find(k => k.id === current.parentId)
       if (!parent) break
-      parts.unshift(parent.ad)
+      parts.unshift({ id: parent.id, ad: parent.ad })
       current = parent
     }
     return parts
@@ -467,14 +499,68 @@ function PlatformMain() {
 
   return (
     <main className="sidebar-main" style={{ marginLeft: '240px', flex: 1, padding: '2rem' }}>
+      {/* Mobile Header Bar with Back Button */}
+      <div className="mobile-header-bar" style={{
+        display: 'none',
+        alignItems: 'center',
+        gap: '0.75rem',
+        background: '#ffffff',
+        border: '1px solid #E2E8F0',
+        borderRadius: '12px',
+        padding: '0.6rem 1rem',
+        marginBottom: '1rem',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+      }}>
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            background: '#F1F5F9',
+            border: 'none',
+            padding: '6px 12px',
+            borderRadius: '8px',
+            fontSize: '0.85rem',
+            fontWeight: '700',
+            color: '#475569',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          ⬅ Geri Git
+        </button>
+        <div style={{
+          fontSize: '0.85rem',
+          fontWeight: '600',
+          color: '#64748B',
+          marginLeft: 'auto'
+        }}>
+          {getSayfaEtiketi()}
+        </div>
+      </div>
       {/* Breadcrumb + Logo satırı */}
       {breadcrumb.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#64748B' }}>
-            {breadcrumb.map((ad, i, arr) => (
-              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ color: i === arr.length - 1 ? '#1E293B' : '#94A3B8', fontWeight: i === arr.length - 1 ? '600' : '400' }}>
-                  {ad}
+            {breadcrumb.map((item, i, arr) => (
+              <span key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span
+                  className={i === arr.length - 1 ? '' : 'breadcrumb-link'}
+                  onClick={() => {
+                    if (i < arr.length - 1) {
+                      setSecilenKurumId(item.id);
+                    }
+                  }}
+                  style={i === arr.length - 1 ? {
+                    color: '#1E293B',
+                    fontWeight: '600',
+                    cursor: 'default'
+                  } : {
+                    fontWeight: '500'
+                  }}
+                >
+                  {item.ad}
                 </span>
                 {i < arr.length - 1 && <span style={{ color: '#CBD5E1' }}>›</span>}
               </span>
@@ -491,126 +577,340 @@ function PlatformMain() {
   )
 }
 
+function PlatformLayoutInner() {
+  const { profil, cikisYap } = useAuth()
+  const { secilenKurumId, erisimKurumlar } = useKurumYonetim()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [isAccountOpen, setIsAccountOpen] = useState(false)
+
+  async function handleCikis() {
+    await cikisYap()
+    navigate('/giris')
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .breadcrumb-link {
+          color: #4F46E5;
+          text-decoration: none;
+          cursor: pointer;
+          transition: color 0.15s ease;
+        }
+        .breadcrumb-link:hover {
+          color: #3730A3;
+          text-decoration: underline;
+        }
+        @media (max-width: 768px) {
+          .mobile-header-bar {
+            display: flex !important;
+          }
+          .sidebar-aside {
+            display: none !important;
+          }
+          .sidebar-main {
+            margin-left: 0 !important;
+            padding: 1rem 1rem 80px 1rem !important;
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+          }
+          .mobile-bottom-nav {
+            display: flex !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: #ffffff;
+            border-top: 1px solid #E2E8F0;
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+            z-index: 999;
+            justify-content: space-around;
+            align-items: center;
+            padding: 0 10px;
+          }
+          .mobile-nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: none;
+            border: none;
+            color: #64748B;
+            font-size: 0.65rem;
+            font-weight: 600;
+            cursor: pointer;
+            gap: 4px;
+            flex: 1;
+            padding: 8px 0;
+            transition: all 0.15s;
+          }
+          .mobile-nav-btn.active {
+            color: #4338CA;
+          }
+          .mobile-nav-icon {
+            font-size: 1.25rem;
+          }
+          .mobile-drawer-overlay {
+            display: block !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease-out;
+          }
+          .mobile-drawer-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+          }
+          .mobile-drawer {
+            display: flex !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border-radius: 20px 20px 0 0;
+            box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+            z-index: 1001;
+            transform: translateY(100%);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-direction: column;
+            padding: 1.5rem 1.25rem;
+            max-height: 80vh;
+            overflow-y: auto;
+          }
+          .mobile-drawer.open {
+            transform: translateY(0);
+          }
+          .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #F1F5F9;
+          }
+          .drawer-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #1E293B;
+          }
+          .drawer-close {
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            color: #94A3B8;
+            cursor: pointer;
+          }
+          .drawer-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+          }
+          .drawer-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 12px 8px;
+            text-decoration: none;
+            color: #334155;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-align: center;
+            gap: 6px;
+            transition: all 0.2s;
+          }
+          .drawer-item:active {
+            background: #EEF2FF;
+            border-color: #4338CA;
+          }
+          .drawer-item-icon {
+            font-size: 1.5rem;
+          }
+        }
+        .mobile-bottom-nav, .mobile-drawer-overlay, .mobile-drawer {
+          display: none;
+        }
+      `}} />
+      <PlatformSidebar />
+      <PlatformMain />
+    </div>
+
+    {/* Mobil Alt Navigasyon Barı */}
+    <div className="mobile-bottom-nav">
+      <button
+        onClick={() => { navigate('/platform'); setIsDrawerOpen(false); setIsAccountOpen(false); }}
+        className={`mobile-nav-btn ${location.pathname === '/platform' ? 'active' : ''}`}
+      >
+        <span className="mobile-nav-icon">📊</span>
+        <span>Dashboard</span>
+      </button>
+
+      <button
+        onClick={() => { navigate('/platform/kurumlar'); setIsDrawerOpen(false); setIsAccountOpen(false); }}
+        className={`mobile-nav-btn ${location.pathname.includes('/kurumlar') ? 'active' : ''}`}
+      >
+        <span className="mobile-nav-icon">🏛</span>
+        <span>Kurumlar</span>
+      </button>
+
+      <button
+        onClick={() => { navigate('/platform/kullanicilar'); setIsDrawerOpen(false); setIsAccountOpen(false); }}
+        className={`mobile-nav-btn ${location.pathname.includes('/kullanicilar') && !location.pathname.includes('/kurum/') ? 'active' : ''}`}
+      >
+        <span className="mobile-nav-icon">👥</span>
+        <span>Kullanıcılar</span>
+      </button>
+
+      <button
+        onClick={() => { setIsDrawerOpen(!isDrawerOpen); setIsAccountOpen(false); }}
+        className={`mobile-nav-btn ${isDrawerOpen ? 'active' : ''}`}
+      >
+        <span className="mobile-nav-icon">☰</span>
+        <span>Modüller</span>
+      </button>
+
+      <button
+        onClick={() => { setIsAccountOpen(!isAccountOpen); setIsDrawerOpen(false); }}
+        className={`mobile-nav-btn ${isAccountOpen ? 'active' : ''}`}
+      >
+        <span className="mobile-nav-icon">👤</span>
+        <span>Hesap</span>
+      </button>
+    </div>
+
+    {/* Modüller Drawer Çekmecesi */}
+    <div
+      className={`mobile-drawer-overlay ${isDrawerOpen ? 'open' : ''}`}
+      onClick={() => setIsDrawerOpen(false)}
+    />
+    <div className={`mobile-drawer ${isDrawerOpen ? 'open' : ''}`}>
+      <div className="drawer-header">
+        <span className="drawer-title">🧩 Platform Modülleri</span>
+        <button className="drawer-close" onClick={() => setIsDrawerOpen(false)}>✕</button>
+      </div>
+      
+      <div className="drawer-grid">
+        {PLATFORM_MENULER.filter(m => m.yol !== '/platform' && m.yol !== '/platform/kurumlar' && m.yol !== '/platform/kullanicilar').map(link => (
+          <NavLink
+            key={link.yol}
+            to={link.yol}
+            onClick={() => setIsDrawerOpen(false)}
+            className="drawer-item"
+          >
+            <span className="drawer-item-icon">{link.ikon}</span>
+            <span>{link.etiket}</span>
+          </NavLink>
+        ))}
+
+        {secilenKurumId && KURUM_MENULER.flatMap(m => {
+          if (m.altMenuler) {
+            return m.altMenuler.map(sub => ({ yol: sub.yol, etiket: sub.etiket, ikon: sub.ikon }))
+          }
+          return [{ yol: m.yol, etiket: m.etiket, ikon: m.ikon }]
+        }).map(link => (
+          <NavLink
+            key={link.yol}
+            to={link.yol}
+            onClick={() => setIsDrawerOpen(false)}
+            className="drawer-item"
+            style={{ background: '#FFFDF5', borderColor: '#FDE68A' }}
+          >
+            <span className="drawer-item-icon">{link.ikon}</span>
+            <span>{link.etiket}</span>
+          </NavLink>
+        ))}
+      </div>
+    </div>
+
+    {/* Hesap/Profil Drawer Çekmecesi */}
+    <div
+      className={`mobile-drawer-overlay ${isAccountOpen ? 'open' : ''}`}
+      onClick={() => setIsAccountOpen(false)}
+    />
+    <div className={`mobile-drawer ${isAccountOpen ? 'open' : ''}`}>
+      <div className="drawer-header">
+        <span className="drawer-title">👤 Süper Admin Hesabı</span>
+        <button className="drawer-close" onClick={() => setIsAccountOpen(false)}>✕</button>
+      </div>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', margin: '1rem 0' }}>
+        <div style={{
+          width: '60px', height: '60px', borderRadius: '50%',
+          background: '#4338CA', color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontWeight: '700', fontSize: '1.25rem', border: '3px solid #E2E8F0'
+        }}>
+          {(() => {
+            const name = profil?.ad || profil?.email || '?';
+            const parts = name.split(' ');
+            if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            return name[0].toUpperCase();
+          })()}
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontWeight: '800', color: '#1E293B', fontSize: '1rem' }}>{profil?.ad || 'Platform Yöneticisi'}</div>
+          <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>{profil?.email}</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center', margin: '0.5rem 0' }}>
+          <span style={{
+            fontSize: '0.7rem', fontWeight: '700',
+            background: 'rgba(99,102,241,0.15)', color: '#4F46E5', border: '1px solid rgba(99,102,241,0.25)',
+            borderRadius: '999px', padding: '3px 10px',
+          }}>
+            ⚙ Süper Admin
+          </span>
+        </div>
+
+        <div style={{ width: '100%', borderTop: '1px solid #F1F5F9', margin: '1rem 0' }} />
+
+        <button
+          onClick={() => { setIsAccountOpen(false); handleCikis(); }}
+          style={{
+            width: '100%',
+            padding: '12px',
+            background: '#FEF2F2',
+            color: '#EF4444',
+            border: '1px solid #FEE2E2',
+            borderRadius: '10px',
+            fontSize: '0.85rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            transition: 'background 0.2s'
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#FEE2E2'}
+          onMouseLeave={e => e.currentTarget.style.background = '#FEF2F2'}
+        >
+          <span>🚪</span> <span>Oturumu Kapat</span>
+        </button>
+      </div>
+    </div>
+  </>
+)
+}
+
 export default function PlatformLayout() {
   return (
     <KurumYonetimProvider>
-      <div style={{ display: 'flex', minHeight: '100vh', background: '#F1F5F9' }}>
-        <style dangerouslySetInnerHTML={{ __html: `
-          @media (max-width: 768px) {
-            .sidebar-aside {
-              width: 64px !important;
-            }
-            .sidebar-main {
-              margin-left: 64px !important;
-              padding: 1rem !important;
-            }
-            .sidebar-logo-container {
-              justify-content: center !important;
-              margin-bottom: 0 !important;
-            }
-            .sidebar-logo {
-              text-align: center !important;
-              font-size: 1.5rem !important;
-            }
-            .logo-text {
-              display: none !important;
-            }
-            .sidebar-badge {
-              display: none !important;
-            }
-            .sidebar-section-title {
-              display: none !important;
-            }
-            .sidebar-select-label {
-              display: none !important;
-            }
-            .sidebar-select-container {
-              margin-top: 0.5rem !important;
-              padding: 0 0.5rem !important;
-            }
-            .select-wrapper {
-              width: 36px !important;
-              height: 36px !important;
-              margin: 0 auto !important;
-              border-radius: 50% !important;
-              background: rgba(255, 255, 255, 0.1) !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              position: relative !important;
-              overflow: hidden !important;
-            }
-            .kurum-select {
-              opacity: 0 !important;
-              position: absolute !important;
-              top: 0 !important;
-              left: 0 !important;
-              width: 100% !important;
-              height: 100% !important;
-              z-index: 2 !important;
-              cursor: pointer !important;
-              margin: 0 !important;
-              padding: 0 !important;
-            }
-            .select-visual {
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              font-size: 1.1rem !important;
-              pointer-events: none !important;
-            }
-            .sidebar-nav-item {
-              padding: 0.75rem 0 !important;
-              justify-content: center !important;
-              border-left-width: 3px !important;
-            }
-            .nav-text {
-              display: none !important;
-            }
-            .nav-arrow {
-              display: none !important;
-            }
-            .sidebar-submenu {
-              padding-left: 0 !important;
-              background: rgba(0, 0, 0, 0.2) !important;
-            }
-            .sidebar-sub-item {
-              padding: 0.65rem 0 !important;
-              justify-content: center !important;
-              border-left-width: 3px !important;
-            }
-            .sidebar-user-container {
-              justify-content: center !important;
-              margin-bottom: 0 !important;
-            }
-            .sidebar-user-info {
-              display: none !important;
-            }
-            .sidebar-badges-container {
-              display: none !important;
-            }
-            .sidebar-logout-btn {
-              width: 36px !important;
-              height: 36px !important;
-              padding: 0 !important;
-              border-radius: 50% !important;
-              margin: 0.5rem auto 0 auto !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-            }
-            .logout-text {
-              display: none !important;
-            }
-            .logout-icon {
-              display: inline !important;
-              font-size: 1.1rem !important;
-            }
-          }
-        `}} />
-        <PlatformSidebar />
-        <PlatformMain />
-      </div>
+      <PlatformLayoutInner />
     </KurumYonetimProvider>
   )
 }

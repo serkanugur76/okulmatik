@@ -1355,6 +1355,30 @@ export default function KurumKulupler() {
 
   return (
     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 768px) {
+          .sub-module-overlay {
+            padding: 0 !important;
+          }
+          .sub-module-modal {
+            height: 100vh !important;
+            max-height: 100vh !important;
+            border-radius: 0 !important;
+          }
+          .sub-module-body {
+            padding: 0.75rem !important;
+          }
+          .sub-module-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+          }
+          .mobile-stack-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 0.5rem !important;
+          }
+        }
+      `}} />
       {/* Üst Bilgi Başlığı */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
@@ -1884,7 +1908,7 @@ export default function KurumKulupler() {
           )}
           {/* Fullscreen Sub-Module Overlay Modal */}
           {aktifTab !== 'kulupler' && (
-            <div style={{
+            <div className="sub-module-overlay" style={{
               position: 'fixed',
               top: 0,
               left: 0,
@@ -1892,14 +1916,14 @@ export default function KurumKulupler() {
               height: '100vh',
               background: 'rgba(15, 23, 42, 0.4)',
               backdropFilter: 'blur(8px)',
-              zIndex: 999,
+              zIndex: 2000,
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
               padding: '1.5rem',
               boxSizing: 'border-box'
             }}>
-              <div style={{
+              <div className="sub-module-modal" style={{
                 background: '#fff',
                 borderRadius: '16px',
                 width: '100%',
@@ -1965,15 +1989,15 @@ export default function KurumKulupler() {
                 </div>
 
                 {/* Content Panel */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+                <div className="sub-module-body" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
                   {/* ── TAB 2: YOKLAMA DEFTERİ ── */}
                   {aktifTab === 'yoklama' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
+                    <div className="sub-module-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
               
               {/* Sol Kolon: Yoklama Tablosu */}
               <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div className="mobile-stack-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <select
                       value={seciliKulupId}
                       onChange={e => setSeciliKulupId(e.target.value)}
@@ -2039,21 +2063,22 @@ export default function KurumKulupler() {
                           <div key={o.id} style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             padding: '0.65rem 0.85rem', background: geldiMi ? '#F8FAFC' : '#FFF5F5',
-                            border: geldiMi ? '1px solid #F1F5F9' : '1px solid #FEE2E2', borderRadius: '8px'
+                            border: geldiMi ? '1px solid #F1F5F9' : '1px solid #FEE2E2', borderRadius: '8px',
+                            gap: '10px'
                           }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                               <div style={{
                                 width: '28px', height: '28px', borderRadius: '50%',
                                 background: geldiMi ? '#E0F2FE' : '#FEE2E2',
                                 color: geldiMi ? '#0369A1' : '#B91C1C',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '0.75rem', fontWeight: '700'
+                                fontSize: '0.75rem', fontWeight: '700', flexShrink: 0
                               }}>
                                 {o.ad[0].toUpperCase()}
                               </div>
-                              <div>
-                                <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#1E293B' }}>{o.ad} {o.soyad || ''}</span>
-                                <span style={{ fontSize: '0.7rem', color: '#64748B', marginLeft: '8px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.ad} {o.soyad || ''}</span>
+                                <span style={{ fontSize: '0.7rem', color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   No: {o.ogrenciNo || '—'} · Sınıf: {o.sinifAd || '—'}
                                 </span>
                               </div>
@@ -2150,7 +2175,7 @@ export default function KurumKulupler() {
 
           {/* ── TAB 3: DERS PLANI ── */}
           {aktifTab === 'dersPlani' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
+            <div className="sub-module-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
               
               {/* Sol Kolon: Kazanım Plan Listesi */}
               <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
@@ -2316,7 +2341,7 @@ export default function KurumKulupler() {
 
           {/* ── TAB 4: ETKİNLİKLER VE TURNUVALAR ── */}
           {aktifTab === 'etkinlikler' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
+            <div className="sub-module-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
               
               {/* Sol Kolon: Etkinlikler Listesi */}
               <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>

@@ -12,6 +12,18 @@ import { getDescendants } from '../../utils/hierarchy'
 const BOŞ_FORM = { ad: '', soyad: '', ogrenciNo: '', sinifId: '', sinifAd: '', cinsiyet: '', dogumTarihi: '', anneAdSoyad: '', anneTelefon: '', babaAdSoyad: '', babaTelefon: '', email: '' }
 const OKUL_SIRA = { ilkokul: 1, ortaokul: 2, lise: 3 }
 
+function normalizeText(text) {
+  if (!text) return ''
+  return text
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+}
+
 function parseSinif(ad) {
   const m = (ad || '').match(/^(\d+)(.*)$/)
   return m ? { n: parseInt(m[1]), h: m[2].trim() } : { n: 999, h: ad || '' }
@@ -133,7 +145,8 @@ export default function KurumOgrenciler() {
     setAcikSiniflar(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const toplamOgrenci = sayimKurumlar.reduce((acc, k) => acc + (ogrencilerMap[k.id] || []).filter(o => `${o.ad} ${o.soyad} ${o.ogrenciNo}`.toLowerCase().includes(aramaMetni.toLowerCase())).length, 0)
+  const cleanSearch = normalizeText(aramaMetni)
+  const toplamOgrenci = sayimKurumlar.reduce((acc, k) => acc + (ogrencilerMap[k.id] || []).filter(o => normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)).length, 0)
 
   const s = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
@@ -146,20 +159,65 @@ export default function KurumOgrenciler() {
 
   return (
     <div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .ogrenciler-desktop-view {
+          display: block;
+        }
+        .ogrenciler-mobile-view {
+          display: none;
+        }
+        .modal-form-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+        @media (max-width: 768px) {
+          .ogrenciler-desktop-view {
+            display: none !important;
+          }
+          .ogrenciler-mobile-view {
+            display: flex !important;
+            flex-direction: column;
+            gap: 0.75rem;
+          }
+          .student-header-row {
+            flex-direction: column-reverse;
+            align-items: stretch !important;
+            gap: 0.75rem;
+          }
+          .student-search-container {
+            flex-direction: column;
+            align-items: stretch !important;
+            gap: 0.5rem !important;
+          }
+          .student-search-bar {
+            width: 100% !important;
+          }
+          .modal-form-grid {
+            grid-template-columns: 1fr !important;
+            gap: 0.5rem !important;
+          }
+          .student-modal-container {
+            padding: 1.25rem !important;
+            max-height: 95vh !important;
+          }
+        }
+      `}} />
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Öğrenciler</h1>
       <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Öğrenci kayıt ve yönetimi</p>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="student-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div className="student-search-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <input value={aramaMetni} onChange={e => setAramaMetni(e.target.value)}
+            className="student-search-bar"
             placeholder="Ad, soyad veya öğrenci no ara..."
             style={{ padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', width: '280px', color: '#1E293B' }} />
-          <span style={{ fontSize: '0.875rem', color: '#64748B' }}>
+          <span style={{ fontSize: '0.875rem', color: '#64748B', whiteSpace: 'nowrap' }}>
             {sayimKurumlar.length === 0 ? 'Sol menüden kurum seçin' : `${toplamOgrenci} öğrenci`}
           </span>
         </div>
         {listKurumId && (
-          <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+          <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             + Yeni Öğrenci
           </button>
         )}
@@ -182,9 +240,9 @@ export default function KurumOgrenciler() {
 
         function renderAltKurum(k) {
           const tumOgrenciler = (ogrencilerMap[k.id] || []).filter(o =>
-            `${o.ad} ${o.soyad} ${o.ogrenciNo}`.toLowerCase().includes(aramaMetni.toLowerCase())
+            normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)
           )
-          const acik = acikGruplar[k.id] === true
+          const acik = aramaMetni.trim() !== '' ? tumOgrenciler.length > 0 : acikGruplar[k.id] === true
           const siniflar = (siniflarMap[k.id] || []).slice().sort((a, b) => {
             const sa = parseSinif(a.ad), sb = parseSinif(b.ad)
             return sa.n !== sb.n ? sa.n - sb.n : sa.h.localeCompare(sb.h, 'tr')
@@ -206,7 +264,7 @@ export default function KurumOgrenciler() {
                     const sinifOgrenciler = tumOgrenciler
                       .filter(o => o.sinifId === sinif.id)
                       .sort((a, b) => { const ad = (a.ad || '').localeCompare(b.ad || '', 'tr'); return ad !== 0 ? ad : (a.soyad || '').localeCompare(b.soyad || '', 'tr') })
-                    const sinifAcik = sinifAcikMi(k.id, sinif.id)
+                    const sinifAcik = aramaMetni.trim() !== '' ? sinifOgrenciler.length > 0 : sinifAcikMi(k.id, sinif.id)
                     return (
                       <div key={sinif.id} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden' }}>
                         <div onClick={() => sinifToggle(k.id, sinif.id)}
@@ -223,63 +281,246 @@ export default function KurumOgrenciler() {
                           <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>{sinifOgrenciler.length} öğrenci</span>
                         </div>
                         {sinifAcik && (
-                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead><tr>{['Ad Soyad', 'TC No', 'Anne', 'Baba', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
-                            <tbody>
-                              {sinifOgrenciler.length === 0
-                                ? <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '1.5rem' }}>Bu sınıfta öğrenci yok</td></tr>
-                                : sinifOgrenciler.map(o => (
-                                  <tr key={o.id}>
-                                    <td style={s.td}><strong>{o.ad} {o.soyad}</strong></td>
-                                    <td style={s.td}>{o.ogrenciNo || '—'}</td>
-                                    <td style={s.td}>{o.anneAdSoyad ? `${o.anneAdSoyad}${o.anneTelefon ? ` · ${o.anneTelefon}` : ''}` : '—'}</td>
-                                    <td style={s.td}>{o.babaAdSoyad ? `${o.babaAdSoyad}${o.babaTelefon ? ` · ${o.babaTelefon}` : ''}` : '—'}</td>
-                                    <td style={s.td}>
-                                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <>
+                            {/* Desktop View */}
+                            <div className="ogrenciler-desktop-view">
+                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead><tr>{['Ad Soyad', 'TC No', 'Anne', 'Baba', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                                <tbody>
+                                  {sinifOgrenciler.length === 0
+                                    ? <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '1.5rem' }}>Bu sınıfta öğrenci yok</td></tr>
+                                    : sinifOgrenciler.map(o => (
+                                      <tr key={o.id}>
+                                        <td style={s.td}><strong>{o.ad} {o.soyad}</strong></td>
+                                        <td style={s.td}>{o.ogrenciNo || '—'}</td>
+                                        <td style={s.td}>{o.anneAdSoyad ? `${o.anneAdSoyad}${o.anneTelefon ? ` · ${o.anneTelefon}` : ''}` : '—'}</td>
+                                        <td style={s.td}>{o.babaAdSoyad ? `${o.babaAdSoyad}${o.babaTelefon ? ` · ${o.babaTelefon}` : ''}` : '—'}</td>
+                                        <td style={s.td}>
+                                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
+                                            <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Mobile View */}
+                            <div className="ogrenciler-mobile-view">
+                              {sinifOgrenciler.length === 0 ? (
+                                <div style={{ textAlign: 'center', color: '#94A3B8', padding: '1.5rem' }}>Bu sınıfta öğrenci yok</div>
+                              ) : (
+                                sinifOgrenciler.map(o => (
+                                  <div key={o.id} className="ogrenci-card" style={{
+                                    background: '#ffffff',
+                                    border: '1px solid #E2E8F0',
+                                    borderRadius: '12px',
+                                    padding: '1rem',
+                                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.75rem'
+                                  }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <div>
+                                        <div style={{ fontSize: '1rem', fontWeight: '700', color: '#1B3A6B' }}>
+                                          {o.ad} {o.soyad}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
+                                          No: {o.ogrenciNo || '—'}
+                                        </div>
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '0.35rem' }}>
                                         <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
                                         <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
                                       </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                            </tbody>
-                          </table>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#F8FAFC', padding: '0.75rem', borderRadius: '8px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                                        <div>
+                                          <span style={{ fontSize: '0.7rem', color: '#64748B', display: 'block', fontWeight: '600', textTransform: 'uppercase' }}>Anne</span>
+                                          <span style={{ fontSize: '0.85rem', color: '#1E293B', fontWeight: '500' }}>{o.anneAdSoyad || '—'}</span>
+                                        </div>
+                                        {o.anneTelefon && (
+                                          <a href={`tel:${o.anneTelefon}`} style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            backgroundColor: '#ECFDF5',
+                                            color: '#059669',
+                                            border: '1px solid #A7F3D0',
+                                            borderRadius: '20px',
+                                            padding: '4px 10px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '700',
+                                            textDecoration: 'none'
+                                          }}>
+                                            📞 Ara
+                                          </a>
+                                        )}
+                                      </div>
+
+                                      <div style={{ height: '1px', backgroundColor: '#E2E8F0' }} />
+
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                                        <div>
+                                          <span style={{ fontSize: '0.7rem', color: '#64748B', display: 'block', fontWeight: '600', textTransform: 'uppercase' }}>Baba</span>
+                                          <span style={{ fontSize: '0.85rem', color: '#1E293B', fontWeight: '500' }}>{o.babaAdSoyad || '—'}</span>
+                                        </div>
+                                        {o.babaTelefon && (
+                                          <a href={`tel:${o.babaTelefon}`} style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            backgroundColor: '#ECFDF5',
+                                            color: '#059669',
+                                            border: '1px solid #A7F3D0',
+                                            borderRadius: '20px',
+                                            padding: '4px 10px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '700',
+                                            textDecoration: 'none'
+                                          }}>
+                                            📞 Ara
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </>
                         )}
                       </div>
                     )
                   })}
 
-                  {sinifsizilar.length > 0 && (
-                    <div style={{ border: '1px solid #FCD34D', borderRadius: '8px', overflow: 'hidden' }}>
-                      <div onClick={() => sinifToggle(k.id, '__sinifSiz__')}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.625rem 0.875rem', background: '#FFFBEB', cursor: 'pointer', userSelect: 'none', borderBottom: sinifAcikMi(k.id, '__sinifSiz__') ? '1px solid #FCD34D' : 'none' }}>
-                        <span style={{ fontSize: '0.7rem', color: '#92400E' }}>{sinifAcikMi(k.id, '__sinifSiz__') ? '▼' : '▶'}</span>
-                        <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#92400E' }}>⚠ Sınıf Atanmamış</span>
-                        <span style={{ fontSize: '0.75rem', color: '#B45309', marginLeft: 'auto' }}>{sinifsizilar.length} öğrenci</span>
-                      </div>
-                      {sinifAcikMi(k.id, '__sinifSiz__') && (
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead><tr>{['Ad Soyad', 'TC No', 'Anne', 'Baba', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
-                          <tbody>
-                            {sinifsizilar.map(o => (
-                              <tr key={o.id}>
-                                <td style={s.td}><strong>{o.ad} {o.soyad}</strong></td>
-                                <td style={s.td}>{o.ogrenciNo || '—'}</td>
-                                <td style={s.td}>{o.anneAdSoyad ? `${o.anneAdSoyad}${o.anneTelefon ? ` · ${o.anneTelefon}` : ''}` : '—'}</td>
-                                <td style={s.td}>{o.babaAdSoyad ? `${o.babaAdSoyad}${o.babaTelefon ? ` · ${o.babaTelefon}` : ''}` : '—'}</td>
-                                <td style={s.td}>
-                                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
-                                    <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
+                  {sinifsizilar.length > 0 && (() => {
+                    const sinifsizAcik = aramaMetni.trim() !== '' ? sinifsizilar.length > 0 : sinifAcikMi(k.id, '__sinifSiz__')
+                    return (
+                      <div style={{ border: '1px solid #FCD34D', borderRadius: '8px', overflow: 'hidden' }}>
+                        <div onClick={() => sinifToggle(k.id, '__sinifSiz__')}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.625rem 0.875rem', background: '#FFFBEB', cursor: 'pointer', userSelect: 'none', borderBottom: sinifsizAcik ? '1px solid #FCD34D' : 'none' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#92400E' }}>{sinifsizAcik ? '▼' : '▶'}</span>
+                          <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#92400E' }}>⚠ Sınıf Atanmamış</span>
+                          <span style={{ fontSize: '0.75rem', color: '#B45309', marginLeft: 'auto' }}>{sinifsizilar.length} öğrenci</span>
+                        </div>
+                        {sinifsizAcik && (
+                          <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {/* Desktop View */}
+                            <div className="ogrenciler-desktop-view">
+                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead><tr>{['Ad Soyad', 'TC No', 'Anne', 'Baba', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                                <tbody>
+                                  {sinifsizilar.map(o => (
+                                    <tr key={o.id}>
+                                      <td style={s.td}><strong>{o.ad} {o.soyad}</strong></td>
+                                      <td style={s.td}>{o.ogrenciNo || '—'}</td>
+                                      <td style={s.td}>{o.anneAdSoyad ? `${o.anneAdSoyad}${o.anneTelefon ? ` · ${o.anneTelefon}` : ''}` : '—'}</td>
+                                      <td style={s.td}>{o.babaAdSoyad ? `${o.babaAdSoyad}${o.babaTelefon ? ` · ${o.babaTelefon}` : ''}` : '—'}</td>
+                                      <td style={s.td}>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                          <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
+                                          <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Mobile View */}
+                            <div className="ogrenciler-mobile-view">
+                              {sinifsizilar.map(o => (
+                                <div key={o.id} className="ogrenci-card" style={{
+                                  background: '#ffffff',
+                                  border: '1px solid #E2E8F0',
+                                  borderRadius: '12px',
+                                  padding: '1rem',
+                                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '0.75rem'
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                      <div style={{ fontSize: '1rem', fontWeight: '700', color: '#1B3A6B' }}>
+                                        {o.ad} {o.soyad}
+                                      </div>
+                                      <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
+                                        No: {o.ogrenciNo || '—'}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                                      <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
+                                      <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
+                                    </div>
                                   </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  )}
+
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#F8FAFC', padding: '0.75rem', borderRadius: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                                      <div>
+                                        <span style={{ fontSize: '0.7rem', color: '#64748B', display: 'block', fontWeight: '600', textTransform: 'uppercase' }}>Anne</span>
+                                        <span style={{ fontSize: '0.85rem', color: '#1E293B', fontWeight: '500' }}>{o.anneAdSoyad || '—'}</span>
+                                      </div>
+                                      {o.anneTelefon && (
+                                        <a href={`tel:${o.anneTelefon}`} style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          backgroundColor: '#ECFDF5',
+                                          color: '#059669',
+                                          border: '1px solid #A7F3D0',
+                                          borderRadius: '20px',
+                                          padding: '4px 10px',
+                                          fontSize: '0.75rem',
+                                          fontWeight: '700',
+                                          textDecoration: 'none'
+                                        }}>
+                                          📞 Ara
+                                        </a>
+                                      )}
+                                    </div>
+
+                                    <div style={{ height: '1px', backgroundColor: '#E2E8F0' }} />
+
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                                      <div>
+                                        <span style={{ fontSize: '0.7rem', color: '#64748B', display: 'block', fontWeight: '600', textTransform: 'uppercase' }}>Baba</span>
+                                        <span style={{ fontSize: '0.85rem', color: '#1E293B', fontWeight: '500' }}>{o.babaAdSoyad || '—'}</span>
+                                      </div>
+                                      {o.babaTelefon && (
+                                        <a href={`tel:${o.babaTelefon}`} style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          backgroundColor: '#ECFDF5',
+                                          color: '#059669',
+                                          border: '1px solid #A7F3D0',
+                                          borderRadius: '20px',
+                                          padding: '4px 10px',
+                                          fontSize: '0.75rem',
+                                          fontWeight: '700',
+                                          textDecoration: 'none'
+                                        }}>
+                                          📞 Ara
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
             </div>
@@ -289,11 +530,11 @@ export default function KurumOgrenciler() {
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {kampusGruplari.map(({ kampus, altlar }) => {
-              if (!cokluKampus) return altlar.map(k => renderAltKurum(k))
-              const kampusAcik = !!acikKampusler[kampus.id]
               const kToplamOgrenci = altlar.reduce((a, k) => a + (ogrencilerMap[k.id] || []).filter(o =>
-                `${o.ad} ${o.soyad} ${o.ogrenciNo}`.toLowerCase().includes(aramaMetni.toLowerCase())
+                normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)
               ).length, 0)
+              if (!cokluKampus) return altlar.map(k => renderAltKurum(k))
+              const kampusAcik = aramaMetni.trim() !== '' ? kToplamOgrenci > 0 : !!acikKampusler[kampus.id]
               return (
                 <div key={kampus.id} style={{ borderRadius: '12px', overflow: 'hidden', border: '1.5px solid #BFDBFE', background: '#fff' }}>
                   <div onClick={() => setAcikKampusler(prev => ({ ...prev, [kampus.id]: !kampusAcik }))}
@@ -318,9 +559,9 @@ export default function KurumOgrenciler() {
 
       {/* Modal */}
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}
           onClick={e => e.target === e.currentTarget && modalKapat()}>
-          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+          <div className="student-modal-container" style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '1.5rem' }}>
               {duzenlenen ? 'Öğrenciyi Düzenle' : 'Yeni Öğrenci Ekle'}
             </h2>
@@ -334,11 +575,11 @@ export default function KurumOgrenciler() {
                   </select>
                 </div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="modal-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div style={s.alan}><label style={s.etiket}>Ad *</label><input style={s.girdi} value={form.ad} onChange={e => setForm(f => ({ ...f, ad: e.target.value }))} autoFocus /></div>
                 <div style={s.alan}><label style={s.etiket}>Soyad</label><input style={s.girdi} value={form.soyad} onChange={e => setForm(f => ({ ...f, soyad: e.target.value }))} /></div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="modal-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div style={s.alan}><label style={s.etiket}>TC No</label><input style={s.girdi} value={form.ogrenciNo} onChange={e => setForm(f => ({ ...f, ogrenciNo: e.target.value }))} /></div>
                 <div style={s.alan}>
                   <label style={s.etiket}>Cinsiyet</label>
@@ -347,7 +588,7 @@ export default function KurumOgrenciler() {
                   </select>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="modal-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div style={s.alan}>
                   <label style={s.etiket}>Sınıf</label>
                   <select style={s.girdi} value={form.sinifId} onChange={e => sinifSec(e.target.value)}>
@@ -357,11 +598,11 @@ export default function KurumOgrenciler() {
                 </div>
                 <div style={s.alan}><label style={s.etiket}>Doğum Tarihi</label><input style={s.girdi} type="date" value={form.dogumTarihi} onChange={e => setForm(f => ({ ...f, dogumTarihi: e.target.value }))} /></div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="modal-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div style={s.alan}><label style={s.etiket}>Anne Ad Soyad</label><input style={s.girdi} value={form.anneAdSoyad} onChange={e => setForm(f => ({ ...f, anneAdSoyad: e.target.value }))} /></div>
                 <div style={s.alan}><label style={s.etiket}>Anne Telefon</label><input style={s.girdi} value={form.anneTelefon} onChange={e => setForm(f => ({ ...f, anneTelefon: e.target.value }))} placeholder="0555 000 00 00" /></div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="modal-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div style={s.alan}><label style={s.etiket}>Baba Ad Soyad</label><input style={s.girdi} value={form.babaAdSoyad} onChange={e => setForm(f => ({ ...f, babaAdSoyad: e.target.value }))} /></div>
                 <div style={s.alan}><label style={s.etiket}>Baba Telefon</label><input style={s.girdi} value={form.babaTelefon} onChange={e => setForm(f => ({ ...f, babaTelefon: e.target.value }))} placeholder="0555 000 00 00" /></div>
               </div>
