@@ -1642,6 +1642,16 @@ function KurumLayoutInner() {
           >
             <span>🚪</span> <span>Oturumu Kapat</span>
           </button>
+
+          <div style={{
+            textAlign: 'center',
+            fontSize: '0.7rem',
+            color: '#94A3B8',
+            marginTop: '1.5rem',
+            fontFamily: 'monospace'
+          }}>
+            v{typeof __APP_VERSION_INFO__ !== 'undefined' ? __APP_VERSION_INFO__.full : '0.1.0'}
+          </div>
         </div>
       </div>
     </div>
