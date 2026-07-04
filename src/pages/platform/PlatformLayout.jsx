@@ -373,7 +373,7 @@ function PlatformSidebar() {
           marginTop: '0.75rem',
           fontFamily: 'monospace'
         }}>
-          v{__APP_VERSION_INFO__.full}
+          v{typeof __APP_VERSION_INFO__ !== 'undefined' ? __APP_VERSION_INFO__.full : '0.1.0'}
         </div>
       </div>
     </aside>
