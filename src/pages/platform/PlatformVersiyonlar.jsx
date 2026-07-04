@@ -144,11 +144,33 @@ export default function PlatformVersiyonlar() {
 
   return (
     <div style={{ maxWidth: '840px', paddingBottom: '3rem' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .version-header-title {
+          font-size: 1.75rem;
+          font-weight: 800;
+          color: #1E293B;
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          margin: 0;
+        }
+        @media (max-width: 768px) {
+          .version-header-title {
+            font-size: 1.35rem !important;
+            justify-content: center;
+            text-align: center;
+          }
+          .version-header-desc {
+            text-align: center;
+            font-size: 0.85rem !important;
+          }
+        }
+      `}} />
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          ✨ Versiyon Geçmişi &amp; Güncelleme Günlüğü
+        <h1 className="version-header-title">
+          ✨ Versiyon Geçmişi
         </h1>
-        <p style={{ color: '#64748B', fontSize: '0.925rem', marginTop: '0.25rem' }}>
+        <p className="version-header-desc" style={{ color: '#64748B', fontSize: '0.925rem', marginTop: '0.25rem', margin: '0.25rem 0 0' }}>
           Okulmatik platformunda yapılan tüm sistem güncellemelerini, hata düzeltmelerini ve yeni eklenen modülleri sürüm bazlı takip edin.
         </p>
       </div>
