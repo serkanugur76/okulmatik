@@ -652,6 +652,21 @@ function KurumLayoutInner() {
         @media (max-width: 768px) {
           .mobile-header-bar {
             display: flex !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 1000 !important;
+            margin-top: -1rem !important;
+            margin-left: -1rem !important;
+            margin-right: -1rem !important;
+            margin-bottom: 1.25rem !important;
+            border-radius: 0 !important;
+            border-left: none !important;
+            border-right: none !important;
+            border-top: none !important;
+            border-bottom: 1px solid #E2E8F0 !important;
+            padding: 0.75rem 1rem !important;
+            background: #ffffff !important;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03) !important;
           }
           .sidebar-aside {
             display: none !important;
