@@ -385,6 +385,55 @@ function PlatformMain() {
   const { erisimKurumlar, secilenKurumId, secilenKurum, setSecilenKurumId } = useKurumYonetim()
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Okul seviyesi sıralama: ilkokul → ortaokul → lise
+  function okulSira(ad = '') {
+    const s = ad.toLocaleLowerCase('tr')
+    if (s.includes('ilkokul'))  return 1
+    if (s.includes('ortaokul')) return 2
+    if (s.includes('lise'))     return 3
+    return 4
+  }
+
+  const rootKurumlar = erisimKurumlar.filter(
+    k => !k.parentId || !erisimKurumlar.some(p => p.id === k.parentId)
+  )
+
+  const kurumGruplari = rootKurumlar.map(root => {
+    if (root.tip === 'kampus') {
+      const altlarUnderKampus = erisimKurumlar.filter(k => k.parentId === root.id && k.tip === 'altKurum')
+        .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+      return {
+        root,
+        kampusGruplari: [
+          {
+            kampus: root,
+            altKurumlar: altlarUnderKampus
+          }
+        ]
+      }
+    } else if (root.tip === 'altKurum') {
+      return {
+        root,
+        kampusGruplari: []
+      }
+    } else {
+      const kampuses = erisimKurumlar.filter(k => k.parentId === root.id && k.tip === 'kampus')
+        .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+      return {
+        root,
+        kampusGruplari: kampuses.map(kp => {
+          const altlar = erisimKurumlar.filter(k => k.parentId === kp.id && k.tip === 'altKurum')
+            .sort((a, b) => okulSira(a.ad) - okulSira(b.ad) || (a.ad || '').localeCompare(b.ad || '', 'tr'))
+          return {
+            kampus: kp,
+            altKurumlar: altlar
+          }
+        })
+      }
+    }
+  })
+
   const getSayfaEtiketi = () => {
     const allMenus = [
       ...PLATFORM_MENULER,
