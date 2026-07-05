@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 
+// Trigger comment: test automatic workflow run with fixed node-version and firestore rules
+
 // Helper to sign JWT using Node.js crypto
 function signJWT(payload, privateKey) {
   const header = { alg: 'RS256', typ: 'JWT' };
