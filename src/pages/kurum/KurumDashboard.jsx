@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { collection, getCountFromServer, query, where, doc, getDoc } from 'firebase/firestore'
+import { collection, getCountFromServer, query, where, doc, getDoc, getDocs } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -30,9 +30,9 @@ function IstatKart({ baslik, deger, ikon, renk, altyazi }) {
 }
 
 export default function KurumDashboard() {
-  const { kullanici } = useAuth()
+  const { kullanici, profil } = useAuth()
   const { erisimKurumlar, secilenKurumId, secilenKurum, yukleniyor, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
-  const [sayilar, setSayilar] = useState({ siniflar: null, ogrenciler: null, kullanicilar: null, mentorOgrenciler: null })
+  const [sayilar, setSayilar] = useState({ siniflar: null, ogrenciler: null, kullanicilar: null, mentorOgrenciler: null, rubrikler: null })
 
   // Seçili kurumun seviyesi
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
@@ -68,7 +68,7 @@ export default function KurumDashboard() {
 
   useEffect(() => {
     if (yukleniyor || sayimKurumlar.length === 0) {
-      setSayilar({ siniflar: null, ogrenciler: null, kullanicilar: null, mentorOgrenciler: null })
+      setSayilar({ siniflar: null, ogrenciler: null, kullanicilar: null, mentorOgrenciler: null, rubrikler: null })
       return
     }
 
@@ -88,8 +88,42 @@ export default function KurumDashboard() {
           )
           const toplamMentorOgrenci = mentorSonuclar.reduce((a, b) => a + b, 0)
 
+          // Tanımlı rubrik sayılarını çek
+          const rubrikSonuclar = await Promise.all(
+            sayimKurumlar.map(async (k) => {
+              try {
+                // Öğretmenin atandığı sınıfları ve onların seviyelerini al
+                const sinifSnaplar = await Promise.all(
+                  ogretmenSinifIdleri.map(sid => getDoc(doc(db, 'kurumlar', k.id, 'siniflar', sid)))
+                )
+                const teacherGradeLevels = sinifSnaplar
+                  .filter(s => s.exists())
+                  .map(s => Number(s.data().seviye))
+                  .filter(Boolean)
+
+                if (teacherGradeLevels.length === 0) return 0
+
+                // Kurumdaki tüm rubrikleri al
+                const rubrikSnap = await getDocs(collection(db, 'kurumlar', k.id, 'rubrikler'))
+                const tumRubrikler = rubrikSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+                const branslar = profil?.branslar || []
+                const eslesen = tumRubrikler.filter(r => {
+                  const bransMatch = branslar.length === 0 || branslar.includes(r.ders)
+                  const levelMatch = (r.hedefSeviyeler || []).some(lvl => teacherGradeLevels.includes(Number(lvl)))
+                  return bransMatch && levelMatch
+                })
+                return eslesen.length
+              } catch (e) {
+                console.warn(`Okul ${k.id} için rubrik sayısı alınamadı:`, e.message)
+                return 0
+              }
+            })
+          )
+          const toplamRubrik = rubrikSonuclar.reduce((a, b) => a + b, 0)
+
           if (ogretmenSinifIdleri.length === 0) {
-            setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: null, mentorOgrenciler: toplamMentorOgrenci })
+            setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: null, mentorOgrenciler: toplamMentorOgrenci, rubrikler: toplamRubrik })
             return
           }
           const sonuclar = await Promise.all(
@@ -107,7 +141,8 @@ export default function KurumDashboard() {
             siniflar: ogretmenSinifIdleri.length,
             ogrenciler: toplamOgrenci,
             kullanicilar: null,
-            mentorOgrenciler: toplamMentorOgrenci
+            mentorOgrenciler: toplamMentorOgrenci,
+            rubrikler: toplamRubrik
           })
           return
         }
@@ -125,14 +160,14 @@ export default function KurumDashboard() {
           toplamOgrenci   += o.data().count
           toplamKullanici += k.data().count
         })
-        setSayilar({ siniflar: toplamSinif, ogrenciler: toplamOgrenci, kullanicilar: toplamKullanici, mentorOgrenciler: null })
+        setSayilar({ siniflar: toplamSinif, ogrenciler: toplamOgrenci, kullanicilar: toplamKullanici, mentorOgrenciler: null, rubrikler: null })
       } catch (err) {
         console.error('Dashboard yükleme hatası:', err)
-        setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: 0, mentorOgrenciler: 0 })
+        setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: 0, mentorOgrenciler: 0, rubrikler: 0 })
       }
     }
     yukle()
-  }, [secilenKurumId, erisimKurumlar, yukleniyor, ogretmenModu, ogretmenSinifIdleri, kullanici?.uid])
+  }, [secilenKurumId, erisimKurumlar, yukleniyor, ogretmenModu, ogretmenSinifIdleri, kullanici?.uid, profil?.branslar])
 
   return (
     <div>
@@ -159,13 +194,22 @@ export default function KurumDashboard() {
         <IstatKart baslik="Sınıf"     deger={sayilar.siniflar}     ikon="🏫" renk="#1B3A6B" />
         <IstatKart baslik="Öğrenci"   deger={sayilar.ogrenciler}   ikon="🎒" renk="#0369A1" />
         {ogretmenModu && (
-          <IstatKart
-            baslik="Mentorluk"
-            deger={sayilar.mentorOgrenciler}
-            ikon="🎓"
-            renk="#7C3AED"
-            altyazi="Rehberlik Edilen Öğrenci"
-          />
+          <>
+            <IstatKart
+              baslik="Aktif Rubrik"
+              deger={sayilar.rubrikler}
+              ikon="📋"
+              renk="#059669"
+              altyazi="Doldurulması Gereken Rubrik"
+            />
+            <IstatKart
+              baslik="Mentorluk"
+              deger={sayilar.mentorOgrenciler}
+              ikon="🎓"
+              renk="#7C3AED"
+              altyazi="Rehberlik Edilen Öğrenci"
+            />
+          </>
         )}
         {!ogretmenModu && <IstatKart baslik="Kullanıcı" deger={sayilar.kullanicilar} ikon="👥" renk="#065F46" />}
       </div>
