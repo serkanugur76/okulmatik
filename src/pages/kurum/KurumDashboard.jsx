@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
-import { collection, getCountFromServer, query, where } from 'firebase/firestore'
+import { useEffect, useState, useMemo } from 'react'
+import { collection, getCountFromServer, query, where, doc, getDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
-import { useMemo } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
 import { getDescendants } from '../../utils/hierarchy'
 
 function IstatKart({ baslik, deger, ikon, renk, altyazi }) {
@@ -30,8 +30,9 @@ function IstatKart({ baslik, deger, ikon, renk, altyazi }) {
 }
 
 export default function KurumDashboard() {
+  const { kullanici } = useAuth()
   const { erisimKurumlar, secilenKurumId, secilenKurum, yukleniyor, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
-  const [sayilar, setSayilar] = useState({ siniflar: null, ogrenciler: null, kullanicilar: null })
+  const [sayilar, setSayilar] = useState({ siniflar: null, ogrenciler: null, kullanicilar: null, mentorOgrenciler: null })
 
   // Seçili kurumun seviyesi
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
@@ -67,15 +68,28 @@ export default function KurumDashboard() {
 
   useEffect(() => {
     if (yukleniyor || sayimKurumlar.length === 0) {
-      setSayilar({ siniflar: null, ogrenciler: null, kullanicilar: null })
+      setSayilar({ siniflar: null, ogrenciler: null, kullanicilar: null, mentorOgrenciler: null })
       return
     }
 
     async function yukle() {
       try {
         if (ogretmenModu) {
+          // Mentor olunan öğrenci sayılarını çek
+          const mentorSonuclar = await Promise.all(
+            sayimKurumlar.map(async (k) => {
+              const docSnap = await getDoc(doc(db, 'kurumlar', k.id, 'mentorAtamalari', kullanici?.uid))
+              if (docSnap.exists()) {
+                const data = docSnap.data()
+                return (data.ogrenciler || []).length
+              }
+              return 0
+            })
+          )
+          const toplamMentorOgrenci = mentorSonuclar.reduce((a, b) => a + b, 0)
+
           if (ogretmenSinifIdleri.length === 0) {
-            setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: null })
+            setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: null, mentorOgrenciler: toplamMentorOgrenci })
             return
           }
           const sonuclar = await Promise.all(
@@ -89,7 +103,12 @@ export default function KurumDashboard() {
             })
           )
           const toplamOgrenci = sonuclar.reduce((a, b) => a + b, 0)
-          setSayilar({ siniflar: ogretmenSinifIdleri.length, ogrenciler: toplamOgrenci, kullanicilar: null })
+          setSayilar({
+            siniflar: ogretmenSinifIdleri.length,
+            ogrenciler: toplamOgrenci,
+            kullanicilar: null,
+            mentorOgrenciler: toplamMentorOgrenci
+          })
           return
         }
 
@@ -106,14 +125,14 @@ export default function KurumDashboard() {
           toplamOgrenci   += o.data().count
           toplamKullanici += k.data().count
         })
-        setSayilar({ siniflar: toplamSinif, ogrenciler: toplamOgrenci, kullanicilar: toplamKullanici })
+        setSayilar({ siniflar: toplamSinif, ogrenciler: toplamOgrenci, kullanicilar: toplamKullanici, mentorOgrenciler: null })
       } catch (err) {
         console.error('Dashboard yükleme hatası:', err)
-        setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: 0 })
+        setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: 0, mentorOgrenciler: 0 })
       }
     }
     yukle()
-  }, [secilenKurumId, erisimKurumlar, yukleniyor, ogretmenModu, ogretmenSinifIdleri]) // eslint-disable-line
+  }, [secilenKurumId, erisimKurumlar, yukleniyor, ogretmenModu, ogretmenSinifIdleri, kullanici?.uid])
 
   return (
     <div>
@@ -139,6 +158,15 @@ export default function KurumDashboard() {
         )}
         <IstatKart baslik="Sınıf"     deger={sayilar.siniflar}     ikon="🏫" renk="#1B3A6B" />
         <IstatKart baslik="Öğrenci"   deger={sayilar.ogrenciler}   ikon="🎒" renk="#0369A1" />
+        {ogretmenModu && (
+          <IstatKart
+            baslik="Mentorluk"
+            deger={sayilar.mentorOgrenciler}
+            ikon="🎓"
+            renk="#7C3AED"
+            altyazi="Rehberlik Edilen Öğrenci"
+          />
+        )}
         {!ogretmenModu && <IstatKart baslik="Kullanıcı" deger={sayilar.kullanicilar} ikon="👥" renk="#065F46" />}
       </div>
     </div>
