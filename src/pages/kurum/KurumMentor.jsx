@@ -231,7 +231,16 @@ export default function KurumMentor() {
         const docRef = doc(db, 'kurumlar', k.id, 'mentorAtamalari', kullanici?.uid)
         unsubs.push(onSnapshot(docRef, docSnap => {
           setAtamalarMap(prev => {
-            const data = docSnap.exists() ? { id: docSnap.id, _kurumId: k.id, ...docSnap.data() } : null
+            let data = null
+            if (docSnap.exists()) {
+              const snapData = docSnap.data()
+              data = {
+                id: docSnap.id,
+                _kurumId: k.id,
+                ...snapData,
+                ogrenciler: (snapData.ogrenciler || []).map(o => ({ ...o, _kurumId: k.id }))
+              }
+            }
             return {
               ...prev,
               [k.id]: data ? [data] : []
@@ -269,7 +278,15 @@ export default function KurumMentor() {
         unsubs.push(onSnapshot(collection(db, 'kurumlar', k.id, 'mentorAtamalari'), snap => {
           setAtamalarMap(prev => ({
             ...prev,
-            [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
+            [k.id]: snap.docs.map(d => {
+              const snapData = d.data()
+              return {
+                id: d.id,
+                _kurumId: k.id,
+                ...snapData,
+                ogrenciler: (snapData.ogrenciler || []).map(o => ({ ...o, _kurumId: k.id }))
+              }
+            })
           }))
         }))
 
@@ -358,8 +375,18 @@ export default function KurumMentor() {
     ),
   [ogretmenler, seciliScopeIds])
 
-  const benimAtamam      = ogretmenModu ? atamalar.find(a => a.ogretmenId === kullanici?.uid) : null
-  const benimOgrencilerim = benimAtamam?.ogrenciler || []
+  const benimOgrencilerim = useMemo(() => {
+    if (!ogretmenModu) return []
+    return atamalar
+      .filter(a => a.ogretmenId === kullanici?.uid)
+      .flatMap(a => {
+        const schoolId = a._kurumId || a.kurumId
+        return (a.ogrenciler || []).map(o => ({
+          ...o,
+          _kurumId: schoolId
+        }))
+      })
+  }, [atamalar, ogretmenModu, kullanici?.uid])
 
   const raporIndex = useMemo(() => {
     const idx = {}
