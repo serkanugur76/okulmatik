@@ -58,13 +58,33 @@ export default function KurumMentor() {
   const styleBlock = (
     <style>{`
       /* Mentor Modülü Mobil Uyum Düzeltmeleri */
+      .mentor-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        overflow-y: auto;
+        padding: 2rem 1rem;
+      }
       .mentor-modal-card {
         padding: 2rem !important;
+        display: flex !important;
+        flex-direction: column !important;
+        max-height: 90vh !important;
+        box-sizing: border-box !important;
       }
       @media (max-width: 600px) {
+        .mentor-modal-overlay {
+          padding: 0.5rem 0.5rem !important;
+          align-items: center !important;
+        }
         .mentor-modal-card {
           padding: 1.25rem 1rem !important;
           border-radius: 12px !important;
+          max-height: 95vh !important;
         }
         .mentor-modal-header {
           flex-direction: column !important;
@@ -439,29 +459,30 @@ export default function KurumMentor() {
     td:     { padding:'0.875rem 1rem', fontSize:'0.875rem', color:'#1E293B', borderBottom:'1px solid #F1F5F9' },
     alan:   { display:'flex', flexDirection:'column', gap:'0.375rem', marginBottom:'1rem' },
     etiket: { fontSize:'0.875rem', fontWeight:'500', color:'#374151' },
-    girdi:  { padding:'0.6rem 0.875rem', border:'1.5px solid #E2E8F0', borderRadius:'8px', fontSize:'0.9rem', color:'#1E293B' },
+    girdi:  { padding:'0.6rem 0.875rem', border:'1.5px solid #E2E8F0', borderRadius:'8px', fontSize:'0.9rem', color:'#1E293B', width:'100%', boxSizing:'border-box' },
     btn:    (aktif) => ({ padding:'0.5rem 1.25rem', border:'1.5px solid', borderRadius:'8px', fontSize:'0.8rem', fontWeight:'600', cursor:'pointer', borderColor: aktif ? '#1B3A6B' : '#E2E8F0', background: aktif ? '#1B3A6B' : '#fff', color: aktif ? '#fff' : '#64748B' }),
   }
 
   // ── Değerlendirme Modalı (ortak: hem admin hem öğretmen) ──
   const degModalJSX = degModal && (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:200, overflowY:'auto', padding:'2rem 1rem' }}
-      onClick={e => e.target === e.currentTarget && setDegModal(null)}>
-      <div style={{ background:'#fff', borderRadius:'16px', padding:'2rem', width:'100%', maxWidth:'600px', boxShadow:'0 20px 60px rgba(0,0,0,0.18)' }}>
+    <div className="mentor-modal-overlay" onClick={e => e.target === e.currentTarget && setDegModal(null)}>
+      <div className="mentor-modal-card" style={{ background:'#fff', borderRadius:'16px', padding:'2rem', width:'100%', maxWidth:'600px', boxShadow:'0 20px 60px rgba(0,0,0,0.18)' }}>
 
         {/* Başlık */}
-        <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1.5rem', paddingBottom:'1rem', borderBottom:'1px solid #F1F5F9' }}>
-          <div style={{ width:'48px', height:'48px', borderRadius:'50%', background:'linear-gradient(135deg,#6366F1,#4338CA)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.4rem', color:'#fff', flexShrink:0 }}>
-            {degModal.ad?.[0]?.toUpperCase() || '?'}
-          </div>
-          <div>
-            <div style={{ fontWeight:'700', fontSize:'1rem', color:'#1E293B' }}>{degModal.ad} {degModal.soyad}</div>
-            <div style={{ fontSize:'0.8rem', color:'#64748B' }}>
-              {siniflar.find(s => s.id === degModal.sinifId)?.ad || degModal.sinifAd || '—'}
+        <div className="mentor-modal-header" style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1.5rem', paddingBottom:'1rem', borderBottom:'1px solid #F1F5F9', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
+            <div style={{ width:'48px', height:'48px', borderRadius:'50%', background:'linear-gradient(135deg,#6366F1,#4338CA)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.4rem', color:'#fff', flexShrink:0 }}>
+              {degModal.ad?.[0]?.toUpperCase() || '?'}
+            </div>
+            <div>
+              <div style={{ fontWeight:'700', fontSize:'1rem', color:'#1E293B' }}>{degModal.ad} {degModal.soyad}</div>
+              <div style={{ fontSize:'0.8rem', color:'#64748B' }}>
+                {siniflar.find(s => s.id === degModal.sinifId)?.ad || degModal.sinifAd || '—'}
+              </div>
             </div>
           </div>
           {/* Dönem seçici */}
-          <div style={{ marginLeft:'auto', display:'flex', gap:'0.5rem' }}>
+          <div className="mentor-modal-period-selector" style={{ marginLeft:'auto', display:'flex', gap:'0.5rem' }}>
             {[1,2].map(d => (
               <button key={d} type="button" onClick={() => { setDonem(d); degModalAc(degModal) }}
                 style={s.btn(donem === d)}>
@@ -471,51 +492,55 @@ export default function KurumMentor() {
           </div>
         </div>
 
-        <form onSubmit={degKaydet}>
-          {/* Likert Kriterleri */}
-          {KRITERLER.map(kriter => (
-            <div key={kriter.id} style={{ marginBottom:'1.25rem' }}>
-              <div style={{ fontSize:'0.875rem', fontWeight:'600', color:'#374151', marginBottom:'0.5rem' }}>
-                {kriter.ikon} {kriter.ad}
+        <form onSubmit={degKaydet} style={{ display:'flex', flexDirection:'column', flex:1, overflow:'hidden' }}>
+          {/* Scrollable Form Content */}
+          <div style={{ flex:1, overflowY:'auto', marginBottom:'1.25rem', paddingRight:'0.25rem' }}>
+            {/* Likert Kriterleri */}
+            {KRITERLER.map(kriter => (
+              <div key={kriter.id} style={{ marginBottom:'1.25rem' }}>
+                <div style={{ fontSize:'0.875rem', fontWeight:'600', color:'#374151', marginBottom:'0.5rem' }}>
+                  {kriter.ikon} {kriter.ad}
+                </div>
+                <div className="mentor-modal-options" style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+                  {kriter.secenekler.map(({ d, e }) => {
+                    const secili = degForm[kriter.id] === d
+                    const stil = PUAN_STIL[d]
+                    return (
+                      <button type="button" key={d}
+                        onClick={() => setDegForm(f => ({ ...f, [kriter.id]: d }))}
+                        style={{
+                          padding:'6px 14px', borderRadius:'999px', border:'2px solid',
+                          borderColor: secili ? stil.renk : '#E2E8F0',
+                          background:  secili ? stil.bg : '#fff',
+                          color:       secili ? stil.renk : '#64748B',
+                          fontSize:'0.8rem', fontWeight: secili ? '700' : '500', cursor:'pointer',
+                          transition:'all 0.1s',
+                        }}>
+                        {e}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-              <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
-                {kriter.secenekler.map(({ d, e }) => {
-                  const secili = degForm[kriter.id] === d
-                  const stil = PUAN_STIL[d]
-                  return (
-                    <button type="button" key={d}
-                      onClick={() => setDegForm(f => ({ ...f, [kriter.id]: d }))}
-                      style={{
-                        padding:'6px 14px', borderRadius:'999px', border:'2px solid',
-                        borderColor: secili ? stil.renk : '#E2E8F0',
-                        background:  secili ? stil.bg : '#fff',
-                        color:       secili ? stil.renk : '#64748B',
-                        fontSize:'0.8rem', fontWeight: secili ? '700' : '500', cursor:'pointer',
-                        transition:'all 0.1s',
-                      }}>
-                      {e}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
+            ))}
 
-          {/* Mentor Yorumu */}
-          <div style={s.alan}>
-            <label style={s.etiket}>💬 Mentor Öğretmen Yorumu</label>
-            <textarea
-              value={degForm.yorum}
-              onChange={e => setDegForm(f => ({ ...f, yorum: e.target.value }))}
-              placeholder="Öğrenci hakkında gözlem ve değerlendirmenizi yazınız..."
-              rows={4}
-              style={{ ...s.girdi, resize:'vertical', lineHeight:'1.5' }}
-            />
+            {/* Mentor Yorumu */}
+            <div style={s.alan}>
+              <label style={s.etiket}>💬 Mentor Öğretmen Yorumu</label>
+              <textarea
+                value={degForm.yorum}
+                onChange={e => setDegForm(f => ({ ...f, yorum: e.target.value }))}
+                placeholder="Öğrenci hakkında gözlem ve değerlendirmenizi yazınız..."
+                rows={4}
+                style={{ ...s.girdi, resize:'vertical', lineHeight:'1.5' }}
+              />
+            </div>
+
+            {degHata && <p style={{ fontSize:'0.875rem', color:'#991B1B', background:'#FEE2E2', borderRadius:'6px', padding:'0.5rem 0.75rem', marginBottom:'1rem' }}>{degHata}</p>}
           </div>
 
-          {degHata && <p style={{ fontSize:'0.875rem', color:'#991B1B', background:'#FEE2E2', borderRadius:'6px', padding:'0.5rem 0.75rem', marginBottom:'1rem' }}>{degHata}</p>}
-
-          <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
+          {/* Fixed Footer Buttons */}
+          <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end', paddingTop:'0.75rem', borderTop:'1px solid #F1F5F9', flexShrink:0 }}>
             <button type="button" onClick={() => setDegModal(null)}
               style={{ padding:'0.6rem 1.25rem', background:'#fff', border:'1.5px solid #E2E8F0', borderRadius:'8px', fontSize:'0.875rem', cursor:'pointer', color:'#374151' }}>
               İptal
@@ -796,96 +821,99 @@ export default function KurumMentor() {
 
       {/* ── ATAMA MODALI ── */}
       {atamaModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:200, overflowY:'auto', padding:'2rem 1rem' }}
-          onClick={e => e.target === e.currentTarget && setAtamaModal(false)}>
+        <div className="mentor-modal-overlay" onClick={e => e.target === e.currentTarget && setAtamaModal(false)}>
           <div className="mentor-modal-card" style={{ background:'#fff', borderRadius:'16px', padding:'2rem', width:'100%', maxWidth:'600px', boxShadow:'0 20px 60px rgba(0,0,0,0.18)' }}>
-            <h2 style={{ fontSize:'1.125rem', fontWeight:'700', color:'#1E293B', marginBottom:'1.5rem' }}>Mentor Ataması</h2>
+            <h2 style={{ fontSize:'1.125rem', fontWeight:'700', color:'#1E293B', marginBottom:'1.5rem', flexShrink:0 }}>Mentor Ataması</h2>
 
-            <form onSubmit={atamaKaydet}>
-              {/* Öğretmen seçimi */}
-              <div style={s.alan}>
-                <label style={s.etiket}>Mentor Öğretmen *</label>
-                <select style={s.girdi} value={atamaForm.ogretmenId}
-                  onChange={e => setAtamaForm(f => ({ ...f, ogretmenId: e.target.value }))}>
-                  <option value="">— Öğretmen seçin —</option>
-                  {kurumOgretmenleri.map(o => {
-                    const kurum = erisimKurumlar.find(k => k.id === o.kurumId)
-                    return (
-                      <option key={o.id} value={o.id}>
-                        {o.ad || o.email}{kurum ? ` — ${kurum.ad}` : ''}
-                      </option>
-                    )
-                  })}
-                </select>
-              </div>
+            <form onSubmit={atamaKaydet} style={{ display:'flex', flexDirection:'column', flex:1, overflow:'hidden' }}>
+              {/* Scrollable Form Content */}
+              <div style={{ flex:1, overflowY:'auto', marginBottom:'1.25rem', paddingRight:'0.25rem' }}>
+                {/* Öğretmen seçimi */}
+                <div style={s.alan}>
+                  <label style={s.etiket}>Mentor Öğretmen *</label>
+                  <select style={s.girdi} value={atamaForm.ogretmenId}
+                    onChange={e => setAtamaForm(f => ({ ...f, ogretmenId: e.target.value }))}>
+                    <option value="">— Öğretmen seçin —</option>
+                    {kurumOgretmenleri.map(o => {
+                      const kurum = erisimKurumlar.find(k => k.id === o.kurumId)
+                      return (
+                        <option key={o.id} value={o.id}>
+                          {o.ad || o.email}{kurum ? ` — ${kurum.ad}` : ''}
+                        </option>
+                      )
+                    })}
+                  </select>
+                </div>
 
-              {/* Sınıf filtresi */}
-              <div style={s.alan}>
-                <label style={s.etiket}>Öğrenci Seçimi</label>
-                <select style={{ ...s.girdi, marginBottom:'0.5rem' }} value={sinifFiltre}
-                  onChange={e => setSinifFiltre(e.target.value)}>
-                  <option value="">— Tüm sınıflar —</option>
-                  {siniflar.map(s2 => (
-                    <option key={s2.id} value={s2.id}>{s2.ad}</option>
-                  ))}
-                </select>
+                {/* Sınıf filtresi */}
+                <div style={s.alan}>
+                  <label style={s.etiket}>Öğrenci Seçimi</label>
+                  <select style={{ ...s.girdi, marginBottom:'0.5rem' }} value={sinifFiltre}
+                    onChange={e => setSinifFiltre(e.target.value)}>
+                    <option value="">— Tüm sınıflar —</option>
+                    {siniflar.map(s2 => (
+                      <option key={s2.id} value={s2.id}>{s2.ad}</option>
+                    ))}
+                  </select>
 
-                {/* Tümünü seç / kaldır (o sınıf için) */}
-                {sinifFiltre && (
-                  <div style={{ display:'flex', gap:'0.5rem', marginBottom:'0.5rem' }}>
-                    <button type="button"
-                      onClick={() => {
-                        const ids = (sinifaGoreOgrenciler[sinifFiltre] || []).map(o => o.id)
-                        setAtamaForm(f => ({ ...f, ogrenciIds: [...new Set([...f.ogrenciIds, ...ids])] }))
-                      }}
-                      style={{ padding:'3px 10px', border:'1px solid #A7F3D0', borderRadius:'6px', background:'#D1FAE5', color:'#065F46', fontSize:'0.75rem', cursor:'pointer', fontWeight:'600' }}>
-                      Tümünü Seç
-                    </button>
-                    <button type="button"
-                      onClick={() => {
-                        const ids = (sinifaGoreOgrenciler[sinifFiltre] || []).map(o => o.id)
-                        setAtamaForm(f => ({ ...f, ogrenciIds: f.ogrenciIds.filter(id => !ids.includes(id)) }))
-                      }}
-                      style={{ padding:'3px 10px', border:'1px solid #FECACA', borderRadius:'6px', background:'#FEE2E2', color:'#991B1B', fontSize:'0.75rem', cursor:'pointer', fontWeight:'600' }}>
-                      Tümünü Kaldır
-                    </button>
+                  {/* Tümünü seç / kaldır (o sınıf için) */}
+                  {sinifFiltre && (
+                    <div style={{ display:'flex', gap:'0.5rem', marginBottom:'0.5rem' }}>
+                      <button type="button"
+                        onClick={() => {
+                          const ids = (sinifaGoreOgrenciler[sinifFiltre] || []).map(o => o.id)
+                          setAtamaForm(f => ({ ...f, ogrenciIds: [...new Set([...f.ogrenciIds, ...ids])] }))
+                        }}
+                        style={{ padding:'3px 10px', border:'1px solid #A7F3D0', borderRadius:'6px', background:'#D1FAE5', color:'#065F46', fontSize:'0.75rem', cursor:'pointer', fontWeight:'600' }}>
+                        Tümünü Seç
+                      </button>
+                      <button type="button"
+                        onClick={() => {
+                          const ids = (sinifaGoreOgrenciler[sinifFiltre] || []).map(o => o.id)
+                          setAtamaForm(f => ({ ...f, ogrenciIds: f.ogrenciIds.filter(id => !ids.includes(id)) }))
+                        }}
+                        style={{ padding:'3px 10px', border:'1px solid #FECACA', borderRadius:'6px', background:'#FEE2E2', color:'#991B1B', fontSize:'0.75rem', cursor:'pointer', fontWeight:'600' }}>
+                        Tümünü Kaldır
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Öğrenci listesi */}
+                  <div style={{ maxHeight:'280px', overflowY:'auto', border:'1px solid #E2E8F0', borderRadius:'8px', padding:'0.5rem' }}>
+                    {(sinifFiltre
+                      ? (sinifaGoreOgrenciler[sinifFiltre] || [])
+                      : ogrenciler
+                    ).map(o => {
+                      const secili = atamaForm.ogrenciIds.includes(o.id)
+                      const sinif = siniflar.find(s2 => s2.id === o.sinifId)
+                      return (
+                        <label key={o.id} style={{ display:'flex', alignItems:'center', gap:'0.625rem', padding:'0.4rem 0.5rem', borderRadius:'6px', cursor:'pointer', background: secili ? '#EEF2FF' : 'transparent' }}>
+                          <input type="checkbox" checked={secili}
+                            onChange={() => setAtamaForm(f => ({
+                              ...f,
+                              ogrenciIds: secili ? f.ogrenciIds.filter(id => id !== o.id) : [...f.ogrenciIds, o.id]
+                            }))} />
+                          <span style={{ fontSize:'0.85rem', flex:1 }}>{o.ad} {o.soyad}</span>
+                          <span style={{ fontSize:'0.72rem', color:'#94A3B8' }}>{sinif?.ad || '—'}</span>
+                        </label>
+                      )
+                    })}
+                    {ogrenciler.length === 0 && (
+                      <div style={{ textAlign:'center', color:'#94A3B8', padding:'1rem', fontSize:'0.82rem' }}>Bu kurumda öğrenci bulunamadı</div>
+                    )}
                   </div>
-                )}
-
-                {/* Öğrenci listesi */}
-                <div style={{ maxHeight:'280px', overflowY:'auto', border:'1px solid #E2E8F0', borderRadius:'8px', padding:'0.5rem' }}>
-                  {(sinifFiltre
-                    ? (sinifaGoreOgrenciler[sinifFiltre] || [])
-                    : ogrenciler
-                  ).map(o => {
-                    const secili = atamaForm.ogrenciIds.includes(o.id)
-                    const sinif = siniflar.find(s2 => s2.id === o.sinifId)
-                    return (
-                      <label key={o.id} style={{ display:'flex', alignItems:'center', gap:'0.625rem', padding:'0.4rem 0.5rem', borderRadius:'6px', cursor:'pointer', background: secili ? '#EEF2FF' : 'transparent' }}>
-                        <input type="checkbox" checked={secili}
-                          onChange={() => setAtamaForm(f => ({
-                            ...f,
-                            ogrenciIds: secili ? f.ogrenciIds.filter(id => id !== o.id) : [...f.ogrenciIds, o.id]
-                          }))} />
-                        <span style={{ fontSize:'0.85rem', flex:1 }}>{o.ad} {o.soyad}</span>
-                        <span style={{ fontSize:'0.72rem', color:'#94A3B8' }}>{sinif?.ad || '—'}</span>
-                      </label>
-                    )
-                  })}
-                  {ogrenciler.length === 0 && (
-                    <div style={{ textAlign:'center', color:'#94A3B8', padding:'1rem', fontSize:'0.82rem' }}>Bu kurumda öğrenci bulunamadı</div>
+                  {atamaForm.ogrenciIds.length > 0 && (
+                    <div style={{ fontSize:'0.78rem', color:'#4F46E5', fontWeight:'600', marginTop:'0.375rem' }}>
+                      ✓ {atamaForm.ogrenciIds.length} öğrenci seçildi
+                    </div>
                   )}
                 </div>
-                {atamaForm.ogrenciIds.length > 0 && (
-                  <div style={{ fontSize:'0.78rem', color:'#4F46E5', fontWeight:'600', marginTop:'0.375rem' }}>
-                    ✓ {atamaForm.ogrenciIds.length} öğrenci seçildi
-                  </div>
-                )}
+
+                {atamaHata && <p style={{ fontSize:'0.875rem', color:'#991B1B', background:'#FEE2E2', borderRadius:'6px', padding:'0.5rem 0.75rem', marginBottom:'1rem' }}>{atamaHata}</p>}
               </div>
 
-              {atamaHata && <p style={{ fontSize:'0.875rem', color:'#991B1B', background:'#FEE2E2', borderRadius:'6px', padding:'0.5rem 0.75rem', marginBottom:'1rem' }}>{atamaHata}</p>}
-
-              <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
+              {/* Fixed Footer Buttons */}
+              <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end', paddingTop:'0.75rem', borderTop:'1px solid #F1F5F9', flexShrink:0 }}>
                 <button type="button" onClick={() => setAtamaModal(false)}
                   style={{ padding:'0.6rem 1.25rem', background:'#fff', border:'1.5px solid #E2E8F0', borderRadius:'8px', fontSize:'0.875rem', cursor:'pointer', color:'#374151' }}>
                   İptal
