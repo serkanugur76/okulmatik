@@ -224,7 +224,7 @@ export default function KurumOgrenciler() {
     }, 150)
 
     return () => clearTimeout(timer)
-  }, [ilkEslesenOgrenciId])
+  }, [ilkEslesenOgrenciId, aramaMetni])
 
   const s = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
@@ -270,6 +270,21 @@ export default function KurumOgrenciler() {
           }
           .student-search-bar {
             width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .campus-header, .school-header, .class-header {
+            flex-wrap: wrap !important;
+            gap: 0.5rem !important;
+          }
+          .campus-count, .school-count, .class-count {
+            margin-left: 0 !important;
+            width: 100% !important;
+            font-size: 0.7rem !important;
+            padding-left: 1.25rem !important;
+            text-align: left !important;
+          }
+          .campus-title, .school-title, .class-title {
+            font-size: 0.85rem !important;
           }
           .modal-form-grid {
             grid-template-columns: 1fr !important;
@@ -317,11 +332,11 @@ export default function KurumOgrenciler() {
 
           return (
             <div key={k.id} style={{ background: '#fff', borderRadius: cokluKampus ? '8px' : '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-              <div onClick={() => setAcikGruplar(prev => ({ ...prev, [k.id]: !acik }))}
+              <div className="school-header" onClick={() => setAcikGruplar(prev => ({ ...prev, [k.id]: !acik }))}
                 style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1rem', background: '#F8FAFC', borderBottom: acik ? '1px solid #E2E8F0' : 'none', cursor: 'pointer', userSelect: 'none' }}>
                 <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{acik ? '▼' : '▶'}</span>
-                <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B' }}>{k.ad}</span>
-                <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>{tumOgrenciler.length} öğrenci</span>
+                <span className="school-title" style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B' }}>{k.ad}</span>
+                <span className="school-count" style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>{tumOgrenciler.length} öğrenci</span>
               </div>
 
               {acik && (
@@ -333,18 +348,18 @@ export default function KurumOgrenciler() {
                     const sinifAcik = aramaMetni.trim() !== '' ? sinifOgrenciler.length > 0 : sinifAcikMi(k.id, sinif.id)
                     return (
                       <div key={sinif.id} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden' }}>
-                        <div onClick={() => sinifToggle(k.id, sinif.id)}
+                        <div className="class-header" onClick={() => sinifToggle(k.id, sinif.id)}
                           style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.625rem 0.875rem', background: '#FAFAFA', cursor: 'pointer', userSelect: 'none', borderBottom: sinifAcik ? '1px solid #E2E8F0' : 'none' }}>
                           <span style={{ fontSize: '0.7rem', color: '#94A3B8' }}>{sinifAcik ? '▼' : '▶'}</span>
-                          <span style={{ fontSize: '0.875rem', fontWeight: '700', color: '#1B3A6B', minWidth: '40px' }}>{sinif.ad}</span>
+                          <span className="class-title" style={{ fontSize: '0.875rem', fontWeight: '700', color: '#1B3A6B', minWidth: '40px' }}>{sinif.ad}</span>
                           {sinif.ogretmenAd && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: '0.5rem' }}>
                               <span style={{ fontSize: '0.75rem', color: '#374151' }}>👤 {sinif.ogretmenAd}</span>
-                              {sinif.ogretmenMail && <span style={{ fontSize: '0.75rem', color: '#6366F1' }}>✉ {sinif.ogretmenMail}</span>}
-                              {sinif.ogretmenTel  && <span style={{ fontSize: '0.75rem', color: '#059669' }}>📞 {sinif.ogretmenTel}</span>}
+                              {sinif.ogretmenMail && <span className="desktop-only" style={{ fontSize: '0.75rem', color: '#6366F1' }}>✉ {sinif.ogretmenMail}</span>}
+                              {sinif.ogretmenTel  && <span className="desktop-only" style={{ fontSize: '0.75rem', color: '#059669' }}>📞 {sinif.ogretmenTel}</span>}
                             </div>
                           )}
-                          <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>{sinifOgrenciler.length} öğrenci</span>
+                          <span className="class-count" style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 'auto' }}>{sinifOgrenciler.length} öğrenci</span>
                         </div>
                         {sinifAcik && (
                           <>
@@ -603,11 +618,11 @@ export default function KurumOgrenciler() {
               const kampusAcik = aramaMetni.trim() !== '' ? kToplamOgrenci > 0 : !!acikKampusler[kampus.id]
               return (
                 <div key={kampus.id} style={{ borderRadius: '12px', overflow: 'hidden', border: '1.5px solid #BFDBFE', background: '#fff' }}>
-                  <div onClick={() => setAcikKampusler(prev => ({ ...prev, [kampus.id]: !kampusAcik }))}
+                  <div className="campus-header" onClick={() => setAcikKampusler(prev => ({ ...prev, [kampus.id]: !kampusAcik }))}
                     style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: '#EFF6FF', cursor: 'pointer', userSelect: 'none' }}>
                     <span style={{ fontSize: '0.75rem', color: '#3B82F6' }}>{kampusAcik ? '▼' : '▶'}</span>
-                    <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1E40AF' }}>🏛 {kampus.ad}</span>
-                    <span style={{ fontSize: '0.75rem', color: '#64748B', marginLeft: 'auto' }}>
+                    <span className="campus-title" style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1E40AF' }}>🏛 {kampus.ad}</span>
+                    <span className="campus-count" style={{ fontSize: '0.75rem', color: '#64748B', marginLeft: 'auto' }}>
                       {altlar.length} okul · {kToplamOgrenci} öğrenci
                     </span>
                   </div>
