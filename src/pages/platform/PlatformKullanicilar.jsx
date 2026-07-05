@@ -119,10 +119,40 @@ export default function PlatformKullanicilar() {
     return () => { u1(); u2(); u3() }
   }, [])
 
-  const aktifListe = kullanicilar.filter(k =>
-    k.email?.toLowerCase().includes(filtre.toLowerCase()) ||
-    k.ad?.toLowerCase().includes(filtre.toLowerCase())
-  )
+  const aktifListe = kullanicilar
+    .filter(k =>
+      k.email?.toLowerCase().includes(filtre.toLowerCase()) ||
+      k.ad?.toLowerCase().includes(filtre.toLowerCase())
+    )
+    .sort((a, b) => {
+      const getRolRank = (k) => {
+        if (k.rol === 'platform_admin') return 1
+        if (k.rol === 'kurum_admin') {
+          const kurum = kurumlar.find(x => x.id === k.kurumId)
+          if (kurum?.tip === 'kampus')   return 2 // Kampüs Admin
+          if (kurum?.tip === 'altKurum') return 3 // Okul Admin
+          return 4 // Kurum Admin
+        }
+        if (k.rol === 'ogretmen') return 5
+        return 6
+      }
+
+      const rankA = getRolRank(a)
+      const rankB = getRolRank(b)
+      if (rankA !== rankB) return rankA - rankB
+
+      const bransA = (a.branslar && a.branslar.length > 0) ? a.branslar.join(', ') : ''
+      const bransB = (b.branslar && b.branslar.length > 0) ? b.branslar.join(', ') : ''
+      if (bransA !== bransB) {
+        if (bransA === '') return 1
+        if (bransB === '') return -1
+        return bransA.localeCompare(bransB, 'tr')
+      }
+
+      const adA = a.ad || ''
+      const adB = b.ad || ''
+      return adA.localeCompare(adB, 'tr')
+    })
 
   // Kullanıcının root kurumunu bul
   function rootKurumId(k) {
