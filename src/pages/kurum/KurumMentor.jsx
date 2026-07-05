@@ -487,9 +487,9 @@ export default function KurumMentor() {
   }
 
   // ── Değerlendirme İşlemleri ───────────────────────────────
-  function degModalAc(ogrenci) {
+  function degModalAc(ogrenci, targetDonem = donem) {
     const tamOgrenci = ogrenciler.find(o => o.id === ogrenci.id) || ogrenci
-    const mevcutRapor = raporIndex[`${tamOgrenci.id}_d${donem}`]
+    const mevcutRapor = raporIndex[`${tamOgrenci.id}_d${targetDonem}`]
     const form = { yorum: mevcutRapor?.yorum || '' }
     KRITERLER.forEach(k => { form[k.id] = mevcutRapor?.[k.id] || null })
     setDegForm(form)
@@ -554,7 +554,7 @@ export default function KurumMentor() {
           {/* Dönem seçici */}
           <div className="mentor-modal-period-selector" style={{ marginLeft:'auto', display:'flex', gap:'0.5rem' }}>
             {[1,2].map(d => (
-              <button key={d} type="button" onClick={() => { setDonem(d); degModalAc(degModal) }}
+              <button key={d} type="button" onClick={() => { setDonem(d); degModalAc(degModal, d) }}
                 style={s.btn(donem === d)}>
                 {d}. Dönem
               </button>
