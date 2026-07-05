@@ -837,6 +837,9 @@ function PlatformLayoutInner() {
           .mobile-drawer.open {
             transform: translateY(0);
           }
+          .mobile-drawer a {
+            text-decoration: none !important;
+          }
           .drawer-header {
             display: flex;
             justify-content: space-between;
@@ -1011,8 +1014,8 @@ function PlatformLayoutInner() {
           })()}
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontWeight: '800', color: '#1E293B', fontSize: '1rem' }}>{profil?.ad || 'Platform Yöneticisi'}</div>
-          <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>{profil?.email}</div>
+          <div style={{ fontWeight: '800', color: '#1E293B', fontSize: '1rem', textDecoration: 'none' }}>{profil?.ad || 'Platform Yöneticisi'}</div>
+          <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px', textDecoration: 'none' }}>{profil?.email}</div>
         </div>
 
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center', margin: '0.5rem 0' }}>
