@@ -41,19 +41,19 @@ function translateToTurkish(text) {
 
   // Common technical patterns
   const phrases = [
-    [/make (.+?) mobile responsive/gi, "$1 mobil uyumlu hale getirildi"],
-    [/fix (.+?) issue/gi, "$1 sorunu giderildi"],
-    [/fix (.+?) bug/gi, "$1 hatası giderildi"],
-    [/resolve (.+?) error/gi, "$1 hatası çözüldü"],
-    [/add support for (.+?)/gi, "$1 desteği eklendi"],
-    [/add (.+?) rules/gi, "$1 kuralları eklendi"],
-    [/add (.+?)/gi, "$1 eklendi"],
-    [/update (.+?)/gi, "$1 güncellendi"],
-    [/remove (.+?)/gi, "$1 kaldırıldı"],
-    [/setup (.+?)/gi, "$1 kurulumu yapıldı"],
-    [/prevent (.+?)/gi, "$1 engellendi"],
-    [/improve (.+?)/gi, "$1 iyileştirildi"],
-    [/design (.+?)/gi, "$1 tasarlandı"]
+    [/make (.+?) mobile responsive$/gi, "$1 mobil uyumlu hale getirildi"],
+    [/fix (.+?) issue$/gi, "$1 sorunu giderildi"],
+    [/fix (.+?) bug$/gi, "$1 hatası giderildi"],
+    [/resolve (.+?) error$/gi, "$1 hatası çözüldü"],
+    [/add support for (.+?)$/gi, "$1 desteği eklendi"],
+    [/add (.+?) rules$/gi, "$1 kuralları eklendi"],
+    [/add (.+?)$/gi, "$1 eklendi"],
+    [/update (.+?)$/gi, "$1 güncellendi"],
+    [/remove (.+?)$/gi, "$1 kaldırıldı"],
+    [/setup (.+?)$/gi, "$1 kurulumu yapıldı"],
+    [/prevent (.+?)$/gi, "$1 engellendi"],
+    [/improve (.+?)$/gi, "$1 iyileştirildi"],
+    [/design (.+?)$/gi, "$1 tasarlandı"]
   ];
 
   for (const [regex, replacement] of phrases) {

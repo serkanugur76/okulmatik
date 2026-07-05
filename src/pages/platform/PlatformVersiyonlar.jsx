@@ -1,11 +1,23 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { collection, onSnapshot, query, orderBy, doc, deleteDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
+import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 
 export default function PlatformVersiyonlar() {
+  const { profil } = useKurumYonetim()
   const [versiyonlar, setVersiyonlar] = useState([])
   const [loading, setLoading] = useState(true)
   const [acikVersiyon, setAcikVersiyon] = useState('')
+
+  const isPlatformAdmin = profil?.rol === 'platform_admin' || profil?.email === 'ugurserkan@gmail.com'
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'versiyonlar', id))
+    } catch (err) {
+      alert('Kayıt silinirken hata oluştu: ' + err.message)
+    }
+  }
 
   useEffect(() => {
     const q = query(collection(db, 'versiyonlar'), orderBy('olusturmaTarihi', 'desc'))
@@ -285,6 +297,35 @@ export default function PlatformVersiyonlar() {
                     }}>
                       {s.rozet}
                     </span>
+                  )}
+                  {isPlatformAdmin && s.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`${s.versiyon} sürüm kaydını silmek istediğinize emin misiniz?`)) {
+                          handleDelete(s.id);
+                        }
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#EF4444',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '4px',
+                        transition: 'background 0.2s',
+                        marginRight: '0.25rem'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                      title="Sürüm kaydını sil"
+                    >
+                      🗑️
+                    </button>
                   )}
                   <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
                     {acik ? '▼' : '▶'}
