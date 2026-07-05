@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import {
   collection, onSnapshot, doc, setDoc, deleteDoc,
-  query, orderBy, serverTimestamp,
+  query, orderBy, serverTimestamp, where,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -224,43 +224,81 @@ export default function KurumMentor() {
 
     const unsubs = []
 
-    sayimKurumlar.forEach(k => {
-      const kampus = erisimKurumlar.find(x => x.id === k.parentId)
-      const tamAd = kampus ? `${kampus.ad} · ${k.ad}` : k.ad
-
-      // 1. Atamalar
-      unsubs.push(onSnapshot(collection(db, 'kurumlar', k.id, 'mentorAtamalari'), snap => {
-        setAtamalarMap(prev => ({
-          ...prev,
-          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
+    if (ogretmenModu) {
+      // ── ÖĞRETMEN MODUNDA HAFİF VE YETKİLİ DİNLEYİCİLER ──
+      sayimKurumlar.forEach(k => {
+        // Sadece bu öğretmenin kendi mentor atama belgesini dinle (tek belge)
+        const docRef = doc(db, 'kurumlar', k.id, 'mentorAtamalari', kullanici?.uid)
+        unsubs.push(onSnapshot(docRef, docSnap => {
+          setAtamalarMap(prev => {
+            const data = docSnap.exists() ? { id: docSnap.id, _kurumId: k.id, ...docSnap.data() } : null
+            return {
+              ...prev,
+              [k.id]: data ? [data] : []
+            }
+          })
+        }, err => {
+          console.warn("Atama belgesi dinlenemedi (normal veya yetki kısıtı):", err.message)
         }))
-      }))
 
-      // 2. Raporlar
-      unsubs.push(onSnapshot(collection(db, 'kurumlar', k.id, 'mentorRaporlari'), snap => {
-        setRaporlarMap(prev => ({
-          ...prev,
-          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
+        // Sadece bu öğretmenin kendi oluşturduğu raporları dinle
+        const qRapor = query(
+          collection(db, 'kurumlar', k.id, 'mentorRaporlari'),
+          where('mentorOgretmenId', '==', kullanici?.uid)
+        )
+        unsubs.push(onSnapshot(qRapor, snap => {
+          setRaporlarMap(prev => ({
+            ...prev,
+            [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
+          }))
+        }, err => {
+          console.warn("Raporlar dinlenemedi (normal veya yetki kısıtı):", err.message)
         }))
-      }))
+      })
 
-      // 3. Öğrenciler
-      unsubs.push(onSnapshot(query(collection(db, 'kurumlar', k.id, 'ogrenciler'), orderBy('soyad')), snap => {
-        setOgrencilerMap(prev => ({
-          ...prev,
-          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
-        }))
-      }))
+      // Öğretmen modunda tüm öğrencileri ve sınıfları dinlemeye yetki yoktur ve gerek de yoktur
+      setOgrencilerMap({})
+      setSiniflarMap({})
+    } else {
+      // ── ADMİN MODUNDA TAM YETKİLİ DİNLEYİCİLER ──
+      sayimKurumlar.forEach(k => {
+        const kampus = erisimKurumlar.find(x => x.id === k.parentId)
+        const tamAd = kampus ? `${kampus.ad} · ${k.ad}` : k.ad
 
-      // 4. Sınıflar
-      unsubs.push(onSnapshot(collection(db, 'kurumlar', k.id, 'siniflar'), snap => {
-        setSiniflarMap(prev => ({
-          ...prev,
-          [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, _kurumAd: tamAd, ...d.data() }))
-            .sort((a, b) => (Number(a.seviye)||0) - (Number(b.seviye)||0) || (a.sube||'').localeCompare(b.sube||'', 'tr'))
+        // 1. Atamalar
+        unsubs.push(onSnapshot(collection(db, 'kurumlar', k.id, 'mentorAtamalari'), snap => {
+          setAtamalarMap(prev => ({
+            ...prev,
+            [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
+          }))
         }))
-      }))
-    })
+
+        // 2. Raporlar
+        unsubs.push(onSnapshot(collection(db, 'kurumlar', k.id, 'mentorRaporlari'), snap => {
+          setRaporlarMap(prev => ({
+            ...prev,
+            [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
+          }))
+        }))
+
+        // 3. Öğrenciler
+        unsubs.push(onSnapshot(query(collection(db, 'kurumlar', k.id, 'ogrenciler'), orderBy('soyad')), snap => {
+          setOgrencilerMap(prev => ({
+            ...prev,
+            [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, ...d.data() }))
+          }))
+        }))
+
+        // 4. Sınıflar
+        unsubs.push(onSnapshot(collection(db, 'kurumlar', k.id, 'siniflar'), snap => {
+          setSiniflarMap(prev => ({
+            ...prev,
+            [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, _kurumAd: tamAd, ...d.data() }))
+              .sort((a, b) => (Number(a.seviye)||0) - (Number(b.seviye)||0) || (a.sube||'').localeCompare(b.sube||'', 'tr'))
+          }))
+        }))
+      })
+    }
 
     const validIds = new Set(sayimKurumlar.map(k => k.id))
     const filterMap = (prev) => {
@@ -272,17 +310,23 @@ export default function KurumMentor() {
     }
     setAtamalarMap(filterMap)
     setRaporlarMap(filterMap)
-    setOgrencilerMap(filterMap)
-    setSiniflarMap(filterMap)
+    if (!ogretmenModu) {
+      setOgrencilerMap(filterMap)
+      setSiniflarMap(filterMap)
+    }
 
     return () => unsubs.forEach(u => u())
-  }, [sayimKurumlar, erisimKurumlar])
+  }, [sayimKurumlar, erisimKurumlar, ogretmenModu, kullanici?.uid])
 
   // Öğretmenler: hiyerarşideki tüm kurumlardan yükle (root/kampüs/altKurum)
   // Çünkü öğretmenin kurumId'si farklı bir seviyede olabilir
   const [ogretmenler, setOgretmenler] = useState([])
   useEffect(() => {
     if (!erisimKurumlar.length) return
+    if (ogretmenModu) {
+      setOgretmenler([])
+      return
+    }
     const allIds = erisimKurumlar.map(k => k.id)
     const parcalar = {}
     const unsubs = allIds.map(kid => {
@@ -296,7 +340,7 @@ export default function KurumMentor() {
       })
     })
     return () => unsubs.forEach(u => u())
-  }, [erisimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
+  }, [erisimKurumlar.map(k => k.id).join(','), ogretmenModu]) // eslint-disable-line
 
   // ── Türetilmiş ────────────────────────────────────────────
   // Seçili kurum hiyerarşisindeki tüm ID'ler
