@@ -1377,6 +1377,31 @@ export default function KurumKulupler() {
             align-items: flex-start !important;
             gap: 0.5rem !important;
           }
+          .sub-module-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 0.75rem !important;
+          }
+        }
+        @media (max-width: 500px) {
+          .attendance-student-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 0.75rem !important;
+          }
+          .attendance-buttons {
+            width: 100% !important;
+            justify-content: flex-end !important;
+          }
+          .yoklama-controls {
+            width: 100% !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .yoklama-select {
+            max-width: 100% !important;
+            width: 100% !important;
+          }
         }
       `}} />
       {/* Üst Bilgi Başlığı */}
@@ -1935,7 +1960,7 @@ export default function KurumKulupler() {
                 overflow: 'hidden'
               }}>
                 {/* Header */}
-                <div style={{
+                <div className="sub-module-header" style={{
                   padding: '1rem 1.5rem',
                   borderBottom: '1px solid #E2E8F0',
                   background: '#F8FAFC',
@@ -1943,7 +1968,7 @@ export default function KurumKulupler() {
                   justifyContent: 'space-between',
                   alignItems: 'center'
                 }}>
-                  <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h2 className="sub-module-title" style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     {aktifTab === 'yoklama' && '📝 Yoklama Defteri'}
                     {aktifTab === 'dersPlani' && '📖 Ders Planı'}
                     {aktifTab === 'etkinlikler' && '🏁 Etkinlik & Turnuvalar'}
@@ -1997,10 +2022,11 @@ export default function KurumKulupler() {
               {/* Sol Kolon: Yoklama Tablosu */}
               <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
                 <div className="mobile-stack-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div className="yoklama-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <select
                       value={seciliKulupId}
                       onChange={e => setSeciliKulupId(e.target.value)}
+                      className="yoklama-select"
                       style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
                     >
                       <option value="">— Kulüp Seçin —</option>
@@ -2060,7 +2086,7 @@ export default function KurumKulupler() {
                       {kulupOgrencileri.map(o => {
                         const geldiMi = gelenlerMap[o.id] !== false // undefined/true ise geldi kabul et
                         return (
-                          <div key={o.id} style={{
+                          <div key={o.id} className="attendance-student-row" style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             padding: '0.65rem 0.85rem', background: geldiMi ? '#F8FAFC' : '#FFF5F5',
                             border: geldiMi ? '1px solid #F1F5F9' : '1px solid #FEE2E2', borderRadius: '8px',
@@ -2085,7 +2111,7 @@ export default function KurumKulupler() {
                             </div>
 
                             {/* Geldi/Gelmedi Buton Grubu */}
-                            <div style={{ display: 'flex', gap: '4px' }}>
+                            <div className="attendance-buttons" style={{ display: 'flex', gap: '4px' }}>
                               <button
                                 onClick={() => setGelenlerMap(prev => ({ ...prev, [o.id]: true }))}
                                 style={{
