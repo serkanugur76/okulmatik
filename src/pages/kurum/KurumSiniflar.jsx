@@ -68,6 +68,7 @@ export default function KurumSiniflar() {
   const [acikKampusler, setAcikKampusler] = useState({})
   const [acikSeviyeler, setAcikSeviyeler] = useState({})   // `${kurumId}_${seviye}` → bool
   const [rubrikModal, setRubrikModal]     = useState(null) // { sinif, rubrikler, aktifBrans }
+  const [detayModal, setDetayModal]       = useState(null) // sinif
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [modal, setModal]               = useState(false)
@@ -514,9 +515,13 @@ export default function KurumSiniflar() {
                                   const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye))
                                   return (
                                     <tr key={sinif.id}>
-                                      <td style={{ ...s.td, paddingLeft: '2rem' }}><strong>{sinif.ad}</strong></td>
+                                      <td style={{ ...s.td, paddingLeft: '2rem', cursor: 'pointer' }} onClick={() => setDetayModal(sinif)}>
+                                        <strong style={{ color: '#1B3A6B', textDecoration: 'underline' }}>{sinif.ad}</strong>
+                                      </td>
                                       <td style={s.td}>{sinif.sube || '—'}</td>
-                                      <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center' }}>{sinifOgrenciSayisi}</td>
+                                      <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center', cursor: 'pointer' }} onClick={() => setDetayModal(sinif)}>
+                                        <span style={{ textDecoration: 'underline' }}>{sinifOgrenciSayisi}</span>
+                                      </td>
                                       <td style={s.td}>
                                         <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
                                           {/* ── R — Rubrikler butonu ── */}
@@ -555,6 +560,7 @@ export default function KurumSiniflar() {
                                       </td>
                                       <td style={s.td}>
                                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                          <button style={{ ...s.eylem, color: '#1B3A6B', borderColor: '#BFDBFE', fontWeight: 'bold' }} onClick={() => setDetayModal(sinif)}>📄 Detay</button>
                                           <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
                                           <button style={{ ...s.eylem, color: '#7C3AED', borderColor: '#DDD6FE' }} onClick={() => ogretmenAc(sinif)}>👤 Öğretmen</button>
                                           <button style={{ ...s.eylem, color: '#065F46', borderColor: '#A7F3D0' }} onClick={() => importAc(sinif)}>📥 Toplu Ekle</button>
@@ -636,8 +642,8 @@ export default function KurumSiniflar() {
                                     }}>
                                       {/* Sınıf Adı, Şube, Öğrenci Sayısı ve ⋮ İşlem Butonu */}
                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                          <span style={{ fontSize: '1rem', fontWeight: '800', color: '#1B3A6B' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }} onClick={() => setDetayModal(sinif)}>
+                                          <span style={{ fontSize: '1rem', fontWeight: '800', color: '#1B3A6B', textDecoration: 'underline' }}>
                                             {sinif.ad}
                                           </span>
                                           <span style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
@@ -646,8 +652,8 @@ export default function KurumSiniflar() {
                                         </div>
                                         
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                            <span style={{ fontSize: '1.125rem', fontWeight: '800', color: '#1B3A6B' }}>
+                                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', cursor: 'pointer' }} onClick={() => setDetayModal(sinif)}>
+                                            <span style={{ fontSize: '1.125rem', fontWeight: '800', color: '#1B3A6B', textDecoration: 'underline' }}>
                                               {sinifOgrenciSayisi}
                                             </span>
                                             <span style={{ fontSize: '0.62rem', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>
@@ -681,11 +687,17 @@ export default function KurumSiniflar() {
                                                   position: 'absolute', right: 0, top: '100%', marginTop: '6px',
                                                   backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px',
                                                   boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                                                  zIndex: 9999, minWidth: '150px', padding: '4px', display: 'flex', flexDirection: 'column'
+                                                  zIndex: 9999, minWidth: '170px', padding: '4px', display: 'flex', flexDirection: 'column'
                                                 }}>
                                                   <button
+                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); setDetayModal(sinif); }}
+                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#1B3A6B' }}
+                                                  >
+                                                    📄 Sınıf Detayı & Öğrenciler
+                                                  </button>
+                                                  <button
                                                     onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); modalAc(sinif); }}
-                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#1E293B' }}
+                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#475569' }}
                                                   >
                                                     ✏️ Düzenle
                                                   </button>
@@ -772,6 +784,19 @@ export default function KurumSiniflar() {
                                           </span>
                                         )}
                                       </div>
+
+                                      {/* Öğrenci Listesi Göster Butonu */}
+                                      <button
+                                        onClick={() => setDetayModal(sinif)}
+                                        style={{
+                                          width: '100%', padding: '8px 12px', background: '#EFF6FF', border: '1px solid #BFDBFE',
+                                          borderRadius: '8px', color: '#1E40AF', fontSize: '0.8rem', fontWeight: '700',
+                                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                          marginTop: '6px'
+                                        }}
+                                      >
+                                        📄 Öğrenci Listesini Göster ({sinifOgrenciSayisi} Öğrenci)
+                                      </button>
                                     </div>
                                   )
                                 })}
@@ -889,6 +914,120 @@ export default function KurumSiniflar() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── Sınıf Detay (Öğretmen ve Öğrenci Listesi) Modalı ── */}
+      {detayModal && (() => {
+        const sinif = detayModal
+        const sinifOgrencileri = (ogrencilerMap[sinif._kurumId] || [])
+          .filter(o => o.sinifId === sinif.id)
+          .sort((a, b) => {
+            const noA = Number(a.ogrenciNo) || 0
+            const noB = Number(b.ogrenciNo) || 0
+            if (noA !== 0 && noB !== 0) return noA - noB
+            if (noA !== 0) return -1
+            if (noB !== 0) return 1
+            return `${a.ad} ${a.soyad}`.localeCompare(`${b.ad} ${b.soyad}`, 'tr')
+          })
+
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem' }}
+            onClick={e => e.target === e.currentTarget && setDetayModal(null)}>
+            <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '640px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+              
+              {/* Başlık */}
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '1.125rem', fontWeight: '800', color: '#1B3A6B' }}>{sinif.ad} Sınıf Detayları</div>
+                  <div style={{ fontSize: '0.78rem', color: '#94A3B8' }}>{sinif._kurumAd || ''}</div>
+                </div>
+                <button onClick={() => setDetayModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: '#94A3B8', padding: '0.25rem', lineHeight: 1 }}>✕</button>
+              </div>
+
+              {/* İçerik Gövdesi */}
+              <div style={{ overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                
+                {/* 1. Bölüm: Sınıf Öğretmeni */}
+                <div>
+                  <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.625rem' }}>
+                    Sınıf Öğretmeni
+                  </h3>
+                  {sinif.ogretmenAd ? (
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#F3E8FF', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                        👤
+                      </div>
+                      <div>
+                        <strong style={{ fontSize: '0.95rem', color: '#1E293B', display: 'block' }}>{sinif.ogretmenAd}</strong>
+                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '2px', fontSize: '0.78rem', color: '#64748B' }}>
+                          {sinif.ogretmenMail && <span>✉️ {sinif.ogretmenMail}</span>}
+                          {sinif.ogretmenTel && <span>📞 {sinif.ogretmenTel}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '12px', padding: '1rem', color: '#B45309', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      ⚠️ Sınıfa atanmış bir sınıf öğretmeni bulunmuyor.
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Bölüm: Öğrenci Listesi */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Öğrenci Listesi
+                    </h3>
+                    <span style={{ fontSize: '0.75rem', background: '#DBEAFE', color: '#1E40AF', padding: '2px 8px', borderRadius: '999px', fontWeight: '700' }}>
+                      {sinifOgrencileri.length} Öğrenci
+                    </span>
+                  </div>
+
+                  {sinifOgrencileri.length === 0 ? (
+                    <div style={{ padding: '2.5rem', textAlign: 'center', color: '#94A3B8', border: '1.5px dashed #E2E8F0', borderRadius: '12px' }}>
+                      Bu sınıfta henüz kayıtlı öğrenci bulunmuyor.
+                    </div>
+                  ) : (
+                    <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden' }}>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                          <thead>
+                            <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                              <th style={{ padding: '0.6rem 0.875rem', textAlign: 'left', fontWeight: '600', color: '#64748B', width: '60px' }}>No</th>
+                              <th style={{ padding: '0.6rem 0.875rem', textAlign: 'left', fontWeight: '600', color: '#64748B' }}>Adı Soyadı</th>
+                              <th style={{ padding: '0.6rem 0.875rem', textAlign: 'left', fontWeight: '600', color: '#64748B' }}>Veli Bilgileri</th>
+                              <th style={{ padding: '0.6rem 0.875rem', textAlign: 'left', fontWeight: '600', color: '#64748B' }}>E-posta</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sinifOgrencileri.map((o, idx) => (
+                              <tr key={o.id} style={{ borderBottom: idx === sinifOgrencileri.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
+                                <td style={{ padding: '0.6rem 0.875rem', color: '#64748B', fontWeight: '600' }}>{o.ogrenciNo || '—'}</td>
+                                <td style={{ padding: '0.6rem 0.875rem', fontWeight: '700', color: '#1E293B' }}>{o.ad} {o.soyad}</td>
+                                <td style={{ padding: '0.6rem 0.875rem', fontSize: '0.78rem', color: '#475569' }}>
+                                  {(o.anneAdSoyad || o.anneTelefon) && (
+                                    <div>👩‍👦 {o.anneAdSoyad || 'Anne'} {o.anneTelefon ? `(${o.anneTelefon})` : ''}</div>
+                                  )}
+                                  {(o.babaAdSoyad || o.babaTelefon) && (
+                                    <div style={{ marginTop: '2px' }}>👨‍👦 {o.babaAdSoyad || 'Baba'} {o.babaTelefon ? `(${o.babaTelefon})` : ''}</div>
+                                  )}
+                                  {!o.anneAdSoyad && !o.anneTelefon && !o.babaAdSoyad && !o.babaTelefon && '—'}
+                                </td>
+                                <td style={{ padding: '0.6rem 0.875rem', color: '#64748B', fontSize: '0.78rem' }}>{o.email || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
             </div>
           </div>
         )
