@@ -402,7 +402,12 @@ export default function KurumKullanicilar() {
           }
           .modal-input {
             padding: 0.5rem 0.75rem !important;
-            font-size: 0.85rem !important;
+            font-size: 16px !important;
+          }
+          .modal-box input,
+          .modal-box select,
+          .modal-box textarea {
+            font-size: 16px !important;
           }
           .modal-label {
             font-size: 0.8rem !important;
