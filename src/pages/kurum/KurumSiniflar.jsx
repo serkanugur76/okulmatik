@@ -992,37 +992,13 @@ export default function KurumSiniflar() {
                       Bu sınıfta henüz kayıtlı öğrenci bulunmuyor.
                     </div>
                   ) : (
-                    <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden' }}>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                          <thead>
-                            <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                              <th style={{ padding: '0.6rem 0.875rem', textAlign: 'left', fontWeight: '600', color: '#64748B', width: '60px' }}>No</th>
-                              <th style={{ padding: '0.6rem 0.875rem', textAlign: 'left', fontWeight: '600', color: '#64748B' }}>Adı Soyadı</th>
-                              <th style={{ padding: '0.6rem 0.875rem', textAlign: 'left', fontWeight: '600', color: '#64748B' }}>Veli Bilgileri</th>
-                              <th style={{ padding: '0.6rem 0.875rem', textAlign: 'left', fontWeight: '600', color: '#64748B' }}>E-posta</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sinifOgrencileri.map((o, idx) => (
-                              <tr key={o.id} style={{ borderBottom: idx === sinifOgrencileri.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
-                                <td style={{ padding: '0.6rem 0.875rem', color: '#64748B', fontWeight: '600' }}>{o.ogrenciNo || '—'}</td>
-                                <td style={{ padding: '0.6rem 0.875rem', fontWeight: '700', color: '#1E293B' }}>{o.ad} {o.soyad}</td>
-                                <td style={{ padding: '0.6rem 0.875rem', fontSize: '0.78rem', color: '#475569' }}>
-                                  {(o.anneAdSoyad || o.anneTelefon) && (
-                                    <div>👩‍👦 {o.anneAdSoyad || 'Anne'} {o.anneTelefon ? `(${o.anneTelefon})` : ''}</div>
-                                  )}
-                                  {(o.babaAdSoyad || o.babaTelefon) && (
-                                    <div style={{ marginTop: '2px' }}>👨‍👦 {o.babaAdSoyad || 'Baba'} {o.babaTelefon ? `(${o.babaTelefon})` : ''}</div>
-                                  )}
-                                  {!o.anneAdSoyad && !o.anneTelefon && !o.babaAdSoyad && !o.babaTelefon && '—'}
-                                </td>
-                                <td style={{ padding: '0.6rem 0.875rem', color: '#64748B', fontSize: '0.78rem' }}>{o.email || '—'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem' }}>
+                      {sinifOgrencileri.map((o, idx) => (
+                        <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#64748B', minWidth: '20px' }}>{idx + 1}.</span>
+                          <span style={{ fontSize: '0.875rem', fontWeight: '700', color: '#1E293B' }}>{o.ad} {o.soyad}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
