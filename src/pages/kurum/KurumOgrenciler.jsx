@@ -217,7 +217,19 @@ export default function KurumOgrenciler() {
     if (!ilkEslesenOgrenciId) return
 
     const timer = setTimeout(() => {
-      const el = document.querySelector(`[data-ogrenci-id="${ilkEslesenOgrenciId}"]`)
+      const elements = document.querySelectorAll(`[data-ogrenci-id="${ilkEslesenOgrenciId}"]`)
+      let el = null
+      for (const item of elements) {
+        const rect = item.getBoundingClientRect()
+        if (rect.width > 0 || rect.height > 0) {
+          el = item
+          break
+        }
+      }
+      if (!el && elements.length > 0) {
+        el = elements[0]
+      }
+
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
@@ -330,6 +342,10 @@ export default function KurumOgrenciler() {
           })
           const sinifsizilar = tumOgrenciler.filter(o => !o.sinifId)
 
+          if (aramaMetni.trim() !== '' && tumOgrenciler.length === 0) {
+            return null
+          }
+
           return (
             <div key={k.id} style={{ background: '#fff', borderRadius: cokluKampus ? '8px' : '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
               <div className="school-header" onClick={() => setAcikGruplar(prev => ({ ...prev, [k.id]: !acik }))}
@@ -346,6 +362,9 @@ export default function KurumOgrenciler() {
                       .filter(o => o.sinifId === sinif.id)
                       .sort((a, b) => { const ad = (a.ad || '').localeCompare(b.ad || '', 'tr'); return ad !== 0 ? ad : (a.soyad || '').localeCompare(b.soyad || '', 'tr') })
                     const sinifAcik = aramaMetni.trim() !== '' ? sinifOgrenciler.length > 0 : sinifAcikMi(k.id, sinif.id)
+                    if (aramaMetni.trim() !== '' && sinifOgrenciler.length === 0) {
+                      return null
+                    }
                     return (
                       <div key={sinif.id} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden' }}>
                         <div className="class-header" onClick={() => sinifToggle(k.id, sinif.id)}
@@ -614,6 +633,9 @@ export default function KurumOgrenciler() {
               const kToplamOgrenci = altlar.reduce((a, k) => a + (ogrencilerMap[k.id] || []).filter(o =>
                 normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)
               ).length, 0)
+              if (aramaMetni.trim() !== '' && kToplamOgrenci === 0) {
+                return null
+              }
               if (!cokluKampus) return altlar.map(k => renderAltKurum(k))
               const kampusAcik = aramaMetni.trim() !== '' ? kToplamOgrenci > 0 : !!acikKampusler[kampus.id]
               return (
