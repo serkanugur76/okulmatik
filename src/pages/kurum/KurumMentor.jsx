@@ -602,6 +602,7 @@ export default function KurumMentor() {
 
     return (
       <div>
+        {styleBlock}
         <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:'2rem', flexWrap:'wrap', gap:'1rem' }}>
           <div>
             <h1 style={{ fontSize:'1.5rem', fontWeight:'700', color:'#1E293B', marginBottom:'0.25rem' }}>Mentor Öğrencilerim</h1>
