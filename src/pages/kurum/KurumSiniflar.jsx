@@ -386,6 +386,34 @@ export default function KurumSiniflar() {
 
   return (
     <div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 768px) {
+          .desktop-table-container {
+            display: none !important;
+          }
+          .mobile-cards-container {
+            display: flex !important;
+            flex-direction: column;
+          }
+          .modal-box {
+            max-height: 85vh !important;
+            padding: 1.25rem !important;
+            width: 95% !important;
+          }
+          .modal-input,
+          select, input, textarea {
+            font-size: 16px !important;
+          }
+        }
+        @media (min-width: 769px) {
+          .desktop-table-container {
+            display: block !important;
+          }
+          .mobile-cards-container {
+            display: none !important;
+          }
+        }
+      `}} />
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Sınıflar</h1>
       <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Sınıf ve şube yönetimi</p>
 
@@ -446,99 +474,314 @@ export default function KurumSiniflar() {
                 const seviyeleri = [...new Set(grupSiniflar.map(sf => sf.seviye || ''))].sort((a, b) => (Number(a)||99) - (Number(b)||99))
                 const seviyeGruplari = seviyeleri.map(sev => ({ seviye: sev, siniflar: grupSiniflar.filter(sf => (sf.seviye || '') === sev) }))
                 return (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>{['Sınıf Adı', 'Şube', 'Öğrenci', 'Modüller', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
-                    </thead>
-                    <tbody>
+                  <>
+                    {/* Desktop Table View */}
+                    <div className="desktop-table-container">
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>{['Sınıf Adı', 'Şube', 'Öğrenci', 'Modüller', 'Öğretmen', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                        </thead>
+                        <tbody>
+                          {grupSiniflar.length === 0 ? (
+                            <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
+                          ) : seviyeGruplari.map(({ seviye: sev, siniflar: sevSiniflar }) => {
+                            const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length, 0)
+                            const seviyeNo = Number(sev) || 0
+                            const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
+                            const sevKey = `${k.id}_${sev}`
+                            const sevAcik = !!acikSeviyeler[sevKey]
+                            return (
+                              <React.Fragment key={`sev-${sev}`}>
+                                <tr onClick={() => setAcikSeviyeler(prev => ({ ...prev, [sevKey]: !prev[sevKey] }))}
+                                  style={{ cursor: 'pointer', userSelect: 'none' }}>
+                                  <td colSpan={6} style={{ padding: '0.5rem 1rem', background: '#F1F5F9', borderTop: '2px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: '0.65rem', color: '#94A3B8' }}>{sevAcik ? '▼' : '▶'}</span>
+                                      <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>{sev ? `${sev}. Sınıf` : 'Seviyesiz'}</span>
+                                      <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{sevSiniflar.length} şube · {sevSayiOgrenci} öğrenci</span>
+                                      {sevRubrikler.length > 0 && (
+                                        <span title={`${sevRubrikler.length} rubrik atandı`}
+                                          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg,#6366F1,#4338CA)', color: '#fff', fontSize: '0.72rem', fontWeight: '800', fontFamily: 'Georgia,serif', flexShrink: 0 }}>
+                                          R
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                                {sevAcik && sevSiniflar.map(sinif => {
+                                  const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
+                                  const sinifSeviye = Number(sinif.seviye) || 0
+                                  const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye))
+                                  return (
+                                    <tr key={sinif.id}>
+                                      <td style={{ ...s.td, paddingLeft: '2rem' }}><strong>{sinif.ad}</strong></td>
+                                      <td style={s.td}>{sinif.sube || '—'}</td>
+                                      <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center' }}>{sinifOgrenciSayisi}</td>
+                                      <td style={s.td}>
+                                        <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+                                          {/* ── R — Rubrikler butonu ── */}
+                                          {sinifSeviye > 0 && sinifRubrikler.length > 0 ? (
+                                            <button
+                                              title="Rubrikleri görüntüle"
+                                              onClick={() => {
+                                                const branslar = [...new Set(sinifRubrikler.map(r => r.ders || 'Diğer'))]
+                                                setRubrikModal({ sinif, rubrikler: sinifRubrikler, aktifBrans: branslar[0] })
+                                              }}
+                                              style={{
+                                                width: '32px', height: '32px', borderRadius: '50%', border: 'none',
+                                                background: 'linear-gradient(135deg,#6366F1,#4338CA)', color: '#fff',
+                                                fontSize: '0.9rem', fontWeight: '800', fontFamily: 'Georgia,serif',
+                                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                boxShadow: '0 2px 8px rgba(99,102,241,0.35)', flexShrink: 0,
+                                                transition: 'transform 0.1s, box-shadow 0.1s',
+                                              }}
+                                              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(99,102,241,0.5)' }}
+                                              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)';   e.currentTarget.style.boxShadow = '0 2px 8px rgba(99,102,241,0.35)' }}>
+                                              R
+                                            </button>
+                                          ) : (
+                                            <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td style={s.td}>
+                                        {sinif.ogretmenAd ? (
+                                          <div style={{ fontSize: '0.8rem', lineHeight: '1.5' }}>
+                                            <div style={{ fontWeight: '600', color: '#1E293B' }}>👤 {sinif.ogretmenAd}</div>
+                                            {sinif.ogretmenMail && <div style={{ color: '#64748B' }}>✉ {sinif.ogretmenMail}</div>}
+                                            {sinif.ogretmenTel  && <div style={{ color: '#64748B' }}>📞 {sinif.ogretmenTel}</div>}
+                                          </div>
+                                        ) : <span style={{ fontSize: '0.8rem', color: '#CBD5E1' }}>—</span>}
+                                      </td>
+                                      <td style={s.td}>
+                                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                          <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
+                                          <button style={{ ...s.eylem, color: '#7C3AED', borderColor: '#DDD6FE' }} onClick={() => ogretmenAc(sinif)}>👤 Öğretmen</button>
+                                          <button style={{ ...s.eylem, color: '#065F46', borderColor: '#A7F3D0' }} onClick={() => importAc(sinif)}>📥 Toplu Ekle</button>
+                                          <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sinif)}>Sil</button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </React.Fragment>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="mobile-cards-container" style={{ display: 'none', flexDirection: 'column', background: '#F8FAFC' }}>
                       {grupSiniflar.length === 0 ? (
-                        <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
+                        <div style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8' }}>Henüz sınıf eklenmemiş</div>
                       ) : seviyeGruplari.map(({ seviye: sev, siniflar: sevSiniflar }) => {
                         const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length, 0)
                         const seviyeNo = Number(sev) || 0
                         const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
                         const sevKey = `${k.id}_${sev}`
                         const sevAcik = !!acikSeviyeler[sevKey]
+
                         return (
-                          <React.Fragment key={`sev-${sev}`}>
-                            <tr onClick={() => setAcikSeviyeler(prev => ({ ...prev, [sevKey]: !prev[sevKey] }))}
-                              style={{ cursor: 'pointer', userSelect: 'none' }}>
-                              <td colSpan={6} style={{ padding: '0.5rem 1rem', background: '#F1F5F9', borderTop: '2px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                  <span style={{ fontSize: '0.65rem', color: '#94A3B8' }}>{sevAcik ? '▼' : '▶'}</span>
-                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>{sev ? `${sev}. Sınıf` : 'Seviyesiz'}</span>
-                                  <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{sevSiniflar.length} şube · {sevSayiOgrenci} öğrenci</span>
-                                  {sevRubrikler.length > 0 && (
-                                    <span title={`${sevRubrikler.length} rubrik atandı`}
-                                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg,#6366F1,#4338CA)', color: '#fff', fontSize: '0.72rem', fontWeight: '800', fontFamily: 'Georgia,serif', flexShrink: 0 }}>
-                                      R
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                            {sevAcik && sevSiniflar.map(sinif => {
-                              const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
-                              const sinifSeviye = Number(sinif.seviye) || 0
-                              const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye))
-                              return (
-                                <tr key={sinif.id}>
-                                  <td style={{ ...s.td, paddingLeft: '2rem' }}><strong>{sinif.ad}</strong></td>
-                                  <td style={s.td}>{sinif.sube || '—'}</td>
-                                  <td style={{ ...s.td, fontWeight: '700', color: '#1B3A6B', fontSize: '1rem', textAlign: 'center' }}>{sinifOgrenciSayisi}</td>
-                                  <td style={s.td}>
-                                    <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
-                                      {/* ── R — Rubrikler butonu ── */}
-                                      {sinifSeviye > 0 && sinifRubrikler.length > 0 ? (
-                                        <button
-                                          title="Rubrikleri görüntüle"
-                                          onClick={() => {
-                                            const branslar = [...new Set(sinifRubrikler.map(r => r.ders || 'Diğer'))]
-                                            setRubrikModal({ sinif, rubrikler: sinifRubrikler, aktifBrans: branslar[0] })
-                                          }}
-                                          style={{
-                                            width: '32px', height: '32px', borderRadius: '50%', border: 'none',
-                                            background: 'linear-gradient(135deg,#6366F1,#4338CA)', color: '#fff',
-                                            fontSize: '0.9rem', fontWeight: '800', fontFamily: 'Georgia,serif',
-                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            boxShadow: '0 2px 8px rgba(99,102,241,0.35)', flexShrink: 0,
-                                            transition: 'transform 0.1s, box-shadow 0.1s',
-                                          }}
-                                          onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(99,102,241,0.5)' }}
-                                          onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)';   e.currentTarget.style.boxShadow = '0 2px 8px rgba(99,102,241,0.35)' }}>
-                                          R
-                                        </button>
-                                      ) : (
-                                        <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
-                                      )}
-                                      {/* İleride diğer modül butonları buraya eklenir (Ş, G, M…) */}
-                                    </div>
-                                  </td>
-                                  <td style={s.td}>
-                                    {sinif.ogretmenAd ? (
-                                      <div style={{ fontSize: '0.8rem', lineHeight: '1.5' }}>
-                                        <div style={{ fontWeight: '600', color: '#1E293B' }}>👤 {sinif.ogretmenAd}</div>
-                                        {sinif.ogretmenMail && <div style={{ color: '#64748B' }}>✉ {sinif.ogretmenMail}</div>}
-                                        {sinif.ogretmenTel  && <div style={{ color: '#64748B' }}>📞 {sinif.ogretmenTel}</div>}
+                          <div key={`sev-mob-${sev}`} style={{ display: 'flex', flexDirection: 'column' }}>
+                            {/* Seviye Başlığı */}
+                            <div 
+                              onClick={() => setAcikSeviyeler(prev => ({ ...prev, [sevKey]: !prev[sevKey] }))}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '0.75rem 1rem',
+                                background: '#EFF6FF',
+                                borderBottom: '1px solid #DBEAFE',
+                                borderTop: '1px solid #DBEAFE',
+                                cursor: 'pointer',
+                                userSelect: 'none'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                                <span style={{ fontSize: '0.75rem', color: '#3B82F6' }}>{sevAcik ? '▼' : '▶'}</span>
+                                <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1E40AF' }}>
+                                  {sev ? `${sev}. Sınıf` : 'Seviyesiz'}
+                                </span>
+                                {sevRubrikler.length > 0 && (
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', background: 'linear-gradient(135deg,#6366F1,#4338CA)', color: '#fff', fontSize: '0.65rem', fontWeight: '800', fontFamily: 'Georgia,serif' }}>
+                                    R
+                                  </span>
+                                )}
+                              </div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>
+                                {sevSiniflar.length} Şube · {sevSayiOgrenci} Öğr
+                              </span>
+                            </div>
+
+                            {/* Seviyenin Sınıfları */}
+                            {sevAcik && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#F8FAFC', padding: '0.5rem' }}>
+                                {sevSiniflar.map(sinif => {
+                                  const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
+                                  const sinifSeviye = Number(sinif.seviye) || 0
+                                  const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye))
+                                  
+                                  return (
+                                    <div key={sinif.id} style={{
+                                      background: '#fff',
+                                      borderRadius: '12px',
+                                      border: '1.5px solid #E2E8F0',
+                                      padding: '1rem',
+                                      boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '0.75rem'
+                                    }}>
+                                      {/* Sınıf Adı, Şube, Öğrenci Sayısı ve ⋮ İşlem Butonu */}
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                          <span style={{ fontSize: '1rem', fontWeight: '800', color: '#1B3A6B' }}>
+                                            {sinif.ad}
+                                          </span>
+                                          <span style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
+                                            Şube: <strong style={{ color: '#1E293B' }}>{sinif.sube || '—'}</strong>
+                                          </span>
+                                        </div>
+                                        
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                            <span style={{ fontSize: '1.125rem', fontWeight: '800', color: '#1B3A6B' }}>
+                                              {sinifOgrenciSayisi}
+                                            </span>
+                                            <span style={{ fontSize: '0.62rem', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>
+                                              ÖĞRENCİ
+                                            </span>
+                                          </div>
+
+                                          {/* Sınıf Eylemleri Menüsü */}
+                                          <div style={{ position: 'relative' }}>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenMenuId(openMenuId === sinif.id ? null : sinif.id);
+                                              }}
+                                              style={{
+                                                background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px',
+                                                padding: '6px 10px', fontSize: '1rem', cursor: 'pointer', color: '#475569',
+                                                fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                              }}
+                                            >
+                                              ⋮
+                                            </button>
+                                            {openMenuId === sinif.id && (
+                                              <>
+                                                <div 
+                                                  onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); }}
+                                                  style={{ position: 'fixed', inset: 0, zIndex: 9998 }} 
+                                                />
+                                                <div style={{
+                                                  position: 'absolute', right: 0, top: '100%', marginTop: '6px',
+                                                  backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px',
+                                                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                                                  zIndex: 9999, minWidth: '150px', padding: '4px', display: 'flex', flexDirection: 'column'
+                                                }}>
+                                                  <button
+                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); modalAc(sinif); }}
+                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#1E293B' }}
+                                                  >
+                                                    ✏️ Düzenle
+                                                  </button>
+                                                  <button
+                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); ogretmenAc(sinif); }}
+                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#7C3AED' }}
+                                                  >
+                                                    👤 Öğretmen Ata
+                                                  </button>
+                                                  <button
+                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); importAc(sinif); }}
+                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#065F46' }}
+                                                  >
+                                                    📥 Toplu Öğrenci
+                                                  </button>
+                                                  <div style={{ height: '1px', background: '#F1F5F9', margin: '4px 0' }} />
+                                                  <button
+                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); sil(sinif); }}
+                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#991B1B' }}
+                                                  >
+                                                    🗑️ Sil
+                                                  </button>
+                                                </div>
+                                              </>
+                                            )}
+                                          </div>
+                                        </div>
                                       </div>
-                                    ) : <span style={{ fontSize: '0.8rem', color: '#CBD5E1' }}>—</span>}
-                                  </td>
-                                  <td style={s.td}>
-                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                      <button style={s.eylem} onClick={() => modalAc(sinif)}>Düzenle</button>
-                                      <button style={{ ...s.eylem, color: '#7C3AED', borderColor: '#DDD6FE' }} onClick={() => ogretmenAc(sinif)}>👤 Öğretmen</button>
-                                      <button style={{ ...s.eylem, color: '#065F46', borderColor: '#A7F3D0' }} onClick={() => importAc(sinif)}>📥 Toplu Ekle</button>
-                                      <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(sinif)}>Sil</button>
+
+                                      <div style={{ height: '1px', background: '#F1F5F9' }} />
+
+                                      {/* Sınıf Öğretmen Bilgisi */}
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                          Sınıf Öğretmeni
+                                        </span>
+                                        {sinif.ogretmenAd ? (
+                                          <div style={{ background: '#F8FAFC', borderRadius: '8px', padding: '8px 12px', border: '1px solid #F1F5F9' }}>
+                                            <strong style={{ fontSize: '0.85rem', color: '#1E293B', display: 'block' }}>
+                                              👤 {sinif.ogretmenAd}
+                                            </strong>
+                                            {sinif.ogretmenMail && (
+                                              <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block', marginTop: '2px' }}>
+                                                ✉️ {sinif.ogretmenMail}
+                                              </span>
+                                            )}
+                                            {sinif.ogretmenTel && (
+                                              <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block', marginTop: '2px' }}>
+                                                📞 {sinif.ogretmenTel}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span style={{ fontSize: '0.8rem', color: '#94A3B8', fontStyle: 'italic' }}>
+                                            Öğretmen atanmamış
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* Modüller (Rubrikler) */}
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', borderRadius: '8px', padding: '8px 12px', border: '1px solid #F1F5F9', marginTop: '4px' }}>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748B' }}>
+                                          Değerlendirme:
+                                        </span>
+                                        {sinifSeviye > 0 && sinifRubrikler.length > 0 ? (
+                                          <button
+                                            onClick={() => {
+                                              const branslar = [...new Set(sinifRubrikler.map(r => r.ders || 'Diğer'))]
+                                              setRubrikModal({ sinif, rubrikler: sinifRubrikler, aktifBrans: branslar[0] })
+                                            }}
+                                            style={{
+                                              display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                              padding: '4px 10px', borderRadius: '999px', border: 'none',
+                                              background: 'linear-gradient(135deg,#6366F1,#4338CA)', color: '#fff',
+                                              fontSize: '0.72rem', fontWeight: '800', cursor: 'pointer',
+                                              boxShadow: '0 2px 4px rgba(99,102,241,0.2)'
+                                            }}
+                                          >
+                                            <span>R</span> {sinifRubrikler.length} Rubrik Aç
+                                          </button>
+                                        ) : (
+                                          <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
+                                            Atanmış rubrik yok
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </React.Fragment>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
                         )
                       })}
-                    </tbody>
-                  </table>
+                    </div>
+                  </>
                 )
               })()}
             </div>
