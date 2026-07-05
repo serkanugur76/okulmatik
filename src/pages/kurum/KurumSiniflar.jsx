@@ -925,6 +925,33 @@ export default function KurumSiniflar() {
       {seciliOgrenci && (() => {
         const o = seciliOgrenci
         const harfler = `${o.ad?.[0] || ''}${o.soyad?.[0] || ''}`.toUpperCase()
+
+        const telTemizle = (tel) => {
+          if (!tel) return ''
+          return tel.toString().replace(/\D/g, '')
+        }
+
+        const telFormat = (tel) => {
+          if (!tel) return '—'
+          let clean = telTemizle(tel)
+          if (clean.length === 10 && clean.startsWith('5')) {
+            clean = '0' + clean
+          }
+          if (clean.length === 11 && clean.startsWith('0')) {
+            return `${clean.slice(0, 4)} ${clean.slice(4, 7)} ${clean.slice(7, 9)} ${clean.slice(9, 11)}`
+          }
+          return tel
+        }
+
+        const telLink = (tel) => {
+          if (!tel) return ''
+          let clean = telTemizle(tel)
+          if (clean.length === 10 && clean.startsWith('5')) {
+            clean = '0' + clean
+          }
+          return clean
+        }
+
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 210, padding: '1.5rem' }}
             onClick={e => e.target === e.currentTarget && setSeciliOgrenci(null)}>
@@ -969,8 +996,8 @@ export default function KurumSiniflar() {
                     </div>
                   </div>
                   {o.anneTelefon ? (
-                    <a href={`tel:${o.anneTelefon}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px', background: '#10B981', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.8rem', boxShadow: '0 2px 4px rgba(16,185,129,0.2)', transition: 'background 0.15s' }}>
-                      📞 Anneyi Ara ({o.anneTelefon})
+                    <a href={`tel:${telLink(o.anneTelefon)}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px', background: '#10B981', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.8rem', boxShadow: '0 2px 4px rgba(16,185,129,0.2)', transition: 'background 0.15s' }}>
+                      📞 Anneyi Ara ({telFormat(o.anneTelefon)})
                     </a>
                   ) : (
                     <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontStyle: 'italic', paddingLeft: '22px' }}>Telefon numarası tanımlanmamış</span>
@@ -987,8 +1014,8 @@ export default function KurumSiniflar() {
                     </div>
                   </div>
                   {o.babaTelefon ? (
-                    <a href={`tel:${o.babaTelefon}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px', background: '#3B82F6', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.8rem', boxShadow: '0 2px 4px rgba(59,130,246,0.2)', transition: 'background 0.15s' }}>
-                      📞 Babayı Ara ({o.babaTelefon})
+                    <a href={`tel:${telLink(o.babaTelefon)}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px', background: '#3B82F6', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.8rem', boxShadow: '0 2px 4px rgba(59,130,246,0.2)', transition: 'background 0.15s' }}>
+                      📞 Babayı Ara ({telFormat(o.babaTelefon)})
                     </a>
                   ) : (
                     <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontStyle: 'italic', paddingLeft: '22px' }}>Telefon numarası tanımlanmamış</span>
