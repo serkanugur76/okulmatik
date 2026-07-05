@@ -301,5 +301,9 @@ service cloud.firestore {
       allow read:   if request.auth != null;
       allow write:  if platformAdmin();
     }
+    match /versiyonlar/{versiyonId} {
+      allow read:   if request.auth != null;
+      allow write:  if platformAdmin();
+    }
   }
 }
