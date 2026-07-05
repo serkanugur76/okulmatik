@@ -487,7 +487,7 @@ export default function KurumKullanicilar() {
                       <strong style={{ color: '#1B3A6B' }}>{k.ad || '—'}</strong>
                       {/* Mobil Meta Bilgileri Alt Satırı */}
                       <div className="mobile-only-flex" style={{ display: 'none', fontSize: '0.7rem', color: '#64748B', marginTop: '4px', gap: '4px', flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <span>{k.email}</span>
+                        <span style={{ wordBreak: 'break-all' }}>{k.email}</span>
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
                           <span style={{ padding: '1px 8px', borderRadius: '999px', fontSize: '0.62rem', fontWeight: '700', background: rolBilgi.bg, color: rolBilgi.renk }}>
                             {rolBilgi.etiket}
@@ -734,7 +734,7 @@ export default function KurumKullanicilar() {
                   <tr key={k.id}>
                     <td style={s.td}>
                       <div>
-                        <strong>{k.email}</strong>
+                        <strong style={{ wordBreak: 'break-all', display: 'block' }}>{k.email}</strong>
                         <div className="mobile-only-flex" style={{ display: 'none', fontSize: '0.7rem', color: '#64748B', marginTop: '4px', gap: '6px', flexDirection: 'column' }}>
                           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                             <span style={{ padding: '1px 8px', borderRadius: '999px', fontSize: '0.62rem', fontWeight: '700', background: rolBilgi.bg, color: rolBilgi.renk }}>
