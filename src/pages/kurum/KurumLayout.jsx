@@ -44,6 +44,8 @@ const ADMIN_MENULER = [
 // Öğretmen sadece bu menüleri görür
 const OGRETMEN_MENULER = [
   { yol: '/kurum',                   etiket: 'Dashboard',        ikon: '📊' },
+  { yol: '/kurum/siniflar',          etiket: 'Sınıflar',         ikon: '🏫' },
+  { yol: '/kurum/ogrenciler',        etiket: 'Öğrenciler',       ikon: '🎒' },
   {
     etiket: 'Rubrik Yönetimi',
     ikon: '📝',

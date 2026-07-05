@@ -32,7 +32,7 @@ const ŞABLON_BAŞLIKLAR = ['ÖĞRENCİ AD / SOYAD', 'TC NO', 'Sınıf/Şb', 'AN
 const ŞABLON_ÖRNEK    = ['Ali Yılmaz', '12345678901', '5-A', 'Ayşe Yılmaz', '0555 111 22 33', 'Ahmet Yılmaz', '0555 000 00 00', 'ali.yilmaz@okul.com']
 
 export default function KurumSiniflar() {
-  const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
+  const { secilenKurumId, secilenKurum, erisimKurumlar, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
   const { profil, kullanici, kurumId } = useAuth()
 
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
@@ -63,6 +63,22 @@ export default function KurumSiniflar() {
 
   const [siniflarMap, setSiniflarMap]     = useState({})
   const [ogrencilerMap, setOgrencilerMap] = useState({})  // kurumId → ogrenci[]
+
+  const getFilteredSiniflar = (kid) => {
+    const raw = siniflarMap[kid] || []
+    if (ogretmenModu) {
+      return raw.filter(s => ogretmenSinifIdleri.includes(s.id))
+    }
+    return raw
+  }
+
+  const getFilteredOgrenciler = (kid) => {
+    const raw = ogrencilerMap[kid] || []
+    if (ogretmenModu) {
+      return raw.filter(o => ogretmenSinifIdleri.includes(o.sinifId))
+    }
+    return raw
+  }
   const [rubriklerMap, setRubriklerMap]   = useState({})  // kurumId → rubrik[]
   const [acikGruplar, setAcikGruplar]     = useState({})
   const [acikKampusler, setAcikKampusler] = useState({})
@@ -375,8 +391,8 @@ export default function KurumSiniflar() {
   }
   function kurumAdi(k) { const u = erisimKurumlar.find(x => x.id === k.parentId); return u?.parentId ? `${u.ad} - ${k.ad}` : k.ad }
 
-  const toplamSinif    = sayimKurumlar.reduce((a, k) => a + (siniflarMap[k.id]?.length || 0), 0)
-  const toplamOgrenci  = sayimKurumlar.reduce((a, k) => a + (ogrencilerMap[k.id]?.length || 0), 0)
+  const toplamSinif    = sayimKurumlar.reduce((a, k) => a + getFilteredSiniflar(k.id).length, 0)
+  const toplamOgrenci  = sayimKurumlar.reduce((a, k) => a + getFilteredOgrenciler(k.id).length, 0)
 
   const s = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
@@ -424,7 +440,7 @@ export default function KurumSiniflar() {
         <span style={{ fontSize: '0.875rem', color: '#64748B' }}>
           {sayimKurumlar.length === 0 ? 'Sol menüden kurum seçin' : `${toplamSinif} sınıf · ${toplamOgrenci} öğrenci`}
         </span>
-        {listKurumId && (
+        {listKurumId && !ogretmenModu && (
           <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
             + Yeni Sınıf
           </button>
@@ -449,12 +465,12 @@ export default function KurumSiniflar() {
 
         // AltKurum kartı (ortak render)
         function renderAltKurum(k) {
-          const grupSiniflar = (siniflarMap[k.id] || []).slice().sort((a, b) => {
+          const grupSiniflar = getFilteredSiniflar(k.id).slice().sort((a, b) => {
             const sv = (Number(a.seviye) || 0) - (Number(b.seviye) || 0)
             return sv !== 0 ? sv : (a.sube || '').localeCompare(b.sube || '', 'tr')
           })
           const acik = acikGruplar[k.id] === true
-          const grupToplamOgrenci = (ogrencilerMap[k.id] || []).length
+          const grupToplamOgrenci = getFilteredOgrenciler(k.id).length
 
           return (
             <div key={k.id} style={{ background: '#fff', borderRadius: cokluKampus ? '8px' : '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
@@ -467,10 +483,12 @@ export default function KurumSiniflar() {
                   <span style={{ margin: '0 0.375rem', color: '#CBD5E1' }}>·</span>
                   {grupToplamOgrenci} öğrenci
                 </span>
-                <button onClick={e => { e.stopPropagation(); importKurumAc(k.id) }}
-                  style={{ marginLeft: '0.75rem', padding: '2px 10px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#065F46', cursor: 'pointer' }}>
-                  📥 Toplu Ekle
-                </button>
+                {!ogretmenModu && (
+                  <button onClick={e => { e.stopPropagation(); importKurumAc(k.id) }}
+                    style={{ marginLeft: '0.75rem', padding: '2px 10px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#065F46', cursor: 'pointer' }}>
+                    📥 Toplu Ekle
+                  </button>
+                )}
               </div>
 
               {acik && (() => {
@@ -488,7 +506,7 @@ export default function KurumSiniflar() {
                           {grupSiniflar.length === 0 ? (
                             <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>Henüz sınıf eklenmemiş</td></tr>
                           ) : seviyeGruplari.map(({ seviye: sev, siniflar: sevSiniflar }) => {
-                            const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length, 0)
+                            const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + getFilteredOgrenciler(k.id).filter(o => o.sinifId === sinif.id).length, 0)
                             const seviyeNo = Number(sev) || 0
                             const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
                             const sevKey = `${k.id}_${sev}`
@@ -512,7 +530,7 @@ export default function KurumSiniflar() {
                                   </td>
                                 </tr>
                                 {sevAcik && sevSiniflar.map(sinif => {
-                                  const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
+                                  const sinifOgrenciSayisi = getFilteredOgrenciler(k.id).filter(o => o.sinifId === sinif.id).length
                                   const sinifSeviye = Number(sinif.seviye) || 0
                                   const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye))
                                   return (
@@ -584,7 +602,7 @@ export default function KurumSiniflar() {
                       {grupSiniflar.length === 0 ? (
                         <div style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8' }}>Henüz sınıf eklenmemiş</div>
                       ) : seviyeGruplari.map(({ seviye: sev, siniflar: sevSiniflar }) => {
-                        const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length, 0)
+                        const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + getFilteredOgrenciler(k.id).filter(o => o.sinifId === sinif.id).length, 0)
                         const seviyeNo = Number(sev) || 0
                         const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
                         const sevKey = `${k.id}_${sev}`
@@ -627,7 +645,7 @@ export default function KurumSiniflar() {
                             {sevAcik && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#F8FAFC', padding: '0.5rem' }}>
                                 {sevSiniflar.map(sinif => {
-                                  const sinifOgrenciSayisi = (ogrencilerMap[k.id] || []).filter(o => o.sinifId === sinif.id).length
+                                  const sinifOgrenciSayisi = getFilteredOgrenciler(k.id).filter(o => o.sinifId === sinif.id).length
                                   const sinifSeviye = Number(sinif.seviye) || 0
                                   const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye))
                                   
@@ -697,31 +715,35 @@ export default function KurumSiniflar() {
                                                   >
                                                     📄 Sınıf Detayı & Öğrenciler
                                                   </button>
-                                                  <button
-                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); modalAc(sinif); }}
-                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#475569' }}
-                                                  >
-                                                    ✏️ Düzenle
-                                                  </button>
-                                                  <button
-                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); ogretmenAc(sinif); }}
-                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#7C3AED' }}
-                                                  >
-                                                    👤 Öğretmen Ata
-                                                  </button>
-                                                  <button
-                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); importAc(sinif); }}
-                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#065F46' }}
-                                                  >
-                                                    📥 Toplu Öğrenci
-                                                  </button>
-                                                  <div style={{ height: '1px', background: '#F1F5F9', margin: '4px 0' }} />
-                                                  <button
-                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); sil(sinif); }}
-                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#991B1B' }}
-                                                  >
-                                                    🗑️ Sil
-                                                  </button>
+                                                  {!ogretmenModu && (
+                                                    <>
+                                                      <button
+                                                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); modalAc(sinif); }}
+                                                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#475569' }}
+                                                      >
+                                                        ✏️ Düzenle
+                                                      </button>
+                                                      <button
+                                                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); ogretmenAc(sinif); }}
+                                                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#7C3AED' }}
+                                                      >
+                                                        👤 Öğretmen Ata
+                                                      </button>
+                                                      <button
+                                                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); importAc(sinif); }}
+                                                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#065F46' }}
+                                                      >
+                                                        📥 Toplu Öğrenci
+                                                      </button>
+                                                      <div style={{ height: '1px', background: '#F1F5F9', margin: '4px 0' }} />
+                                                      <button
+                                                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); sil(sinif); }}
+                                                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#991B1B' }}
+                                                      >
+                                                        🗑️ Sil
+                                                      </button>
+                                                    </>
+                                                  )}
                                                 </div>
                                               </>
                                             )}
@@ -823,8 +845,8 @@ export default function KurumSiniflar() {
                 return altlar.map(k => renderAltKurum(k))
               }
               const kampusAcik = !!acikKampusler[kampus.id]
-              const kToplamSinif   = altlar.reduce((a, k) => a + (siniflarMap[k.id]?.length || 0), 0)
-              const kToplamOgrenci = altlar.reduce((a, k) => a + (ogrencilerMap[k.id]?.length || 0), 0)
+              const kToplamSinif   = altlar.reduce((a, k) => a + getFilteredSiniflar(k.id).length, 0)
+              const kToplamOgrenci = altlar.reduce((a, k) => a + getFilteredOgrenciler(k.id).length, 0)
               return (
                 <div key={kampus.id} style={{ borderRadius: '12px', overflow: 'hidden', border: '1.5px solid #BFDBFE', background: '#fff' }}>
                   {/* Kampüs başlık */}
@@ -1032,7 +1054,7 @@ export default function KurumSiniflar() {
       {/* ── Sınıf Detay (Öğrenci Listesi) Modalı ── */}
       {detayModal && (() => {
         const sinif = detayModal
-        const sinifOgrencileri = (ogrencilerMap[sinif._kurumId] || [])
+        const sinifOgrencileri = getFilteredOgrenciler(sinif._kurumId)
           .filter(o => o.sinifId === sinif.id)
           .sort((a, b) => {
             const noA = Number(a.ogrenciNo) || 0

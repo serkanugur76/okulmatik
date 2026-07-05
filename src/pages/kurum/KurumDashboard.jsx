@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, getCountFromServer } from 'firebase/firestore'
+import { collection, getCountFromServer, query, where } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useMemo } from 'react'
@@ -30,7 +30,7 @@ function IstatKart({ baslik, deger, ikon, renk, altyazi }) {
 }
 
 export default function KurumDashboard() {
-  const { erisimKurumlar, secilenKurumId, secilenKurum, yukleniyor } = useKurumYonetim()
+  const { erisimKurumlar, secilenKurumId, secilenKurum, yukleniyor, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
   const [sayilar, setSayilar] = useState({ siniflar: null, ogrenciler: null, kullanicilar: null })
 
   // Seçili kurumun seviyesi
@@ -73,6 +73,26 @@ export default function KurumDashboard() {
 
     async function yukle() {
       try {
+        if (ogretmenModu) {
+          if (ogretmenSinifIdleri.length === 0) {
+            setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: null })
+            return
+          }
+          const sonuclar = await Promise.all(
+            sayimKurumlar.map(async (k) => {
+              const q = query(
+                collection(db, 'kurumlar', k.id, 'ogrenciler'),
+                where('sinifId', 'in', ogretmenSinifIdleri)
+              )
+              const snapshot = await getCountFromServer(q)
+              return snapshot.data().count
+            })
+          )
+          const toplamOgrenci = sonuclar.reduce((a, b) => a + b, 0)
+          setSayilar({ siniflar: ogretmenSinifIdleri.length, ogrenciler: toplamOgrenci, kullanicilar: null })
+          return
+        }
+
         const sonuclar = await Promise.all(
           sayimKurumlar.map(k => Promise.all([
             getCountFromServer(collection(db, 'kurumlar', k.id, 'siniflar')),
@@ -93,14 +113,14 @@ export default function KurumDashboard() {
       }
     }
     yukle()
-  }, [secilenKurumId, erisimKurumlar, yukleniyor]) // eslint-disable-line
+  }, [secilenKurumId, erisimKurumlar, yukleniyor, ogretmenModu, ogretmenSinifIdleri]) // eslint-disable-line
 
   return (
     <div>
       <div style={{ marginBottom: '2rem' }} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-        {seviye === 'root' && (
+        {seviye === 'root' && !ogretmenModu && (
           <IstatKart
             baslik="Kampüs"
             deger={kampusSayisi}
@@ -109,7 +129,7 @@ export default function KurumDashboard() {
             altyazi={`${sayimKurumlar.length} alt kurum`}
           />
         )}
-        {seviye === 'kampus' && (
+        {seviye === 'kampus' && !ogretmenModu && (
           <IstatKart
             baslik="Alt Kurum"
             deger={sayimKurumlar.length}
@@ -119,7 +139,7 @@ export default function KurumDashboard() {
         )}
         <IstatKart baslik="Sınıf"     deger={sayilar.siniflar}     ikon="🏫" renk="#1B3A6B" />
         <IstatKart baslik="Öğrenci"   deger={sayilar.ogrenciler}   ikon="🎒" renk="#0369A1" />
-        <IstatKart baslik="Kullanıcı" deger={sayilar.kullanicilar} ikon="👥" renk="#065F46" />
+        {!ogretmenModu && <IstatKart baslik="Kullanıcı" deger={sayilar.kullanicilar} ikon="👥" renk="#065F46" />}
       </div>
     </div>
   )

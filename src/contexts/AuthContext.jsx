@@ -90,7 +90,11 @@ export function AuthProvider({ children }) {
   }, [])
 
   const girisYap     = (email, sifre) => signInWithEmailAndPassword(auth, email, sifre)
-  const googleGiris  = ()             => signInWithPopup(auth, new GoogleAuthProvider())
+  const googleGiris  = ()             => {
+    const provider = new GoogleAuthProvider()
+    provider.setCustomParameters({ prompt: 'select_account' })
+    return signInWithPopup(auth, provider)
+  }
   const cikisYap     = ()             => signOut(auth)
   const sifreSifirla = (email)        => sendPasswordResetEmail(auth, email)
 

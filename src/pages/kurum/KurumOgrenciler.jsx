@@ -30,7 +30,7 @@ function parseSinif(ad) {
 }
 
 export default function KurumOgrenciler() {
-  const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
+  const { secilenKurumId, secilenKurum, erisimKurumlar, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
   const { profil, kullanici, kurumId } = useAuth()
 
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
@@ -61,6 +61,22 @@ export default function KurumOgrenciler() {
 
   const [ogrencilerMap, setOgrencilerMap] = useState({}) // { kurumId: ogrenci[] }
   const [siniflarMap, setSiniflarMap]     = useState({}) // { kurumId: sinif[] }
+
+  const getFilteredSiniflar = (kid) => {
+    const raw = siniflarMap[kid] || []
+    if (ogretmenModu) {
+      return raw.filter(s => ogretmenSinifIdleri.includes(s.id))
+    }
+    return raw
+  }
+
+  const getFilteredOgrenciler = (kid) => {
+    const raw = ogrencilerMap[kid] || []
+    if (ogretmenModu) {
+      return raw.filter(o => ogretmenSinifIdleri.includes(o.sinifId))
+    }
+    return raw
+  }
   const [acikGruplar, setAcikGruplar]     = useState({}) // { kurumId: bool } — alt kurum seviyesi
   const [acikKampusler, setAcikKampusler] = useState({}) // { kampusId: bool } — kampüs seviyesi
   const [acikSiniflar, setAcikSiniflar]   = useState({}) // { kurumId_sinifId: bool } — sınıf seviyesi
@@ -168,19 +184,19 @@ export default function KurumOgrenciler() {
   }, [kampusIdler, sayimKurumlar, erisimKurumlar])
 
   const cleanSearch = normalizeText(aramaMetni)
-  const toplamOgrenci = sayimKurumlar.reduce((acc, k) => acc + (ogrencilerMap[k.id] || []).filter(o => normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)).length, 0)
+  const toplamOgrenci = sayimKurumlar.reduce((acc, k) => acc + getFilteredOgrenciler(k.id).filter(o => normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)).length, 0)
 
   const ilkEslesenOgrenciId = useMemo(() => {
     if (!cleanSearch) return null
 
     for (const g of kampusGruplari) {
       for (const k of g.altlar) {
-        const tumOgrenciler = (ogrencilerMap[k.id] || []).filter(o =>
+        const tumOgrenciler = getFilteredOgrenciler(k.id).filter(o =>
           normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)
         )
         if (tumOgrenciler.length === 0) continue
 
-        const siniflar = (siniflarMap[k.id] || []).slice().sort((a, b) => {
+        const siniflar = getFilteredSiniflar(k.id).slice().sort((a, b) => {
           const sa = parseSinif(a.ad), sb = parseSinif(b.ad)
           return sa.n !== sb.n ? sa.n - sb.n : sa.h.localeCompare(sb.h, 'tr')
         })
@@ -321,7 +337,7 @@ export default function KurumOgrenciler() {
             {sayimKurumlar.length === 0 ? 'Sol menüden kurum seçin' : `${toplamOgrenci} öğrenci`}
           </span>
         </div>
-        {listKurumId && (
+        {listKurumId && !ogretmenModu && (
           <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             + Yeni Öğrenci
           </button>
@@ -332,11 +348,11 @@ export default function KurumOgrenciler() {
         const cokluKampus = kampusGruplari.length > 1
 
         function renderAltKurum(k) {
-          const tumOgrenciler = (ogrencilerMap[k.id] || []).filter(o =>
+          const tumOgrenciler = getFilteredOgrenciler(k.id).filter(o =>
             normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)
           )
           const acik = aramaMetni.trim() !== '' ? tumOgrenciler.length > 0 : acikGruplar[k.id] === true
-          const siniflar = (siniflarMap[k.id] || []).slice().sort((a, b) => {
+          const siniflar = getFilteredSiniflar(k.id).slice().sort((a, b) => {
             const sa = parseSinif(a.ad), sb = parseSinif(b.ad)
             return sa.n !== sb.n ? sa.n - sb.n : sa.h.localeCompare(sb.h, 'tr')
           })
@@ -385,22 +401,24 @@ export default function KurumOgrenciler() {
                             {/* Desktop View */}
                             <div className="ogrenciler-desktop-view">
                               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead><tr>{['Ad Soyad', 'TC No', 'Anne', 'Baba', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                                <thead><tr>{(ogretmenModu ? ['Ad Soyad', 'TC No', 'Anne', 'Baba'] : ['Ad Soyad', 'TC No', 'Anne', 'Baba', 'İşlemler']).map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
                                 <tbody>
                                   {sinifOgrenciler.length === 0
-                                    ? <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '1.5rem' }}>Bu sınıfta öğrenci yok</td></tr>
+                                    ? <tr><td colSpan={ogretmenModu ? 4 : 5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '1.5rem' }}>Bu sınıfta öğrenci yok</td></tr>
                                     : sinifOgrenciler.map(o => (
                                       <tr key={o.id} data-ogrenci-id={o.id}>
                                         <td style={s.td}><strong>{o.ad} {o.soyad}</strong></td>
                                         <td style={s.td}>{o.ogrenciNo || '—'}</td>
                                         <td style={s.td}>{o.anneAdSoyad ? `${o.anneAdSoyad}${o.anneTelefon ? ` · ${o.anneTelefon}` : ''}` : '—'}</td>
                                         <td style={s.td}>{o.babaAdSoyad ? `${o.babaAdSoyad}${o.babaTelefon ? ` · ${o.babaTelefon}` : ''}` : '—'}</td>
-                                        <td style={s.td}>
-                                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
-                                            <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
-                                          </div>
-                                        </td>
+                                        {!ogretmenModu && (
+                                          <td style={s.td}>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                              <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
+                                              <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
+                                            </div>
+                                          </td>
+                                        )}
                                       </tr>
                                     ))}
                                 </tbody>
@@ -432,10 +450,12 @@ export default function KurumOgrenciler() {
                                           No: {o.ogrenciNo || '—'}
                                         </div>
                                       </div>
-                                      <div style={{ display: 'flex', gap: '0.35rem' }}>
-                                        <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
-                                        <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
-                                      </div>
+                                      {!ogretmenModu && (
+                                        <div style={{ display: 'flex', gap: '0.35rem' }}>
+                                          <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
+                                          <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
+                                        </div>
+                                      )}
                                     </div>
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#F8FAFC', padding: '0.75rem', borderRadius: '8px' }}>
@@ -514,7 +534,7 @@ export default function KurumOgrenciler() {
                             {/* Desktop View */}
                             <div className="ogrenciler-desktop-view">
                               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead><tr>{['Ad Soyad', 'TC No', 'Anne', 'Baba', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                                <thead><tr>{(ogretmenModu ? ['Ad Soyad', 'TC No', 'Anne', 'Baba'] : ['Ad Soyad', 'TC No', 'Anne', 'Baba', 'İşlemler']).map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
                                 <tbody>
                                   {sinifsizilar.map(o => (
                                     <tr key={o.id} data-ogrenci-id={o.id}>
@@ -522,12 +542,14 @@ export default function KurumOgrenciler() {
                                       <td style={s.td}>{o.ogrenciNo || '—'}</td>
                                       <td style={s.td}>{o.anneAdSoyad ? `${o.anneAdSoyad}${o.anneTelefon ? ` · ${o.anneTelefon}` : ''}` : '—'}</td>
                                       <td style={s.td}>{o.babaAdSoyad ? `${o.babaAdSoyad}${o.babaTelefon ? ` · ${o.babaTelefon}` : ''}` : '—'}</td>
-                                      <td style={s.td}>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                          <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
-                                          <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
-                                        </div>
-                                      </td>
+                                      {!ogretmenModu && (
+                                        <td style={s.td}>
+                                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
+                                            <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
+                                          </div>
+                                        </td>
+                                      )}
                                     </tr>
                                   ))}
                                 </tbody>
@@ -556,10 +578,12 @@ export default function KurumOgrenciler() {
                                         No: {o.ogrenciNo || '—'}
                                       </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '0.35rem' }}>
-                                      <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
-                                      <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
-                                    </div>
+                                    {!ogretmenModu && (
+                                      <div style={{ display: 'flex', gap: '0.35rem' }}>
+                                        <button style={s.eylem} onClick={() => modalAc(o)}>Düzenle</button>
+                                        <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(o)}>Sil</button>
+                                      </div>
+                                    )}
                                   </div>
 
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#F8FAFC', padding: '0.75rem', borderRadius: '8px' }}>
@@ -630,7 +654,7 @@ export default function KurumOgrenciler() {
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {kampusGruplari.map(({ kampus, altlar }) => {
-              const kToplamOgrenci = altlar.reduce((a, k) => a + (ogrencilerMap[k.id] || []).filter(o =>
+              const kToplamOgrenci = altlar.reduce((a, k) => a + getFilteredOgrenciler(k.id).filter(o =>
                 normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)
               ).length, 0)
               if (aramaMetni.trim() !== '' && kToplamOgrenci === 0) {
