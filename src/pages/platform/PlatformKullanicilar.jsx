@@ -291,6 +291,14 @@ export default function PlatformKullanicilar() {
     <div>
       <style dangerouslySetInnerHTML={{ __html: `
         @media (max-width: 768px) {
+          .desktop-table-container {
+            display: none !important;
+          }
+          .mobile-cards-container {
+            display: flex !important;
+            flex-direction: column;
+            gap: 1rem;
+          }
           .platform-actions-bar {
             flex-direction: column !important;
             align-items: stretch !important;
@@ -332,6 +340,14 @@ export default function PlatformKullanicilar() {
             display: inline-flex !important;
           }
         }
+        @media (min-width: 769px) {
+          .mobile-cards-container {
+            display: none !important;
+          }
+          .desktop-table-container {
+            display: block !important;
+          }
+        }
       `}} />
 
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Kullanıcılar</h1>
@@ -360,7 +376,7 @@ export default function PlatformKullanicilar() {
         </button>
       </div>
 
-      <div className="table-wrapper" style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+      <div className="desktop-table-container" style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
         {sekme === 'aktif' ? (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -480,8 +496,32 @@ export default function PlatformKullanicilar() {
                             )}
                           </div>
                         </td>
-                        <td className="desktop-only" style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8', fontSize: '0.82rem' }}>
-                          {kurum?.ad || (k.kurumId ? k.kurumId : '— Atanmamış')}
+                        <td className="desktop-only" style={{ ...s.td, color: kurum ? '#1E293B' : '#94A3B8', fontSize: '0.82rem', verticalAlign: 'middle' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontWeight: '600' }}>{kurum?.ad || (k.kurumId ? k.kurumId : '— Atanmamış')}</span>
+                            {k.rol === 'ogretmen' && k.sinifAtamalari && k.sinifAtamalari.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '2px' }}>
+                                {k.sinifAtamalari.map((atama, idx) => {
+                                  const target = kurumlar.find(x => x.id === atama.kurumId)
+                                  if (!target) return null
+                                  return (
+                                    <span key={idx} style={{ 
+                                      fontSize: '0.62rem', 
+                                      background: '#ECFDF5', 
+                                      color: '#065F46', 
+                                      border: '1px solid #A7F3D0', 
+                                      padding: '1px 6px', 
+                                      borderRadius: '4px',
+                                      fontWeight: '600',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      🏫 {target.ad} ({atama.siniflar?.length || 0} Sınıf)
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td style={s.td} className="desktop-only">
                           {k.rol === 'ogretmen' && toplamSinif > 0
@@ -633,6 +673,290 @@ export default function PlatformKullanicilar() {
               })}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* Mobile representation (Cards) */}
+      <div className="mobile-cards-container" style={{ display: 'none' }}>
+        {sekme === 'aktif' ? (
+          aktifGruplar.length === 0 ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
+              Kullanıcı bulunamadı.
+            </div>
+          ) : (
+            aktifGruplar.map(grup => {
+              const acik = acikGruplar.has(grup.id)
+              return (
+                <div key={grup.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {/* Grup Başlığı */}
+                  <div
+                    onClick={() => toggleGrup(grup.id)}
+                    style={{
+                      cursor: 'pointer',
+                      background: '#F8FAFC',
+                      border: '1.5px solid #E2E8F0',
+                      borderRadius: '12px',
+                      padding: '0.75rem 1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{acik ? '▼' : '▶'}</span>
+                      <span style={{ fontSize: '0.75rem' }}>{grup.ikon}</span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1E293B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {grup.ad}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: '600' }}>
+                      {grup.kullanicilar.length} Kullanıcı
+                    </span>
+                  </div>
+
+                  {/* Grup Kullanıcıları */}
+                  {acik && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingLeft: '0.25rem', marginTop: '0.25rem', marginBottom: '1rem' }}>
+                      {grup.kullanicilar.map(k => {
+                        const rol = rolEtiketi(k, kurumlar)
+                        const kurum = kurumlar.find(x => x.id === k.kurumId)
+                        const koordinator = k.rol === 'ogretmen' && k.modulIzinler?.rubrik_olustur
+                        const toplamSinif = (k.sinifAtamalari || []).reduce((t, a) => t + (a.siniflar?.length || 0), 0)
+                        
+                        return (
+                          <div key={k.id} style={{
+                            background: '#fff',
+                            border: '1.5px solid #E2E8F0',
+                            borderRadius: '16px',
+                            padding: '1.25rem',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.85rem'
+                          }}>
+                            {/* Üst Bilgi */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
+                                {k.photoURL ? (
+                                  <img
+                                    src={k.photoURL}
+                                    alt="Avatar"
+                                    style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #E2E8F0', flexShrink: 0 }}
+                                  />
+                                ) : (
+                                  <div style={{
+                                    width: '40px', height: '40px', borderRadius: '50%',
+                                    background: '#E0F2FE', color: '#0369A1',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontWeight: '700', fontSize: '0.85rem', border: '1px solid #B9E6FE', flexShrink: 0
+                                  }}>
+                                    {(() => {
+                                      const name = k.ad || k.email || '?';
+                                      const parts = name.split(' ');
+                                      if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                                      return name[0].toUpperCase();
+                                    })()}
+                                  </div>
+                                )}
+                                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                                  <span style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {k.ad || '—'}
+                                  </span>
+                                  <span style={{ fontSize: '0.75rem', color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {k.email || '—'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                  <span style={{ fontSize: '0.65rem', background: rol.bg, color: rol.renk, padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                    {rol.etiket}
+                                  </span>
+                                  {koordinator && (
+                                    <span style={{ fontSize: '0.65rem', background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                      Koord ⭐
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* İşlemler - Mobil Dropdown Menu */}
+                                <div style={{ position: 'relative', display: 'inline-block' }}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(openMenuId === k.id ? null : k.id);
+                                    }}
+                                    style={{
+                                      background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px',
+                                      padding: '6px 10px', fontSize: '1rem', cursor: 'pointer', color: '#475569',
+                                      fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                    }}
+                                  >
+                                    ⋮
+                                  </button>
+                                  {openMenuId === k.id && (
+                                    <>
+                                      <div 
+                                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); }}
+                                        style={{ position: 'fixed', inset: 0, zIndex: 9998 }} 
+                                      />
+                                      <div style={{
+                                        position: 'absolute', right: 0, top: '100%', marginTop: '6px',
+                                        backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px',
+                                        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                                        zIndex: 9999, minWidth: '130px', padding: '4px', display: 'flex', flexDirection: 'column'
+                                      }}>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); duzenleModalAc(k); }}
+                                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#1E293B' }}
+                                        >
+                                          <span>✏️</span> Düzenle
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ height: '1px', background: '#F1F5F9' }} />
+
+                            {/* Detay Bilgileri */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.8rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: '#64748B', fontWeight: '500' }}>Birincil Okul:</span>
+                                <span style={{ color: '#334155', fontWeight: '700' }}>{kurum?.ad || 'Atanmamış'}</span>
+                              </div>
+
+                              {k.rol === 'ogretmen' && k.sinifAtamalari && k.sinifAtamalari.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
+                                  <span style={{ color: '#64748B', fontWeight: '500' }}>Atandığı Alt Okullar:</span>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                                    {k.sinifAtamalari.map((atama, idx) => {
+                                      const target = kurumlar.find(x => x.id === atama.kurumId)
+                                      if (!target) return null
+                                      return (
+                                        <span key={idx} style={{ 
+                                          fontSize: '0.68rem', 
+                                          background: '#ECFDF5', 
+                                          color: '#065F46', 
+                                          border: '1px solid #A7F3D0', 
+                                          padding: '2px 6px', 
+                                          borderRadius: '4px',
+                                          fontWeight: '600'
+                                        }}>
+                                          🏫 {target.ad} ({atama.siniflar?.length || 0} Sınıf)
+                                        </span>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )
+        ) : (
+          bekleyenListe.length === 0 ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
+              Bekleyen davet yok.
+            </div>
+          ) : (
+            bekleyenListe.map(k => {
+              const rol = rolEtiketi(k, kurumlar)
+              const kurum = kurumlar.find(x => x.id === k.kurumId)
+              
+              return (
+                <div key={k.id} style={{
+                  background: '#fff',
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: '16px',
+                  padding: '1.25rem',
+                  marginBottom: '0.75rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.85rem'
+                }}>
+                  {/* Bekleyen Davet Üst Bilgi */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <strong style={{ fontSize: '0.9rem', color: '#1E293B', wordBreak: 'break-all' }}>{k.email}</strong>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                      <span style={{ fontSize: '0.65rem', background: rol.bg, color: rol.renk, padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                        {rol.etiket}
+                      </span>
+
+                      {/* İşlemler - Mobil Dropdown Menu */}
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(openMenuId === k.id ? null : k.id);
+                          }}
+                          style={{
+                            background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px',
+                            padding: '6px 10px', fontSize: '1rem', cursor: 'pointer', color: '#475569',
+                            fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                          }}
+                        >
+                          ⋮
+                        </button>
+                        {openMenuId === k.id && (
+                          <>
+                            <div 
+                              onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); }}
+                              style={{ position: 'fixed', inset: 0, zIndex: 9998 }} 
+                            />
+                            <div style={{
+                              position: 'absolute', right: 0, top: '100%', marginTop: '6px',
+                              backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px',
+                              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                              zIndex: 9999, minWidth: '130px', padding: '4px', display: 'flex', flexDirection: 'column'
+                            }}>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); davetSil(k.email); }}
+                                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#991B1B' }}
+                              >
+                                <span>🗑️</span> İptal Et
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ height: '1px', background: '#F1F5F9' }} />
+
+                  {/* Detay Bilgileri */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.8rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748B', fontWeight: '500' }}>Davet Gönderilen Okul:</span>
+                      <span style={{ color: '#334155', fontWeight: '700' }}>{kurum?.ad || 'Atanmamış'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748B', fontWeight: '500' }}>Giriş Yöntemi:</span>
+                      <span style={{ color: k.googleAltyapisi ? '#1557B0' : '#475569', fontWeight: '700' }}>
+                        {k.googleAltyapisi ? 'Google' : 'E-posta'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )
         )}
       </div>
 
