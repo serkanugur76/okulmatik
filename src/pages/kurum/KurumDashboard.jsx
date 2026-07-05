@@ -34,6 +34,7 @@ export default function KurumDashboard() {
   const { erisimKurumlar, secilenKurumId, secilenKurum, yukleniyor, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
   const [sayilar, setSayilar] = useState({ siniflar: null, ogrenciler: null, kullanicilar: null, mentorOgrenciler: null, rubrikler: null })
   const [debugLog, setDebugLog] = useState('')
+  const [quotaError, setQuotaError] = useState(false)
 
   // Seçili kurumun seviyesi
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
@@ -72,6 +73,7 @@ export default function KurumDashboard() {
       setSayilar({ siniflar: null, ogrenciler: null, kullanicilar: null, mentorOgrenciler: null, rubrikler: null })
       return
     }
+    setQuotaError(false)
 
     async function yukle() {
       try {
@@ -92,6 +94,9 @@ export default function KurumDashboard() {
                 }
               } catch (e) {
                 console.warn(`Mentor belgesi alınamadı (${k.id}):`, e.message)
+                if (e.message?.includes('Quota exceeded') || e.message?.includes('quota')) {
+                  setQuotaError(true)
+                }
               }
               return 0
             })
@@ -145,6 +150,9 @@ export default function KurumDashboard() {
                 }
               } catch (e) {
                 console.warn(`Okul ${k.id} için sayılar alınamadı:`, e.message)
+                if (e.message?.includes('Quota exceeded') || e.message?.includes('quota')) {
+                  setQuotaError(true)
+                }
                 return { siniflar: 0, ogrenciler: 0, rubrikler: 0, error: e.message }
               }
             })
@@ -191,6 +199,9 @@ export default function KurumDashboard() {
         setSayilar({ siniflar: toplamSinif, ogrenciler: toplamOgrenci, kullanicilar: toplamKullanici, mentorOgrenciler: null, rubrikler: null })
       } catch (err) {
         console.error('Dashboard yükleme hatası:', err)
+        if (err.message?.includes('Quota exceeded') || err.message?.includes('quota')) {
+          setQuotaError(true)
+        }
         setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: 0, mentorOgrenciler: 0, rubrikler: 0 })
       }
     }
@@ -200,6 +211,22 @@ export default function KurumDashboard() {
   return (
     <div>
       <div style={{ marginBottom: '2rem' }} />
+
+      {quotaError && (
+        <div style={{
+          background: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '12px',
+          padding: '1.25rem', marginBottom: '1.5rem', color: '#991B1B', fontSize: '0.875rem',
+          lineHeight: '1.5'
+        }}>
+          <div style={{ fontWeight: '800', marginBottom: '0.25rem' }}>⚠️ Firebase Günlük Okuma Limiti Aşılmış (Quota Exceeded)</div>
+          <div style={{ color: '#7F1D1D', fontSize: '0.825rem' }}>
+            Okulmatik'in bağlı olduğu Firebase veritabanının günlük ücretsiz okuma limiti (50,000 okuma) dolmuştur. 
+            Bu nedenle sayfadaki istatistikler ve veriler geçici olarak yüklenememektedir. 
+            Limitler her gün Türkiye saati ile sabah 10:00 civarında otomatik olarak sıfırlanmaktadır. 
+            Kesintisiz kullanım için projenizi Firebase Console üzerinden <strong>Blaze planına</strong> yükseltebilirsiniz (Blaze planında günlük ilk 200,000 okuma ücretsizdir).
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
         {seviye === 'root' && !ogretmenModu && (
