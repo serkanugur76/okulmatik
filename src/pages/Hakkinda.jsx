@@ -19,7 +19,7 @@ export default function Hakkinda() {
           ikon: '👥',
           ad: 'Kullanıcılar',
           aciklama: 'Sistemdeki rol ve yetkilendirmeleri yönetir. Platform Yöneticisi (Süper Admin), Kurum/Kampüs/Okul Yöneticileri ve Öğretmenlerin sisteme davet edilmesi, şifre süreçleri ve modül izinlerinin atanması burada yapılır.',
-          iliskiler: 'Kullanıcılar doğrudan bir Kuruma bağlanır. Öğretmenler ise kendi yetki alanlarına göre Sınıflar ve Rubrikler ile ilişkilendirilir.'
+          iliskiler: 'Kullanıcılar doğrudan bir Kuruma bağlanır. Öğretmenler ise kendi yetki alanlarına göre Sınıflar, Mentorluklar, Kulüpler ve Nöbetler ile ilişkilendirilir.'
         }
       ]
     },
@@ -38,45 +38,75 @@ export default function Hakkinda() {
           ikon: '🎒',
           ad: 'Öğrenciler',
           aciklama: 'Öğrenci kimlik kayıtlarını ve sınıf eşleşmelerini yönetir. Excel (.xlsx, .csv) şablonları aracılığıyla yüzlerce öğrencinin tek tıkla sisteme aktarılmasını sağlar.',
-          iliskiler: 'Öğrenciler doğrudan Sınıflara atanır. Rubrik değerlendirmeleri öğrenci bazlı yapıldığı için ölçme sisteminin hedef noktasıdır.'
+          iliskiler: 'Öğrenciler doğrudan Sınıflara atanır. Rubrik değerlendirmeleri, kulüp üyelikleri ve mentorluk takipleri öğrenci bazlı yapılır.'
+        },
+        {
+          ikon: '📅',
+          ad: 'Belirli Gün & Tatiller',
+          aciklama: 'Eğitim-öğretim yılı resmi tatillerini, MEB çalışma takvimini ve belirli günleri yönetir. Derslerin çakışma ve blokaj durumlarını kontrol etmek için kullanılır.',
+          iliskiler: 'Sistem genelinde tanımlanır, öğretmenlerin yıllık iş planları ve ders takvimleri ile entegre çalışır.'
         }
       ]
     },
     {
-      baslik: '3. Ölçme, Değerlendirme & Raporlama',
+      baslik: '3. Ölçme, Değerlendirme & Gelişim',
       ikon: '📊',
       renk: '#059669',
       moduller: [
         {
           ikon: '📋',
           ad: 'Rubrik Şablonlar',
-          aciklama: 'Ölçme kriterlerinin standartlaştırılmasını sağlar. Ana kazanımlar, alt kriterler ve başarı düzeylerini (puanlama) içeren genel şablon havuzudur. Platform yöneticisi tarafından tüm sistem genelinde paylaşılır.',
+          aciklama: 'Ölçme kriterlerinin standartlaştırılmasını sağlar. Kriterler ve başarı düzeylerini içeren genel şablon havuzudur. Platform yöneticisi tarafından tüm sistem genelinde paylaşılır.',
           iliskiler: 'Kurum Rubrikleri modülü, bu genel şablonları kopyalayarak kendi okul düzeylerine uygun özel rubrikler türetir.'
         },
         {
           ikon: '📝',
           ad: 'Kurum Rubrikleri',
           aciklama: 'Öğretmenlerin ve kurum yöneticilerinin ders veya kazanım bazında özelleştirdiği değerlendirme ölçekleridir. Sınıf seviyelerine ve branşlara göre filtrelenir.',
-          iliskiler: 'Rubrik Şablonlarından türetilir ve Değerlendirmeler modülünde öğrencileri puanlamak için ana şablon olarak kullanılır.'
+          iliskiler: 'Değerlendirmeler modülünde öğrencileri puanlamak için ana şablon olarak kullanılır.'
         },
         {
           ikon: '✅',
           ad: 'Değerlendirmeler',
-          aciklama: 'Sistemdeki en aktif operasyonel modüldür. Öğretmenler seçtikleri sınıftaki öğrencileri, atanan rubrik kriterlerine göre puanlar. Sonuçlar anlık olarak analiz edilerek karne çıktısı veya dijital rapor olarak sunulur.',
-          iliskiler: 'Doğrudan Öğrenciler, Sınıflar ve Kurum Rubrikleri modülleriyle tam entegre çalışarak ölçme-değerlendirme akışını tamamlar.'
+          aciklama: 'Öğretmenlerin sınıflarındaki öğrencileri, atanan rubrik kriterlerine göre puanladığı, karne çıktısı veya dijital kazanım raporu ürettiği operasyonel modüldür.',
+          iliskiler: 'Doğrudan Öğrenciler, Sınıflar ve Kurum Rubrikleri modülleriyle tam entegre çalışır.'
+        },
+        {
+          ikon: '🎓',
+          ad: 'Mentor Programı',
+          aciklama: 'Rehberlik ve mentor öğretmenlerin, kendilerine atanan öğrencilerin gelişim süreçlerini dönem bazında Likert ölçekleri ve nitel yorumlar ile değerlendirdiği modüldür.',
+          iliskiler: 'Öğrenciler, sınıf bilgileri ve mentor atamalarıyla ilişkili olarak çalışır; veli/yönetim bilgilendirmeleri için temel oluşturur.'
         }
       ]
     },
     {
-      baslik: '4. Yardımcı & Destekleyici Sistemler',
-      ikon: '📚',
+      baslik: '4. Sosyal Etkinlik & Operasyonel Modüller',
+      ikon: '🏆',
       renk: '#D97706',
       moduller: [
         {
+          ikon: '🏆',
+          ad: 'Kulüp Yönetimi',
+          aciklama: 'Öğrenci kulüplerinin planlanması, üye öğrenci seçimleri, haftalık yoklamalar, kulüp etkinlik girişleri ve dönem sonu kulüp değerlendirme raporlarının oluşturulması sürecini yönetir.',
+          iliskiler: 'Öğrenciler ve sorumlu Öğretmenler veritabanıyla entegre çalışır.'
+        },
+        {
+          ikon: '🛡️',
+          ad: 'Nöbet Yönetimi',
+          aciklama: 'Okuldaki nöbet noktalarını (katlar, bahçe vb.) tanımlar, öğretmenleri nöbet günlerine atar ve nöbet esnasında durum bildirimleri ile yoklama süreçlerini takip eder.',
+          iliskiler: 'Kurum öğretmenleri ve okul fiziksel alanları ile entegre çalışarak okul güvenliğini artırır.'
+        },
+        {
           ikon: '📚',
           ad: 'Kütüphane',
-          aciklama: 'Okulun kitap envanterini ve kütüphane işlemlerini yönetir. Excel tablosu üzerinden binlerce kitap tek seferde yüklenebilir. Barkodlu arama ile saniyeler içinde kitap ödünç verme ve iade alma işlemleri gerçekleştirilir.',
-          iliskiler: 'Kitap ödünç alan kullanıcıları bulmak için Öğrenciler ve Kullanıcılar (Öğretmenler) veritabanıyla ilişkili çalışır.'
+          aciklama: 'Okulun kitap envanterini yönetir. Barkodlu ve hızlı arama ile öğrencilere/öğretmenlere kitap ödünç verme, iade alma süreçlerini dijitalleştirir. Excel ile toplu yükleme desteği vardır.',
+          iliskiler: 'Kitap alan kişileri doğrulamak için Öğrenciler ve Kullanıcılar listesiyle entegre çalışır.'
+        },
+        {
+          ikon: '🏛️',
+          ad: 'Resmi İşlemler',
+          aciklama: 'Eğitim kurumunun resmi iş planı ve görev takiplerini yürütür. Ayrıca sistemdeki verileri kullanarak dilekçe, resmi yazı ve raporlar gibi evrakları dinamik şablonlarla otomatik üretir.',
+          iliskiler: 'Sınıf, öğrenci, öğretmen ve kurum bilgileriyle dinamik değişkenler üzerinden haberleşir.'
         }
       ]
     }
