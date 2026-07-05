@@ -74,6 +74,7 @@ export default function KurumRubrikler() {
   const [acikAlt,       setAcikAlt]       = useState({})
   const [onizleme,      setOnizleme]      = useState(null)
   const [sablonSecici,  setSablonSecici]  = useState(false)
+  const [openMenuId,    setOpenMenuId]    = useState(null)
   const [kaydediyor,    setKaydediyor]    = useState(false)
   const [hata,          setHata]          = useState('')
   const xlsxRef = useRef()
@@ -358,6 +359,44 @@ export default function KurumRubrikler() {
 
   return (
     <div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (min-width: 769px) {
+          .desktop-table-container {
+            display: block !important;
+          }
+          .mobile-cards-container {
+            display: none !important;
+          }
+        }
+        @media (max-width: 768px) {
+          .desktop-table-container {
+            display: none !important;
+          }
+          .mobile-cards-container {
+            display: flex !important;
+            flex-direction: column;
+            gap: 0.75rem;
+          }
+          .rubrik-header-actions {
+            flex-direction: column;
+            align-items: stretch !important;
+          }
+          .rubrik-header-actions > div {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+            gap: 0.5rem !important;
+          }
+          .rubrik-header-actions > div > button {
+            padding: 0.6rem 0.5rem !important;
+            font-size: 0.78rem !important;
+            text-align: center;
+            width: 100% !important;
+          }
+          .modal-box input, .modal-box select, .modal-box textarea {
+            font-size: 16px !important;
+          }
+        }
+      ` }} />
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Rubrikler</h1>
       <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>
         <strong>{secilenKurum?.ad}</strong> — değerlendirme rubrikleri
@@ -366,7 +405,7 @@ export default function KurumRubrikler() {
       {/* Gizli Excel input — her zaman render edilir */}
       <input ref={xlsxRef} type="file" accept=".xlsx,.xls" onChange={rubrikXlsxOku} style={{ display: 'none' }} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+      <div className="rubrik-header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', gap: '0.75rem' }}>
         <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{rubrikler.length} rubrik</span>
         {/* Admin veya koordinatör: tüm butonlar; normal öğretmen: hiçbiri */}
         {(!ogretmenModu || profil?.modulIzinler?.rubrik_olustur) && (
@@ -434,71 +473,205 @@ export default function KurumRubrikler() {
                     <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>📚 {ders}</span>
                     <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{grup.length} rubrik</span>
                   </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>{['Rubrik Adı', 'Sınıf Seviyeleri', 'Yapı', 'Maks. Puan', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
-                    </thead>
-                    <tbody>
-                      {grup.map(r => (
-                        <tr key={r.id}>
-                          <td style={s.td}>
+                  {/* Desktop Table View */}
+                  <div className="desktop-table-container">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>{['Rubrik Adı', 'Sınıf Seviyeleri', 'Yapı', 'Maks. Puan', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {grup.map(r => (
+                          <tr key={r.id}>
+                            <td style={s.td}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: '600', color: '#1E293B' }}>{r.ad}</span>
+                                {r.isKulup && (
+                                  <span style={{ fontSize: '0.68rem', background: '#FEF3C7', color: '#D97706', border: '1px solid #FCD34D', borderRadius: '999px', padding: '1px 7px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                    🏆 Kulüp Rubriği
+                                  </span>
+                                )}
+                                {!yazabilir(r) && (() => {
+                                  const k = erisimKurumlar.find(x => x.id === r._kurumId)
+                                  return (
+                                    <span style={{ fontSize: '0.68rem', background: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1', borderRadius: '999px', padding: '1px 7px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                      🔒 {k?.ad || 'Üst kurum'}
+                                    </span>
+                                  )
+                                })()}
+                              </div>
+                              {r.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>{r.aciklama}</div>}
+                            </td>
+                            <td style={s.td}>
+                              {!r.hedefSeviyeler?.length
+                                ? <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Tüm sınıflar</span>
+                                : <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                                    {r.hedefSeviyeler.map(sev => (
+                                      <span key={sev} style={{ background: '#EEF2FF', color: '#4338CA', padding: '1px 7px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '600' }}>
+                                        {sev}. Sınıf
+                                      </span>
+                                    ))}
+                                  </div>
+                              }
+                            </td>
+                            <td style={s.td}>
+                              <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', marginRight: '4px' }}>
+                                {r.kriterler?.length || 0} başlık
+                              </span>
+                              <span style={{ background: '#F0FDF4', color: '#065F46', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>
+                                {toplamAltKriter(r.kriterler)} kriter
+                              </span>
+                            </td>
+                            <td style={s.td}>
+                              <span style={{ fontWeight: '700', color: '#1B3A6B' }}>{toplamMaksPuan(r.kriterler)}</span>
+                              <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}> puan</span>
+                            </td>
+                            <td style={s.td}>
+                              <div style={{ display: 'flex', gap: '0.375rem' }}>
+                                <button style={s.eylem} onClick={() => setOnizleme(r)}>Önizle</button>
+                                {yazabilir(r) && (
+                                  <>
+                                    <button style={s.eylem} onClick={() => modalAc(r)}>Düzenle</button>
+                                    <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(r)}>Sil</button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards View */}
+                  <div className="mobile-cards-container" style={{ display: 'none', flexDirection: 'column', gap: '0.75rem', padding: '0.75rem', background: '#F8FAFC' }}>
+                    {grup.map(r => (
+                      <div key={r.id} style={{
+                        background: '#fff',
+                        borderRadius: '12px',
+                        border: '1.5px solid #E2E8F0',
+                        padding: '1rem',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.75rem'
+                      }}>
+                        {/* Üst Kısım: Rubrik Adı ve ⋮ Menü */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1, paddingRight: '0.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                              <span style={{ fontWeight: '600', color: '#1E293B' }}>{r.ad}</span>
+                              <span style={{ fontWeight: '800', color: '#1E293B', fontSize: '0.95rem' }}>{r.ad}</span>
                               {r.isKulup && (
-                                <span style={{ fontSize: '0.68rem', background: '#FEF3C7', color: '#D97706', border: '1px solid #FCD34D', borderRadius: '999px', padding: '1px 7px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                  🏆 Kulüp Rubriği
+                                <span style={{ fontSize: '0.65rem', background: '#FEF3C7', color: '#D97706', border: '1px solid #FCD34D', borderRadius: '999px', padding: '1px 6px', fontWeight: '700' }}>
+                                  🏆 Kulüp
                                 </span>
                               )}
                               {!yazabilir(r) && (() => {
                                 const k = erisimKurumlar.find(x => x.id === r._kurumId)
                                 return (
-                                  <span style={{ fontSize: '0.68rem', background: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1', borderRadius: '999px', padding: '1px 7px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                    🔒 {k?.ad || 'Üst kurum'}
+                                  <span style={{ fontSize: '0.65rem', background: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1', borderRadius: '999px', padding: '1px 6px', fontWeight: '700' }}>
+                                    🔒 {k?.ad || 'Üst Kurum'}
                                   </span>
                                 )
                               })()}
                             </div>
-                            {r.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>{r.aciklama}</div>}
-                          </td>
-                          <td style={s.td}>
-                            {!r.hedefSeviyeler?.length
-                              ? <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Tüm sınıflar</span>
-                              : <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                                  {r.hedefSeviyeler.map(sev => (
-                                    <span key={sev} style={{ background: '#EEF2FF', color: '#4338CA', padding: '1px 7px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '600' }}>
-                                      {sev}. Sınıf
-                                    </span>
-                                  ))}
+                            {r.aciklama && <div style={{ fontSize: '0.75rem', color: '#94A3B8', lineHeight: '1.3' }}>{r.aciklama}</div>}
+                          </div>
+
+                          {/* Üç Nokta ⋮ Aksiyon Dropdown */}
+                          <div style={{ position: 'relative' }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(openMenuId === r.id ? null : r.id);
+                              }}
+                              style={{
+                                background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px',
+                                padding: '6px 10px', fontSize: '1rem', cursor: 'pointer', color: '#475569',
+                                fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              ⋮
+                            </button>
+                            {openMenuId === r.id && (
+                              <>
+                                <div 
+                                  onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); }}
+                                  style={{ position: 'fixed', inset: 0, zIndex: 9998 }} 
+                                />
+                                <div style={{
+                                  position: 'absolute', right: 0, top: '100%', marginTop: '6px',
+                                  backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px',
+                                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                                  zIndex: 9999, minWidth: '150px', padding: '4px', display: 'flex', flexDirection: 'column'
+                                }}>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); setOnizleme(r); }}
+                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#1E293B' }}
+                                  >
+                                    👁️ Önizle
+                                  </button>
+                                  {yazabilir(r) && (
+                                    <>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); modalAc(r); }}
+                                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#4338CA' }}
+                                      >
+                                        ✏️ Düzenle
+                                      </button>
+                                      <div style={{ height: '1px', background: '#F1F5F9', margin: '4px 0' }} />
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); sil(r); }}
+                                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#991B1B' }}
+                                      >
+                                        🗑️ Sil
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
-                            }
-                          </td>
-                          <td style={s.td}>
-                            <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', marginRight: '4px' }}>
-                              {r.kriterler?.length || 0} başlık
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ height: '1px', background: '#F1F5F9' }} />
+
+                        {/* Seviye Badgeleri ve Yapı Bilgisi */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {/* Hedef Seviyeler */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase' }}>
+                              Seviyeler:
                             </span>
-                            <span style={{ background: '#F0FDF4', color: '#065F46', padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>
-                              {toplamAltKriter(r.kriterler)} kriter
-                            </span>
-                          </td>
-                          <td style={s.td}>
-                            <span style={{ fontWeight: '700', color: '#1B3A6B' }}>{toplamMaksPuan(r.kriterler)}</span>
-                            <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}> puan</span>
-                          </td>
-                          <td style={s.td}>
-                            <div style={{ display: 'flex', gap: '0.375rem' }}>
-                              <button style={s.eylem} onClick={() => setOnizleme(r)}>Önizle</button>
-                              {yazabilir(r) && (
-                                <>
-                                  <button style={s.eylem} onClick={() => modalAc(r)}>Düzenle</button>
-                                  <button style={{ ...s.eylem, color: '#991B1B', borderColor: '#FECACA' }} onClick={() => sil(r)}>Sil</button>
-                                </>
-                              )}
+                            {!r.hedefSeviyeler?.length ? (
+                              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Tüm Sınıflar</span>
+                            ) : (
+                              r.hedefSeviyeler.map(sev => (
+                                <span key={sev} style={{ background: '#EEF2FF', color: '#4338CA', padding: '1px 7px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '600' }}>
+                                  {sev}. Sınıf
+                                </span>
+                              ))
+                            )}
+                          </div>
+
+                          {/* Yapı Bilgisi ve Maks Puan */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', borderRadius: '8px', padding: '8px 12px', border: '1px solid #F1F5F9' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <span style={{ background: '#E0E7FF', color: '#4338CA', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '700' }}>
+                                {r.kriterler?.length || 0} Başlık
+                              </span>
+                              <span style={{ background: '#DCFCE7', color: '#15803D', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '700' }}>
+                                {toplamAltKriter(r.kriterler)} Kriter
+                              </span>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            <div style={{ fontSize: '0.78rem', color: '#475569' }}>
+                              Maks: <strong style={{ color: '#1B3A6B', fontSize: '0.85rem' }}>{toplamMaksPuan(r.kriterler)} Puan</strong>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )
             })}
@@ -510,7 +683,7 @@ export default function KurumRubrikler() {
       {sablonSecici && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}
           onClick={e => e.target === e.currentTarget && setSablonSecici(false)}>
-          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '560px', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+          <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '560px', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
             <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ fontSize: '1rem', fontWeight: '700', color: '#1E293B' }}>📋 Şablon Seç</h2>
               <button onClick={() => setSablonSecici(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: '#94A3B8' }}>✕</button>
@@ -542,7 +715,7 @@ export default function KurumRubrikler() {
       {modal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, overflowY: 'auto', padding: '2rem 1rem' }}
           onClick={e => e.target === e.currentTarget && modalKapat()}>
-          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '760px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+          <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '760px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
             <div style={{ padding: '1.5rem 1.75rem 0' }}>
               <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>
                 {duzenlenen ? 'Rubriği Düzenle' : 'Yeni Rubrik'}
@@ -768,7 +941,7 @@ export default function KurumRubrikler() {
       {onizleme && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, overflowY: 'auto', padding: '2rem 1rem' }}
           onClick={e => e.target === e.currentTarget && setOnizleme(null)}>
-          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '900px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: '1.75rem' }}>
+          <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '900px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: '1.75rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
               <div>
                 <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B' }}>{onizleme.ad}</h2>
