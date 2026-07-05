@@ -434,6 +434,26 @@ export default function KurumOgretmenler() {
 
   return (
     <div style={{ paddingBottom: '60px' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 768px) {
+          .desktop-table-container {
+            display: none !important;
+          }
+          .mobile-cards-container {
+            display: flex !important;
+            flex-direction: column;
+            gap: 1rem;
+          }
+        }
+        @media (min-width: 769px) {
+          .mobile-cards-container {
+            display: none !important;
+          }
+          .desktop-table-container {
+            display: block !important;
+          }
+        }
+      `}} />
       {/* Header section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
         <div>
@@ -582,7 +602,7 @@ export default function KurumOgretmenler() {
       </div>
 
       {/* Table representation */}
-      <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+      <div className="desktop-table-container" style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
@@ -683,6 +703,123 @@ export default function KurumOgretmenler() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile representation (Cards) */}
+      <div className="mobile-cards-container" style={{ display: 'none' }}>
+        {filtreliOgretmenler.length === 0 ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
+            Kriterlere uygun öğretmen bulunamadı.
+          </div>
+        ) : (
+          filtreliOgretmenler.map(o => {
+            const siniflarList = getOgretmenSinifAdlari(o)
+            const koordinator = !!o.modulIzinler?.rubrik_olustur
+            const kObj = erisimKurumlar.find(x => x.id === o.kurumId)
+            const birincilOkulAd = kObj ? kObj.ad : '— Atanmamış'
+            
+            return (
+              <div key={o.id} style={{
+                background: '#fff',
+                border: '1.5px solid #E2E8F0',
+                borderRadius: '16px',
+                padding: '1.25rem',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem'
+              }}>
+                {/* Öğretmen Üst Bilgi */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
+                    {o.photoURL ? (
+                      <img
+                        src={o.photoURL}
+                        alt="Avatar"
+                        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #E2E8F0', flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '40px', height: '40px', borderRadius: '50%',
+                        background: '#E0F2FE', color: '#0369A1',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: '700', fontSize: '0.85rem', border: '1px solid #B9E6FE', flexShrink: 0
+                      }}>
+                        {(() => {
+                          const name = o.ad || o.email || '?';
+                          const parts = name.split(' ');
+                          if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                          return name[0].toUpperCase();
+                        })()}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                      <span style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {o.ad || '—'}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {o.email || '—'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
+                    {o.status === 'aktif' ? (
+                      <span style={{ fontSize: '0.65rem', background: '#D1FAE5', color: '#065F46', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                        Aktif
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.65rem', background: '#FFEDD5', color: '#9A3412', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                        Davet
+                      </span>
+                    )}
+                    {koordinator && (
+                      <span style={{ fontSize: '0.65rem', background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                        Koord ⭐
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ height: '1px', background: '#F1F5F9' }} />
+
+                {/* Detay Bilgileri */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.8rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B', fontWeight: '500' }}>Birincil Okul:</span>
+                    <span style={{ color: '#334155', fontWeight: '700' }}>{birincilOkulAd}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
+                    <span style={{ color: '#64748B', fontWeight: '500' }}>Branşlar:</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                      {o.branslar && o.branslar.length > 0 ? (
+                        o.branslar.map(b => (
+                          <span key={b} style={{ ...styles.badge, ...styles.bransBadge, margin: 0, fontSize: '0.68rem' }}>{b}</span>
+                        ))
+                      ) : (
+                        <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Tanımlanmamış</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
+                    <span style={{ color: '#64748B', fontWeight: '500' }}>Atandığı Sınıflar:</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                      {siniflarList.length > 0 ? (
+                        siniflarList.map(s => (
+                          <span key={s} style={{ ...styles.badge, ...styles.sinifBadge, margin: 0, fontSize: '0.68rem' }}>{s}</span>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: '0.68rem', background: '#FEE2E2', color: '#991B1B', padding: '2px 6px', borderRadius: '4px', fontWeight: '600' }}>Sınıf Ataması Yok</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
       </div>
 
       {/* ── Toplu öğretmen import modal ── */}
