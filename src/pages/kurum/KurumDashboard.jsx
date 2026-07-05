@@ -75,70 +75,89 @@ export default function KurumDashboard() {
     async function yukle() {
       try {
         if (ogretmenModu) {
+          // Öğretmenin erişebileceği okullar
+          const ogretmenOkullari = sayimKurumlar.filter(k =>
+            k.id === secilenKurumId || (profil?.erisimKurumIdler || []).includes(k.id)
+          )
+
           // Mentor olunan öğrenci sayılarını çek
           const mentorSonuclar = await Promise.all(
-            sayimKurumlar.map(async (k) => {
-              const docSnap = await getDoc(doc(db, 'kurumlar', k.id, 'mentorAtamalari', kullanici?.uid))
-              if (docSnap.exists()) {
-                const data = docSnap.data()
-                return (data.ogrenciler || []).length
+            ogretmenOkullari.map(async (k) => {
+              try {
+                const docSnap = await getDoc(doc(db, 'kurumlar', k.id, 'mentorAtamalari', kullanici?.uid))
+                if (docSnap.exists()) {
+                  const data = docSnap.data()
+                  return (data.ogrenciler || []).length
+                }
+              } catch (e) {
+                console.warn(`Mentor belgesi alınamadı (${k.id}):`, e.message)
               }
               return 0
             })
           )
           const toplamMentorOgrenci = mentorSonuclar.reduce((a, b) => a + b, 0)
 
-          // Tanımlı rubrik sayılarını çek
-          const rubrikSonuclar = await Promise.all(
-            sayimKurumlar.map(async (k) => {
+          // Öğretmenin atandığı sınıfları, öğrencileri ve rubrikleri say
+          const okullarSonuclari = await Promise.all(
+            ogretmenOkullari.map(async (k) => {
               try {
-                // Öğretmenin atandığı sınıfları ve onların seviyelerini al
+                const ogretmenOkulSinifIds = (profil?.sinifAtamalari || []).find(a => a.kurumId === k.id)?.siniflar || []
+                if (ogretmenOkulSinifIds.length === 0) {
+                  return { siniflar: 0, ogrenciler: 0, rubrikler: 0 }
+                }
+
+                // Sınıfların seviyelerini çek
                 const sinifSnaplar = await Promise.all(
-                  ogretmenSinifIdleri.map(sid => getDoc(doc(db, 'kurumlar', k.id, 'siniflar', sid)))
+                  ogretmenOkulSinifIds.map(sid => getDoc(doc(db, 'kurumlar', k.id, 'siniflar', sid)))
                 )
                 const teacherGradeLevels = sinifSnaplar
                   .filter(s => s.exists())
                   .map(s => Number(s.data().seviye))
                   .filter(Boolean)
 
-                if (teacherGradeLevels.length === 0) return 0
+                // Öğrenci sayısını çek
+                const qOgr = query(
+                  collection(db, 'kurumlar', k.id, 'ogrenciler'),
+                  where('sinifId', 'in', ogretmenOkulSinifIds)
+                )
+                const snapshotOgr = await getCountFromServer(qOgr)
+                const ogrenciSayisi = snapshotOgr.data().count
 
-                // Kurumdaki tüm rubrikleri al
-                const rubrikSnap = await getDocs(collection(db, 'kurumlar', k.id, 'rubrikler'))
-                const tumRubrikler = rubrikSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+                // Rubrik sayısını çek
+                let rubrikSayisi = 0
+                if (teacherGradeLevels.length > 0) {
+                  const rubrikSnap = await getDocs(collection(db, 'kurumlar', k.id, 'rubrikler'))
+                  const tumRubrikler = rubrikSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+                  const branslar = profil?.branslar || []
+                  const eslesen = tumRubrikler.filter(r => {
+                    const bransMatch = branslar.length === 0 || branslar.includes(r.ders)
+                    const levelMatch = (r.hedefSeviyeler || []).some(lvl => teacherGradeLevels.includes(Number(lvl)))
+                    return bransMatch && levelMatch
+                  })
+                  rubrikSayisi = eslesen.length
+                }
 
-                const branslar = profil?.branslar || []
-                const eslesen = tumRubrikler.filter(r => {
-                  const bransMatch = branslar.length === 0 || branslar.includes(r.ders)
-                  const levelMatch = (r.hedefSeviyeler || []).some(lvl => teacherGradeLevels.includes(Number(lvl)))
-                  return bransMatch && levelMatch
-                })
-                return eslesen.length
+                return {
+                  siniflar: ogretmenOkulSinifIds.length,
+                  ogrenciler: ogrenciSayisi,
+                  rubrikler: rubrikSayisi
+                }
               } catch (e) {
-                console.warn(`Okul ${k.id} için rubrik sayısı alınamadı:`, e.message)
-                return 0
+                console.warn(`Okul ${k.id} için sayılar alınamadı:`, e.message)
+                return { siniflar: 0, ogrenciler: 0, rubrikler: 0 }
               }
             })
           )
-          const toplamRubrik = rubrikSonuclar.reduce((a, b) => a + b, 0)
 
-          if (ogretmenSinifIdleri.length === 0) {
-            setSayilar({ siniflar: 0, ogrenciler: 0, kullanicilar: null, mentorOgrenciler: toplamMentorOgrenci, rubrikler: toplamRubrik })
-            return
-          }
-          const sonuclar = await Promise.all(
-            sayimKurumlar.map(async (k) => {
-              const q = query(
-                collection(db, 'kurumlar', k.id, 'ogrenciler'),
-                where('sinifId', 'in', ogretmenSinifIdleri)
-              )
-              const snapshot = await getCountFromServer(q)
-              return snapshot.data().count
-            })
-          )
-          const toplamOgrenci = sonuclar.reduce((a, b) => a + b, 0)
+          let toplamSinif = 0, toplamOgrenci = 0, toplamRubrik = 0
+          okullarSonuclari.forEach(r => {
+            toplamSinif += r.siniflar
+            toplamOgrenci += r.ogrenciler
+            toplamRubrik += r.rubrikler
+          })
+
           setSayilar({
-            siniflar: ogretmenSinifIdleri.length,
+            siniflar: toplamSinif,
             ogrenciler: toplamOgrenci,
             kullanicilar: null,
             mentorOgrenciler: toplamMentorOgrenci,
@@ -167,7 +186,7 @@ export default function KurumDashboard() {
       }
     }
     yukle()
-  }, [secilenKurumId, erisimKurumlar, yukleniyor, ogretmenModu, ogretmenSinifIdleri, kullanici?.uid, profil?.branslar])
+  }, [secilenKurumId, erisimKurumlar, yukleniyor, ogretmenModu, ogretmenSinifIdleri, kullanici?.uid, profil?.branslar, profil?.sinifAtamalari, profil?.erisimKurumIdler])
 
   return (
     <div>
