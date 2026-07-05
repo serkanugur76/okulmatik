@@ -145,7 +145,7 @@ export default function KurumDashboard() {
                 }
               } catch (e) {
                 console.warn(`Okul ${k.id} için sayılar alınamadı:`, e.message)
-                return { siniflar: 0, ogrenciler: 0, rubrikler: 0 }
+                return { siniflar: 0, ogrenciler: 0, rubrikler: 0, error: e.message }
               }
             })
           )
