@@ -70,6 +70,7 @@ export default function KurumSiniflar() {
   const [rubrikModal, setRubrikModal]     = useState(null) // { sinif, rubrikler, aktifBrans }
   const [detayModal, setDetayModal]       = useState(null) // sinif
   const [openMenuId, setOpenMenuId]       = useState(null)
+  const [seciliOgrenci, setSeciliOgrenci] = useState(null)
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [modal, setModal]               = useState(false)
@@ -920,6 +921,92 @@ export default function KurumSiniflar() {
         )
       })()}
 
+      {/* ── Öğrenci Detay Modalı (TC No & Veli Arama) ── */}
+      {seciliOgrenci && (() => {
+        const o = seciliOgrenci
+        const harfler = `${o.ad?.[0] || ''}${o.soyad?.[0] || ''}`.toUpperCase()
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 210, padding: '1.5rem' }}
+            onClick={e => e.target === e.currentTarget && setSeciliOgrenci(null)}>
+            <div className="modal-box" style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '400px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              
+              {/* Header / Avatar */}
+              <div style={{ background: 'linear-gradient(135deg, #1E3A8A, #3B82F6)', padding: '2rem 1.5rem', textAlign: 'center', position: 'relative' }}>
+                <button onClick={() => setSeciliOgrenci(null)} style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>✕</button>
+                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#fff', color: '#3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: '800', margin: '0 auto 0.75rem', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
+                  {harfler || '🎒'}
+                </div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#fff', margin: 0 }}>{o.ad} {o.soyad}</h3>
+                <span style={{ fontSize: '0.78rem', color: '#E0F2FE', background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '999px', marginTop: '6px', display: 'inline-block', fontWeight: '600' }}>
+                  No / TC: {o.ogrenciNo || '—'}
+                </span>
+              </div>
+
+              {/* Detay Bilgileri */}
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                
+                {/* E-posta */}
+                {o.email && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#F8FAFC', padding: '10px 12px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '1.1rem' }}>✉️</span>
+                    <div>
+                      <span style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase', display: 'block' }}>E-posta Adresi</span>
+                      <a href={`mailto:${o.email}`} style={{ fontSize: '0.85rem', color: '#1B3A6B', fontWeight: '700', textDecoration: 'underline' }}>{o.email}</a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Veli Bilgileri Başlığı */}
+                <h4 style={{ fontSize: '0.78rem', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0.25rem 0 -0.5rem' }}>👨‍👩‍👦 Aile ve Veli Bilgileri</h4>
+
+                {/* Anne Bilgileri */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '1rem' }}>👩‍👦</span>
+                    <div>
+                      <span style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase', display: 'block' }}>Anne Adı Soyadı</span>
+                      <strong style={{ fontSize: '0.9rem', color: '#1E293B' }}>{o.anneAdSoyad || '—'}</strong>
+                    </div>
+                  </div>
+                  {o.anneTelefon ? (
+                    <a href={`tel:${o.anneTelefon}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px', background: '#10B981', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.8rem', boxShadow: '0 2px 4px rgba(16,185,129,0.2)', transition: 'background 0.15s' }}>
+                      📞 Anneyi Ara ({o.anneTelefon})
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontStyle: 'italic', paddingLeft: '22px' }}>Telefon numarası tanımlanmamış</span>
+                  )}
+                </div>
+
+                {/* Baba Bilgileri */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '1rem' }}>👨‍👦</span>
+                    <div>
+                      <span style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase', display: 'block' }}>Baba Adı Soyadı</span>
+                      <strong style={{ fontSize: '0.9rem', color: '#1E293B' }}>{o.babaAdSoyad || '—'}</strong>
+                    </div>
+                  </div>
+                  {o.babaTelefon ? (
+                    <a href={`tel:${o.babaTelefon}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px', background: '#3B82F6', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.8rem', boxShadow: '0 2px 4px rgba(59,130,246,0.2)', transition: 'background 0.15s' }}>
+                      📞 Babayı Ara ({o.babaTelefon})
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontStyle: 'italic', paddingLeft: '22px' }}>Telefon numarası tanımlanmamış</span>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Kapat butonu */}
+              <div style={{ padding: '0 1.5rem 1.5rem', textAlign: 'right' }}>
+                <button onClick={() => setSeciliOgrenci(null)} style={{ padding: '8px 24px', background: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', fontWeight: '600', color: '#475569', cursor: 'pointer' }}>Kapat</button>
+              </div>
+
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ── Sınıf Detay (Öğretmen ve Öğrenci Listesi) Modalı ── */}
       {detayModal && (() => {
         const sinif = detayModal
@@ -994,9 +1081,28 @@ export default function KurumSiniflar() {
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem' }}>
                       {sinifOgrencileri.map((o, idx) => (
-                        <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+                        <div
+                          key={o.id}
+                          onClick={() => setSeciliOgrenci(o)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px',
+                            background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.02)', cursor: 'pointer',
+                            transition: 'all 0.15s ease-in-out'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.borderColor = '#3B82F6';
+                            e.currentTarget.style.background = '#EFF6FF';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.borderColor = '#E2E8F0';
+                            e.currentTarget.style.background = '#F8FAFC';
+                            e.currentTarget.style.transform = 'none';
+                          }}
+                        >
                           <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#64748B', minWidth: '20px' }}>{idx + 1}.</span>
-                          <span style={{ fontSize: '0.875rem', fontWeight: '700', color: '#1E293B' }}>{o.ad} {o.soyad}</span>
+                          <span style={{ fontSize: '0.875rem', fontWeight: '700', color: '#1B3A6B', textDecoration: 'underline' }}>{o.ad} {o.soyad}</span>
                         </div>
                       ))}
                     </div>
