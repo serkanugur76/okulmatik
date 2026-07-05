@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { KurumYonetimProvider, useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { GenelKurumSecici } from '../kurum/KurumLayout'
+import OkulmatikLogo from '../../components/OkulmatikLogo'
 
 // ── Platform yönetim menüsü (kurumdan bağımsız) ───────────────────────────────
 const PLATFORM_MENULER = [
@@ -178,9 +179,9 @@ function PlatformSidebar() {
       {/* Logo + badge */}
       <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: `1px solid ${BORDER_COLOR}` }}>
         <div className="sidebar-logo-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div className="sidebar-logo" style={{ fontSize: '1.2rem', fontWeight: '700', color: '#fff' }}>
-            <span className="logo-emoji">📚</span>
-            <span className="logo-text"> Okulmatik</span>
+          <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', fontWeight: '800', color: '#fff' }}>
+            <OkulmatikLogo size={24} />
+            <span className="logo-text">Okulmatik</span>
           </div>
           <div className="sidebar-badge" style={{
             display: 'inline-block',
@@ -987,8 +988,11 @@ function PlatformLayoutInner() {
       onClick={() => setIsAccountOpen(false)}
     />
     <div className={`mobile-drawer ${isAccountOpen ? 'open' : ''}`}>
-      <div className="drawer-header">
-        <span className="drawer-title">👤 Süper Admin Hesabı</span>
+      <div className="drawer-header" style={{ borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <OkulmatikLogo size={24} />
+          <span className="drawer-title" style={{ fontSize: '1rem', fontWeight: '800', color: '#1B3A6B' }}>Okulmatik</span>
+        </div>
         <button className="drawer-close" onClick={() => setIsAccountOpen(false)}>✕</button>
       </div>
       
@@ -1019,6 +1023,30 @@ function PlatformLayoutInner() {
           }}>
             ⚙ Süper Admin
           </span>
+        </div>
+
+        {/* Modüler Üzüm Salkımı Bilgi Paneli */}
+        <div style={{
+          background: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%)',
+          border: '1px solid #DBEAFE',
+          borderRadius: '12px',
+          padding: '0.85rem',
+          margin: '0.5rem 0 0 0',
+          width: '100%',
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          textAlign: 'left'
+        }}>
+          <div style={{ background: '#fff', padding: '6px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(37, 99, 235, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <OkulmatikLogo size={36} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#1E3A8A' }}>Okulmatik Modüler Yapısı</div>
+            <div style={{ fontSize: '0.7rem', color: '#4B5563', marginTop: '2px', lineHeight: '1.3' }}>
+              Uygulamanın her bir modülü (Öğrenciler, Sınıflar, Rubrikler vb.) üzüm salkımındaki bağımsız taneleri; asma dalı ise bu modülleri bir araya getiren bütünleşik Okulmatik altyapısını temsil eder.
+            </div>
+          </div>
         </div>
 
         <div style={{ width: '100%', borderTop: '1px solid #F1F5F9', margin: '1rem 0' }} />

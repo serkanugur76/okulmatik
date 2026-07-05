@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import OkulmatikLogo from '../components/OkulmatikLogo'
 
 export default function GirisPage() {
   const { girisYap, googleGiris, sifreSifirla } = useAuth()
@@ -82,9 +83,11 @@ export default function GirisPage() {
     <div style={s.kapsayici}>
       <div style={s.kart}>
         <div style={s.logo}>
-          <div style={{ fontSize:'2.5rem' }}>📚</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+            <OkulmatikLogo size={64} />
+          </div>
           <h1 style={s.h1}>Okulmatik</h1>
-          <p style={s.alt}>Okul ve öğretmen araçları platformu</p>
+          <p style={s.alt}>Bütünleşik Modüler Eğitim Yönetimi</p>
         </div>
         {!sifirMod ? (
           <form onSubmit={handleGiris} style={s.form}>
