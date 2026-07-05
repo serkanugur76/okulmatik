@@ -288,10 +288,8 @@ async function main() {
     targetVer = 'v' + tagMatch[1];
     cleanTitle = titleLine.replace(/^\[?v?\d+\.\d+\.\d+\]?\s*/i, '').trim();
   } else {
-    // Auto increment patch version
-    const parts = latestVer.split('.').map(Number);
-    parts[2] = parts[2] + 1; // Increment patch
-    targetVer = 'v' + parts.join('.');
+    console.log('ℹ️ Commit message does not start with a version release tag (e.g. v1.6.0 or [v1.6.0]). Skipping automatic version card creation.');
+    process.exit(0);
   }
 
   // Parse conventional commit prefix from main title
