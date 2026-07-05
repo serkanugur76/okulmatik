@@ -55,6 +55,97 @@ export default function KurumMentor() {
   const { profil, kullanici } = useAuth()
   const { secilenKurumId, ogretmenModu, erisimKurumlar } = useKurumYonetim()
 
+  const styleBlock = (
+    <style>{`
+      /* Mentor Modülü Mobil Uyum Düzeltmeleri */
+      .mentor-modal-card {
+        padding: 2rem !important;
+      }
+      @media (max-width: 600px) {
+        .mentor-modal-card {
+          padding: 1.25rem 1rem !important;
+          border-radius: 12px !important;
+        }
+        .mentor-modal-header {
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          gap: 1rem !important;
+        }
+        .mentor-modal-period-selector {
+          margin-left: 0 !important;
+          width: 100% !important;
+          display: flex !important;
+        }
+        .mentor-modal-period-selector button {
+          flex: 1 !important;
+          text-align: center !important;
+          padding: 0.5rem 0.75rem !important;
+        }
+        .mentor-modal-options {
+          display: grid !important;
+          grid-template-columns: repeat(2, 1fr) !important;
+          gap: 6px !important;
+          width: 100% !important;
+        }
+        .mentor-modal-options button {
+          width: 100% !important;
+          padding: 8px 6px !important;
+          font-size: 0.75rem !important;
+          border-radius: 8px !important;
+          text-align: center !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+        /* Safarideki otomatik yakınlaştırma (auto-zoom) sorunu engeli */
+        .mentor-modal-card textarea, 
+        .mentor-modal-card select, 
+        .mentor-modal-card input {
+          font-size: 16px !important;
+        }
+        
+        /* Admin Görünümü Mobilde Taşma Engeli */
+        .mentor-tabs-container {
+          flex-direction: column !important;
+          gap: 0.75rem !important;
+          border-bottom: none !important;
+          margin-bottom: 1rem !important;
+        }
+        .mentor-tabs-container > div {
+          border-bottom: 2px solid #E2E8F0 !important;
+          width: 100% !important;
+          display: flex !important;
+        }
+        .mentor-tabs-container > div button {
+          flex: 1 !important;
+          text-align: center !important;
+          padding: 0.75rem 0.5rem !important;
+        }
+        .mentor-tab-action-btn {
+          margin-left: 0 !important;
+          width: 100% !important;
+          text-align: center !important;
+          padding: 0.6rem !important;
+        }
+        
+        .mentor-teacher-row {
+          flex-wrap: wrap !important;
+          gap: 0.75rem !important;
+          padding: 1rem !important;
+        }
+        .mentor-teacher-progress {
+          margin-right: 0 !important;
+          text-align: left !important;
+        }
+        .mentor-teacher-actions {
+          width: 100% !important;
+          justify-content: flex-end !important;
+          margin-top: 0.25rem !important;
+        }
+      }
+    `}</style>
+  )
+
   // ── Veri Maps (Hiyerarşi için) ──────────────────────────────
   const [atamalarMap,    setAtamalarMap]    = useState({})
   const [raporlarMap,    setRaporlarMap]    = useState({})
