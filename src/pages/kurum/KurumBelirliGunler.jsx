@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, addDoc, doc, deleteDoc, writeBatch, serverTimestamp, query, orderBy
@@ -368,8 +368,64 @@ export default function KurumBelirliGunler() {
     reader.readAsBinaryString(file)
   }
 
+  const filtrelenmisGunler = useMemo(() => {
+    const [basYil, bitYil] = secilenAkademikYil.split('-').map(Number)
+    const baslangicLimit = `${basYil}-09-01`
+    const bitisLimit = `${bitYil}-08-31`
+    return belirliGunler.filter(g => {
+      if (!g.baslangicTarihi) return false
+      return g.baslangicTarihi >= baslangicLimit && g.baslangicTarihi <= bitisLimit
+    })
+  }, [belirliGunler, secilenAkademikYil])
+
   return (
     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .belirli-gunler-grid {
+          display: grid;
+          grid-template-columns: ${platformAdmin ? '1fr 320px' : '1fr'};
+          gap: 1.5rem;
+          align-items: start;
+        }
+        .belirli-gunler-table-wrapper {
+          display: block;
+        }
+        .belirli-gunler-mobile-list {
+          display: none;
+        }
+        .asistan-row {
+          display: grid;
+          grid-template-columns: 1.2fr 1fr 1fr;
+          gap: 8px;
+          align-items: center;
+        }
+        .asistan-modal-card {
+          background: #fff;
+          border-radius: 14px;
+          width: calc(100% - 2rem);
+          max-width: 500px;
+          margin: 1rem;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+          overflow: hidden;
+        }
+        @media (max-width: 768px) {
+          .belirli-gunler-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .belirli-gunler-table-wrapper {
+            display: none !important;
+          }
+          .belirli-gunler-mobile-list {
+            display: flex !important;
+            flex-direction: column;
+            gap: 0.75rem;
+          }
+          .asistan-row {
+            grid-template-columns: 1fr !important;
+            gap: 4px;
+          }
+        }
+      `}} />
       {/* Üst Bilgi */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
@@ -464,14 +520,14 @@ export default function KurumBelirliGunler() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: platformAdmin ? '1fr 320px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="belirli-gunler-grid">
         {/* Sol Sütun: Liste */}
         <div>
           {yukleniyor ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px', color: '#64748B' }}>
               Takvim verileri yükleniyor...
             </div>
-          ) : belirliGunler.length === 0 ? (
+          ) : filtrelenmisGunler.length === 0 ? (
             <div style={{ padding: '3rem 1.5rem', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', textAlign: 'center', color: '#94A3B8' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📅</div>
               Kayıtlı belirli gün, hafta veya resmi tatil bulunmuyor.
@@ -482,100 +538,157 @@ export default function KurumBelirliGunler() {
               )}
             </div>
           ) : (
-            <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #E2E8F0', background: '#F8FAFC' }}>
-                    <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700' }}>Tarih / Aralık</th>
-                    <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700' }}>Belirli Gün / Resmi Tatil Açıklaması</th>
-                    <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700', textAlign: 'center' }}>Ders Yapılabilir Mi?</th>
-                    {platformAdmin && <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700', textAlign: 'right' }}>İşlem</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const [basYil, bitYil] = secilenAkademikYil.split('-').map(Number)
-                    const baslangicLimit = `${basYil}-09-01`
-                    const bitisLimit = `${bitYil}-08-31`
-                    
-                    const filtrelenmis = belirliGunler.filter(g => {
-                      if (!g.baslangicTarihi) return false
-                      return g.baslangicTarihi >= baslangicLimit && g.baslangicTarihi <= bitisLimit
-                    })
+            <>
+              {/* DESKTOP TABLE VIEW */}
+              <div className="belirli-gunler-table-wrapper" style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #E2E8F0', background: '#F8FAFC' }}>
+                      <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700' }}>Tarih / Aralık</th>
+                      <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700' }}>Belirli Gün / Resmi Tatil Açıklaması</th>
+                      <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700', textAlign: 'center' }}>Ders Yapılabilir Mi?</th>
+                      {platformAdmin && <th style={{ padding: '10px 12px', color: '#1B3A6B', fontWeight: '700', textAlign: 'right' }}>İşlem</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const TURKCE_AYLAR = {
+                        1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran',
+                        7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
+                      }
+                      let sonGrupKey = null
+                      
+                      return filtrelenmisGunler.map(g => {
+                        const parts = g.baslangicTarihi ? g.baslangicTarihi.split('-') : []
+                        const yil = parseInt(parts[0]) || 0
+                        const ay = parseInt(parts[1]) || 0
+                        const grupKey = `${ay}-${yil}`
+                        const ayAdi = TURKCE_AYLAR[ay] || 'Diğer / Tanımsız'
+                        const grupDegisti = grupKey !== sonGrupKey
+                        sonGrupKey = grupKey
 
-                    if (filtrelenmis.length === 0) {
-                      return (
-                        <tr>
-                          <td colSpan={platformAdmin ? 4 : 3} style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8', fontStyle: 'italic' }}>
-                            Seçilen eğitim öğretim yılına ({secilenAkademikYil}) ait kayıtlı belirli gün veya tatil bulunamadı.
-                          </td>
-                        </tr>
-                      )
-                    }
+                        const tarihMetni = g.baslangicTarihi === g.bitisTarihi
+                          ? formatTarihTr(g.baslangicTarihi)
+                          : `${formatTarihTr(g.baslangicTarihi)} - ${formatTarihTr(g.bitisTarihi)}`
 
-                    const TURKCE_AYLAR = {
-                      1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran',
-                      7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
-                    }
-                    let sonGrupKey = null // "Ay-Yıl" formatında grup anahtarı
-                    
-                    return filtrelenmis.map(g => {
-                      const parts = g.baslangicTarihi ? g.baslangicTarihi.split('-') : []
-                      const yil = parseInt(parts[0]) || 0
-                      const ay = parseInt(parts[1]) || 0
-                      const grupKey = `${ay}-${yil}`
-                      const ayAdi = TURKCE_AYLAR[ay] || 'Diğer / Tanımsız'
- 
-                      const grupDegisti = grupKey !== sonGrupKey
-                      sonGrupKey = grupKey
- 
-                      const tarihMetni = g.baslangicTarihi === g.bitisTarihi
-                        ? formatTarihTr(g.baslangicTarihi)
-                        : `${formatTarihTr(g.baslangicTarihi)} - ${formatTarihTr(g.bitisTarihi)}`
- 
-                      const isHoliday = g.tatilMi
-                      const overlaps = overlapsWithHoliday(g.baslangicTarihi, g.bitisTarihi, g.id)
-                      const displaysAsTatil = isHoliday || overlaps
- 
-                      return (
-                        <React.Fragment key={g.id}>
-                          {grupDegisti && (
-                            <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #E2E8F0' }}>
-                              <td colSpan={platformAdmin ? 4 : 3} style={{ padding: '8px 12px', fontWeight: '800', color: '#1B3A6B', fontSize: '0.85rem' }}>
-                                📅 {ayAdi} {yil} Tatil ve Belirli Günleri
-                              </td>
-                            </tr>
-                          )}
-                          <tr style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                            <td style={{ padding: '10px 12px', fontWeight: '700', color: '#334155' }}>{tarihMetni}</td>
-                            <td style={{ padding: '10px 12px', color: '#334155' }}>{g.baslik}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                              <span style={{
-                                padding: '2px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '700',
-                                background: displaysAsTatil ? '#FEE2E2' : '#D1FAE5',
-                                color: displaysAsTatil ? '#991B1B' : '#065F46'
-                              }}>
-                                {isHoliday ? '🚫 Hayır (Tatil)' : (overlaps ? '🚫 Hayır (Tatil Aralığında)' : '✅ Evet (Okul Var)')}
-                              </span>
-                            </td>
-                            {platformAdmin && (
-                              <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                                <button
-                                  onClick={() => handleSil(g.id, g.baslik)}
-                                  style={{ padding: '2px 8px', background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}
-                                >
-                                  Sil
-                                </button>
-                              </td>
+                        const isHoliday = g.tatilMi
+                        const overlaps = overlapsWithHoliday(g.baslangicTarihi, g.bitisTarihi, g.id)
+                        const displaysAsTatil = isHoliday || overlaps
+
+                        return (
+                          <React.Fragment key={g.id}>
+                            {grupDegisti && (
+                              <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #E2E8F0' }}>
+                                <td colSpan={platformAdmin ? 4 : 3} style={{ padding: '8px 12px', fontWeight: '800', color: '#1B3A6B', fontSize: '0.85rem' }}>
+                                  📅 {ayAdi} {yil} Tatil ve Belirli Günleri
+                                </td>
+                              </tr>
                             )}
-                          </tr>
-                        </React.Fragment>
-                      )
-                    })
-                  })()}
-                </tbody>
-              </table>
-            </div>
+                            <tr style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                              <td style={{ padding: '10px 12px', fontWeight: '700', color: '#334155' }}>{tarihMetni}</td>
+                              <td style={{ padding: '10px 12px', color: '#334155' }}>{g.baslik}</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                <span style={{
+                                  padding: '2px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '700',
+                                  background: displaysAsTatil ? '#FEE2E2' : '#D1FAE5',
+                                  color: displaysAsTatil ? '#991B1B' : '#065F46'
+                                }}>
+                                  {isHoliday ? '🚫 Hayır (Tatil)' : (overlaps ? '🚫 Hayır (Tatil Aralığında)' : '✅ Evet (Okul Var)')}
+                                </span>
+                              </td>
+                              {platformAdmin && (
+                                <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                                  <button
+                                    onClick={() => handleSil(g.id, g.baslik)}
+                                    style={{ padding: '2px 8px', background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}
+                                  >
+                                    Sil
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          </React.Fragment>
+                        )
+                      })
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* MOBILE CARD LIST VIEW */}
+              <div className="belirli-gunler-mobile-list">
+                {(() => {
+                  const TURKCE_AYLAR = {
+                    1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran',
+                    7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
+                  }
+                  let sonGrupKey = null
+                  
+                  return filtrelenmisGunler.map(g => {
+                    const parts = g.baslangicTarihi ? g.baslangicTarihi.split('-') : []
+                    const yil = parseInt(parts[0]) || 0
+                    const ay = parseInt(parts[1]) || 0
+                    const grupKey = `${ay}-${yil}`
+                    const ayAdi = TURKCE_AYLAR[ay] || 'Diğer / Tanımsız'
+                    const grupDegisti = grupKey !== sonGrupKey
+                    sonGrupKey = grupKey
+
+                    const tarihMetni = g.baslangicTarihi === g.bitisTarihi
+                      ? formatTarihTr(g.baslangicTarihi)
+                      : `${formatTarihTr(g.baslangicTarihi)} - ${formatTarihTr(g.bitisTarihi)}`
+
+                    const isHoliday = g.tatilMi
+                    const overlaps = overlapsWithHoliday(g.baslangicTarihi, g.bitisTarihi, g.id)
+                    const displaysAsTatil = isHoliday || overlaps
+
+                    return (
+                      <React.Fragment key={g.id}>
+                        {grupDegisti && (
+                          <div style={{
+                            fontWeight: '800', color: '#1B3A6B', fontSize: '0.85rem',
+                            padding: '12px 6px 4px 6px', marginTop: '0.5rem', borderBottom: '2px solid #E2E8F0',
+                            display: 'flex', alignItems: 'center', gap: '6px'
+                          }}>
+                            📅 {ayAdi} {yil}
+                          </div>
+                        )}
+                        <div style={{
+                          background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px',
+                          padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748B' }}>{tarihMetni}</span>
+                            <span style={{
+                              padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '700',
+                              background: displaysAsTatil ? '#FEE2E2' : '#D1FAE5',
+                              color: displaysAsTatil ? '#991B1B' : '#065F46'
+                            }}>
+                              {isHoliday ? '🚫 Tatil' : (overlaps ? '🚫 Tatil Aralığı' : '✅ Okul Var')}
+                            </span>
+                          </div>
+                          
+                          <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1E293B', lineHeight: '1.4' }}>
+                            {g.baslik}
+                          </div>
+                          
+                          {platformAdmin && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #F1F5F9', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
+                              <button
+                                onClick={() => handleSil(g.id, g.baslik)}
+                                style={{ padding: '4px 10px', background: '#FEE2E2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
+                              >
+                                🗑️ Sil
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </React.Fragment>
+                    )
+                  })
+                })()}
+              </div>
+            </>
           )}
         </div>
 
@@ -652,10 +765,7 @@ export default function KurumBelirliGunler() {
           background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
-          <div style={{
-            background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '500px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)', overflow: 'hidden'
-          }}>
+          <div className="asistan-modal-card">
             <div style={{ background: '#1B3A6B', padding: '1rem 1.25rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>✨ MEB Takvimi Şablon Asistanı</span>
               <button onClick={() => setAsistanModal(false)} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>×</button>
@@ -681,38 +791,38 @@ export default function KurumBelirliGunler() {
               </div>
 
               {/* Ara Tatil 1 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', alignItems: 'center' }}>
+              <div className="asistan-row">
                 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>1. Ara Tatil:</span>
-                <input type="date" value={araTatil1Bas} onChange={e => setAraTatil1Bas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
-                <input type="date" value={araTatil1Bit} onChange={e => setAraTatil1Bit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={araTatil1Bas} onChange={e => setAraTatil1Bas(e.target.value)} style={{ width: '100%', padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={araTatil1Bit} onChange={e => setAraTatil1Bit(e.target.value)} style={{ width: '100%', padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
               </div>
 
               {/* Sömestr */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', alignItems: 'center' }}>
+              <div className="asistan-row">
                 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>Sömestr Tatili:</span>
-                <input type="date" value={somestrBas} onChange={e => setSomestrBas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
-                <input type="date" value={somestrBit} onChange={e => setSomestrBit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={somestrBas} onChange={e => setSomestrBas(e.target.value)} style={{ width: '100%', padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={somestrBit} onChange={e => setSomestrBit(e.target.value)} style={{ width: '100%', padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
               </div>
 
               {/* Ara Tatil 2 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', alignItems: 'center' }}>
+              <div className="asistan-row">
                 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>2. Ara Tatil:</span>
-                <input type="date" value={araTatil2Bas} onChange={e => setAraTatil2Bas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
-                <input type="date" value={araTatil2Bit} onChange={e => setAraTatil2Bit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={araTatil2Bas} onChange={e => setAraTatil2Bas(e.target.value)} style={{ width: '100%', padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
+                <input type="date" value={araTatil2Bit} onChange={e => setAraTatil2Bit(e.target.value)} style={{ width: '100%', padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} required />
               </div>
 
               {/* Ramazan Bayramı */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', alignItems: 'center' }}>
+              <div className="asistan-row">
                 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>Ramazan Bayramı:</span>
-                <input type="date" value={ramazanBas} onChange={e => setRamazanBas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
-                <input type="date" value={ramazanBit} onChange={e => setRamazanBit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
+                <input type="date" value={ramazanBas} onChange={e => setRamazanBas(e.target.value)} style={{ width: '100%', padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
+                <input type="date" value={ramazanBit} onChange={e => setRamazanBit(e.target.value)} style={{ width: '100%', padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
               </div>
 
               {/* Kurban Bayramı */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', alignItems: 'center' }}>
+              <div className="asistan-row">
                 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>Kurban Bayramı:</span>
-                <input type="date" value={kurbanBas} onChange={e => setKurbanBas(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
-                <input type="date" value={kurbanBit} onChange={e => setKurbanBit(e.target.value)} style={{ padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
+                <input type="date" value={kurbanBas} onChange={e => setKurbanBas(e.target.value)} style={{ width: '100%', padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
+                <input type="date" value={kurbanBit} onChange={e => setKurbanBit(e.target.value)} style={{ width: '100%', padding: '0.35rem', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.8rem' }} />
               </div>
 
               <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontStyle: 'italic', marginTop: '4px' }}>
