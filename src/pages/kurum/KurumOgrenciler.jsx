@@ -154,8 +154,77 @@ export default function KurumOgrenciler() {
     setAcikSiniflar(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
+  const kampusIdler = useMemo(() => [...new Set(sayimKurumlar.map(k => k.parentId).filter(Boolean))], [sayimKurumlar])
+  const kampusGruplari = useMemo(() => {
+    return kampusIdler
+      .map(kpId => ({
+        kampus: erisimKurumlar.find(x => x.id === kpId),
+        altlar: sayimKurumlar
+          .filter(k => k.parentId === kpId)
+          .sort((a, b) => (OKUL_SIRA[a.okulTuru] || 9) - (OKUL_SIRA[b.okulTuru] || 9) || (a.ad || '').localeCompare(b.ad || '', 'tr')),
+      }))
+      .filter(g => g.kampus)
+      .sort((a, b) => (a.kampus.ad || '').localeCompare(b.kampus.ad || '', 'tr'))
+  }, [kampusIdler, sayimKurumlar, erisimKurumlar])
+
   const cleanSearch = normalizeText(aramaMetni)
   const toplamOgrenci = sayimKurumlar.reduce((acc, k) => acc + (ogrencilerMap[k.id] || []).filter(o => normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)).length, 0)
+
+  const ilkEslesenOgrenciId = useMemo(() => {
+    if (!cleanSearch) return null
+
+    for (const g of kampusGruplari) {
+      for (const k of g.altlar) {
+        const tumOgrenciler = (ogrencilerMap[k.id] || []).filter(o =>
+          normalizeText(`${o.ad} ${o.soyad} ${o.ogrenciNo}`).includes(cleanSearch)
+        )
+        if (tumOgrenciler.length === 0) continue
+
+        const siniflar = (siniflarMap[k.id] || []).slice().sort((a, b) => {
+          const sa = parseSinif(a.ad), sb = parseSinif(b.ad)
+          return sa.n !== sb.n ? sa.n - sb.n : sa.h.localeCompare(sb.h, 'tr')
+        })
+
+        // Sınıflara bak
+        for (const sinif of siniflar) {
+          const sinifOgrenciler = tumOgrenciler
+            .filter(o => o.sinifId === sinif.id)
+            .sort((a, b) => {
+              const ad = (a.ad || '').localeCompare(b.ad || '', 'tr')
+              return ad !== 0 ? ad : (a.soyad || '').localeCompare(b.soyad || '', 'tr')
+            })
+          if (sinifOgrenciler.length > 0) {
+            return sinifOgrenciler[0].id
+          }
+        }
+
+        // Sınıfsızlara bak
+        const sinifsizilar = tumOgrenciler
+          .filter(o => !o.sinifId)
+          .sort((a, b) => {
+            const ad = (a.ad || '').localeCompare(b.ad || '', 'tr')
+            return ad !== 0 ? ad : (a.soyad || '').localeCompare(b.soyad || '', 'tr')
+          })
+        if (sinifsizilar.length > 0) {
+          return sinifsizilar[0].id
+        }
+      }
+    }
+    return null
+  }, [cleanSearch, ogrencilerMap, siniflarMap, kampusGruplari])
+
+  useEffect(() => {
+    if (!ilkEslesenOgrenciId) return
+
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-ogrenci-id="${ilkEslesenOgrenciId}"]`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 150)
+
+    return () => clearTimeout(timer)
+  }, [ilkEslesenOgrenciId])
 
   const s = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
@@ -233,18 +302,6 @@ export default function KurumOgrenciler() {
       </div>
 
       {sayimKurumlar.length > 0 && (() => {
-        // Kampüse göre grupla
-        const kampusIdler = [...new Set(sayimKurumlar.map(k => k.parentId).filter(Boolean))]
-        const kampusGruplari = kampusIdler
-          .map(kpId => ({
-            kampus: erisimKurumlar.find(x => x.id === kpId),
-            altlar: sayimKurumlar
-              .filter(k => k.parentId === kpId)
-              .sort((a, b) => (OKUL_SIRA[a.okulTuru] || 9) - (OKUL_SIRA[b.okulTuru] || 9) || (a.ad || '').localeCompare(b.ad || '', 'tr')),
-          }))
-          .filter(g => g.kampus)
-          .sort((a, b) => (a.kampus.ad || '').localeCompare(b.kampus.ad || '', 'tr'))
-
         const cokluKampus = kampusGruplari.length > 1
 
         function renderAltKurum(k) {
@@ -299,7 +356,7 @@ export default function KurumOgrenciler() {
                                   {sinifOgrenciler.length === 0
                                     ? <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#94A3B8', padding: '1.5rem' }}>Bu sınıfta öğrenci yok</td></tr>
                                     : sinifOgrenciler.map(o => (
-                                      <tr key={o.id}>
+                                      <tr key={o.id} data-ogrenci-id={o.id}>
                                         <td style={s.td}><strong>{o.ad} {o.soyad}</strong></td>
                                         <td style={s.td}>{o.ogrenciNo || '—'}</td>
                                         <td style={s.td}>{o.anneAdSoyad ? `${o.anneAdSoyad}${o.anneTelefon ? ` · ${o.anneTelefon}` : ''}` : '—'}</td>
@@ -322,7 +379,7 @@ export default function KurumOgrenciler() {
                                 <div style={{ textAlign: 'center', color: '#94A3B8', padding: '1.5rem' }}>Bu sınıfta öğrenci yok</div>
                               ) : (
                                 sinifOgrenciler.map(o => (
-                                  <div key={o.id} className="ogrenci-card" style={{
+                                  <div key={o.id} className="ogrenci-card" data-ogrenci-id={o.id} style={{
                                     background: '#ffffff',
                                     border: '1px solid #E2E8F0',
                                     borderRadius: '12px',
@@ -426,7 +483,7 @@ export default function KurumOgrenciler() {
                                 <thead><tr>{['Ad Soyad', 'TC No', 'Anne', 'Baba', 'İşlemler'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
                                 <tbody>
                                   {sinifsizilar.map(o => (
-                                    <tr key={o.id}>
+                                    <tr key={o.id} data-ogrenci-id={o.id}>
                                       <td style={s.td}><strong>{o.ad} {o.soyad}</strong></td>
                                       <td style={s.td}>{o.ogrenciNo || '—'}</td>
                                       <td style={s.td}>{o.anneAdSoyad ? `${o.anneAdSoyad}${o.anneTelefon ? ` · ${o.anneTelefon}` : ''}` : '—'}</td>
@@ -446,7 +503,7 @@ export default function KurumOgrenciler() {
                             {/* Mobile View */}
                             <div className="ogrenciler-mobile-view">
                               {sinifsizilar.map(o => (
-                                <div key={o.id} className="ogrenci-card" style={{
+                                <div key={o.id} className="ogrenci-card" data-ogrenci-id={o.id} style={{
                                   background: '#ffffff',
                                   border: '1px solid #E2E8F0',
                                   borderRadius: '12px',
