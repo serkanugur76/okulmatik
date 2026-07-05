@@ -69,6 +69,7 @@ export default function KurumSiniflar() {
   const [acikSeviyeler, setAcikSeviyeler] = useState({})   // `${kurumId}_${seviye}` → bool
   const [rubrikModal, setRubrikModal]     = useState(null) // { sinif, rubrikler, aktifBrans }
   const [detayModal, setDetayModal]       = useState(null) // sinif
+  const [openMenuId, setOpenMenuId]       = useState(null)
   const [modalKurumId, setModalKurumId] = useState('')
   const [form, setForm]                 = useState(BOŞ_FORM)
   const [modal, setModal]               = useState(false)
