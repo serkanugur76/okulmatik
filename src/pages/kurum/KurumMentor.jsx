@@ -512,6 +512,7 @@ export default function KurumMentor() {
 
   return (
     <div>
+      {styleBlock}
       {/* Başlık */}
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
         <div>
@@ -544,18 +545,20 @@ export default function KurumMentor() {
       </div>
 
       {/* Sekmeler */}
-      <div style={{ display:'flex', gap:'0', marginBottom:'0', borderBottom:'2px solid #E2E8F0' }}>
-        {[
-          { id:'atamalar',       label:'🔗 Mentor Atamaları' },
-          { id:'degerlendirmeler', label:'📊 Değerlendirmeler' },
-        ].map(t => (
-          <button key={t.id} onClick={() => setSekme(t.id)}
-            style={{ padding:'0.75rem 1.5rem', border:'none', borderBottom: sekme===t.id ? '2px solid #1B3A6B' : '2px solid transparent', marginBottom:'-2px', background:'none', fontSize:'0.875rem', fontWeight: sekme===t.id ? '700' : '500', color: sekme===t.id ? '#1B3A6B' : '#64748B', cursor:'pointer' }}>
-            {t.label}
-          </button>
-        ))}
+      <div className="mentor-tabs-container" style={{ display:'flex', gap:'0', marginBottom:'0', borderBottom:'2px solid #E2E8F0' }}>
+        <div style={{ display:'flex', gap:'0' }}>
+          {[
+            { id:'atamalar',       label:'🔗 Mentor Atamaları' },
+            { id:'degerlendirmeler', label:'📊 Değerlendirmeler' },
+          ].map(t => (
+            <button key={t.id} onClick={() => setSekme(t.id)}
+              style={{ padding:'0.75rem 1.5rem', border:'none', borderBottom: sekme===t.id ? '2px solid #1B3A6B' : '2px solid transparent', marginBottom:'-2px', background:'none', fontSize:'0.875rem', fontWeight: sekme===t.id ? '700' : '500', color: sekme===t.id ? '#1B3A6B' : '#64748B', cursor:'pointer' }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
         {sekme === 'atamalar' && (
-          <button onClick={() => atamaModalAc()}
+          <button className="mentor-tab-action-btn" onClick={() => atamaModalAc()}
             style={{ marginLeft:'auto', padding:'0.5rem 1.25rem', background:'#1B3A6B', color:'#fff', border:'none', borderRadius:'8px', fontSize:'0.8rem', fontWeight:'600', cursor:'pointer', marginBottom:'0.25rem' }}>
             + Atama Yap
           </button>
@@ -581,7 +584,7 @@ export default function KurumMentor() {
             return (
               <div key={atama.ogretmenId} style={{ borderBottom:'1px solid #E2E8F0' }}>
                 {/* Öğretmen satırı */}
-                <div style={{ display:'flex', alignItems:'center', padding:'1rem 1.25rem', cursor:'pointer', background: acik ? '#F8FAFC' : '#fff', gap:'0.75rem' }}
+                <div className="mentor-teacher-row" style={{ display:'flex', alignItems:'center', padding:'1rem 1.25rem', cursor:'pointer', background: acik ? '#F8FAFC' : '#fff', gap:'0.75rem' }}
                   onClick={() => setAcikOgret(prev => { const next=new Set(prev); acik ? next.delete(atama.ogretmenId) : next.add(atama.ogretmenId); return next })}>
                   <span style={{ color:'#94A3B8', fontSize:'0.75rem' }}>{acik ? '▼' : '▶'}</span>
                   <div style={{ width:'36px', height:'36px', borderRadius:'50%', background:'linear-gradient(135deg,#6366F1,#4338CA)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:'700', fontSize:'0.9rem', flexShrink:0 }}>
@@ -595,13 +598,13 @@ export default function KurumMentor() {
                     </div>
                   </div>
                   {/* Dönem ilerleme */}
-                  <div style={{ textAlign:'right', marginRight:'0.5rem' }}>
+                  <div className="mentor-teacher-progress" style={{ textAlign:'right', marginRight:'0.5rem' }}>
                     <div style={{ fontSize:'0.75rem', color:'#64748B' }}>{donem}. Dönem</div>
                     <div style={{ fontSize:'0.82rem', fontWeight:'700', color: tamamlananSayi === ogrList.length ? '#065F46' : '#92400E' }}>
                       {tamamlananSayi}/{ogrList.length} rapor
                     </div>
                   </div>
-                  <div style={{ display:'flex', gap:'6px' }}>
+                  <div className="mentor-teacher-actions" style={{ display:'flex', gap:'6px' }}>
                     <button onClick={e => { e.stopPropagation(); atamaModalAc(atama) }}
                       style={{ padding:'4px 12px', border:'1px solid #E2E8F0', borderRadius:'6px', background:'none', fontSize:'0.75rem', cursor:'pointer', color:'#374151' }}>
                       Düzenle
@@ -648,7 +651,7 @@ export default function KurumMentor() {
 
       {/* ── DEĞERLENDİRMELER SEKMESİ ── */}
       {sekme === 'degerlendirmeler' && (
-        <div style={{ background:'#fff', borderRadius:'0 0 12px 12px', border:'1px solid #E2E8F0', borderTop:'none', overflow:'hidden' }}>
+        <div style={{ background:'#fff', borderRadius:'0 0 12px 12px', border:'1px solid #E2E8F0', borderTop:'none', overflowX:'auto' }}>
           {raporlar.filter(r => r.donem === donem).length === 0 ? (
             <div style={{ padding:'4rem', textAlign:'center', color:'#94A3B8', fontSize:'0.9rem' }}>
               <div style={{ fontSize:'2.5rem', marginBottom:'1rem' }}>📊</div>
@@ -704,7 +707,7 @@ export default function KurumMentor() {
       {atamaModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:200, overflowY:'auto', padding:'2rem 1rem' }}
           onClick={e => e.target === e.currentTarget && setAtamaModal(false)}>
-          <div style={{ background:'#fff', borderRadius:'16px', padding:'2rem', width:'100%', maxWidth:'600px', boxShadow:'0 20px 60px rgba(0,0,0,0.18)' }}>
+          <div className="mentor-modal-card" style={{ background:'#fff', borderRadius:'16px', padding:'2rem', width:'100%', maxWidth:'600px', boxShadow:'0 20px 60px rgba(0,0,0,0.18)' }}>
             <h2 style={{ fontSize:'1.125rem', fontWeight:'700', color:'#1E293B', marginBottom:'1.5rem' }}>Mentor Ataması</h2>
 
             <form onSubmit={atamaKaydet}>
