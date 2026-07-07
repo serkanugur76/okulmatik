@@ -618,13 +618,32 @@ function KurumLayoutInner() {
     return parts
   }
 
+  const getInitials = (phrase) => {
+    if (!phrase) return ''
+    const words = phrase.split(/\s+/).filter(Boolean)
+    if (words.length === 1 && words[0].length <= 4) {
+      return words[0]
+    }
+    return words
+      .map(word => {
+        const char = word.charAt(0)
+        if (char === 'I' || char === 'ı') return 'I'
+        if (char === 'İ' || char === 'i') return 'İ'
+        return char.toUpperCase()
+      })
+      .filter(Boolean)
+      .join('.') + '.'
+  }
+
   const getShortName = (fullName) => {
     if (!fullName) return ''
     const name = fullName.trim()
     if (rootKurum?.ad) {
       const rootPrefix = rootKurum.ad.trim()
       if (name.toLowerCase().startsWith(rootPrefix.toLowerCase()) && name.length > rootPrefix.length) {
-        return name.slice(rootPrefix.length).trim()
+        const initials = getInitials(rootPrefix)
+        const rest = name.slice(rootPrefix.length).trim()
+        return `${initials} ${rest}`
       }
     }
     return name
