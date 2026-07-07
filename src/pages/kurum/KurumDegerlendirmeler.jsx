@@ -441,6 +441,15 @@ export default function KurumDegerlendirmeler() {
           .mobile-only-cards { display: flex !important; }
           .sticky-save-bar { left: 0 !important; bottom: 64px !important; padding: 0.75rem 1rem !important; }
         }
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none !important;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none !important;
+          scrollbar-width: none !important;
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+        }
       ` }} />
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Değerlendirmeler</h1>
       <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
@@ -604,7 +613,7 @@ export default function KurumDegerlendirmeler() {
 
                 {/* Ana Kriter Tabları */}
                 {secilenRubrik.kriterler.length > 0 && (
-                  <div style={{
+                  <div className="hide-scrollbar" style={{
                     display: 'flex', gap: '4px', padding: '0.625rem 0.875rem',
                     borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
                     overflowX: 'auto', flexWrap: 'nowrap',
