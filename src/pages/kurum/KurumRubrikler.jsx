@@ -83,6 +83,23 @@ export default function KurumRubrikler() {
   const [teacherGradeLevels, setTeacherGradeLevels] = useState([])
   const [teacherClubRubrikIds, setTeacherClubRubrikIds] = useState([])
 
+  const gorunurRubrikler = useMemo(() => {
+    let liste = rubrikler
+    if (ogretmenModu) {
+      if (ogretmenBranslar.length > 0) {
+        liste = liste.filter(r => ogretmenBranslar.includes(r.ders))
+      }
+      liste = liste.filter(r => {
+        if (r.isKulup) {
+          return teacherClubRubrikIds.includes(r.id)
+        } else {
+          return (r.hedefSeviyeler || []).some(lvl => teacherGradeLevels.includes(Number(lvl)))
+        }
+      })
+    }
+    return liste
+  }, [rubrikler, ogretmenModu, ogretmenBranslar, teacherGradeLevels, teacherClubRubrikIds])
+
   useEffect(() => {
     if (!ogretmenModu || !secilenKurumId || !kullanici?.uid) {
       setTeacherGradeLevels([])
@@ -494,26 +511,6 @@ export default function KurumRubrikler() {
 
       {/* Rubrik Listesi — derse göre gruplandırılmış */}
       {(() => {
-        // Öğretmen filtrelemesi: branş, sınıf seviyeleri ve kulüp atamaları eşleşmeli
-        const gorunurRubrikler = (() => {
-          let liste = rubrikler
-          if (ogretmenModu) {
-            // 1. Branş filtrelemesi
-            if (ogretmenBranslar.length > 0) {
-              liste = liste.filter(r => ogretmenBranslar.includes(r.ders))
-            }
-            // 2. Alt kurum bazlı seviye/kulüp filtrelemesi
-            liste = liste.filter(r => {
-              if (r.isKulup) {
-                return teacherClubRubrikIds.includes(r.id)
-              } else {
-                return (r.hedefSeviyeler || []).some(lvl => teacherGradeLevels.includes(Number(lvl)))
-              }
-            })
-          }
-          return liste
-        })()
-
         if (gorunurRubrikler.length === 0) return (
           <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
             {ogretmenModu && ogretmenBranslar.length > 0
@@ -1067,6 +1064,22 @@ export default function KurumRubrikler() {
               )
             })()}
           </div>
+        </div>
+      )}
+      {ogretmenModu && (
+        <div style={{ marginTop: '2rem', padding: '1rem', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+          <h3 style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '0.5rem' }}>🔧 Rubrik Sayfası Teşhis Paneli (Geçici)</h3>
+          <pre style={{ fontSize: '0.75rem', overflowX: 'auto', color: '#334155', margin: 0 }}>
+            {JSON.stringify({
+              ogretmenModu,
+              teacherGradeLevels,
+              teacherClubRubrikIds,
+              hamRubriklerCount: rubrikler.length,
+              hamRubrikler: rubrikler.map(r => ({ id: r.id, ad: r.ad, ders: r.ders, isKulup: r.isKulup, hedefSeviyeler: r.hedefSeviyeler })),
+              gorunurRubriklerCount: gorunurRubrikler.length,
+              gorunurRubrikler: gorunurRubrikler.map(r => ({ id: r.id, ad: r.ad, isKulup: r.isKulup }))
+            }, null, 2)}
+          </pre>
         </div>
       )}
     </div>
