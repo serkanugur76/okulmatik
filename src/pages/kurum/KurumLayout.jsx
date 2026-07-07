@@ -618,6 +618,15 @@ function KurumLayoutInner() {
     return parts
   }
 
+  const getShortName = (fullName) => {
+    if (!fullName) return ''
+    const prefix = rootKurum?.ad || 'Gelecek Okulları'
+    if (fullName.startsWith(prefix) && fullName !== prefix) {
+      return fullName.slice(prefix.length).trim()
+    }
+    return fullName
+  }
+
   // ── Rol rozeti ────────────────────────────────────────────
   const kullanicininKurumu = erisimKurumlar.find(k => k.id === profil?.kurumId)
   const rozet = (() => {
@@ -1201,7 +1210,9 @@ function KurumLayoutInner() {
                 minWidth: 0,
                 outline: 'none',
                 marginLeft: '0.25rem',
-                textOverflow: 'ellipsis'
+                textOverflow: 'ellipsis',
+                textAlign: 'right',
+                textAlignLast: 'right'
               }}
             >
               <option value="">— Kurum Seç —</option>
@@ -1224,7 +1235,7 @@ function KurumLayoutInner() {
                   if (isSelectable(root)) {
                     options.push(
                       <option key={root.id} value={root.id}>
-                        {root.tip === 'kampus' ? '🏫' : (root.tip === 'altKurum' ? '🏢' : '🏛')} {root.ad}
+                        {root.tip === 'kampus' ? '🏫' : (root.tip === 'altKurum' ? '🏢' : '🏛')} {getShortName(root.ad)}
                       </option>
                     )
                   }
@@ -1237,7 +1248,7 @@ function KurumLayoutInner() {
                     if (isSelectable(kp)) {
                       options.push(
                         <option key={kp.id} value={kp.id}>
-                          &nbsp;&nbsp;🏫 {kp.ad}
+                          &nbsp;&nbsp;🏫 {getShortName(kp.ad)}
                         </option>
                       )
                     }
@@ -1249,7 +1260,7 @@ function KurumLayoutInner() {
                       if (isSelectable(okul)) {
                         options.push(
                           <option key={okul.id} value={okul.id}>
-                            &nbsp;&nbsp;&nbsp;&nbsp;└ {okul.ad}
+                            &nbsp;&nbsp;&nbsp;&nbsp;└ {getShortName(okul.ad)}
                           </option>
                         )
                       }
@@ -1260,7 +1271,7 @@ function KurumLayoutInner() {
                     if (isSelectable(okul)) {
                       options.push(
                         <option key={okul.id} value={okul.id}>
-                          &nbsp;&nbsp;&nbsp;&nbsp;└ {okul.ad}
+                          &nbsp;&nbsp;&nbsp;&nbsp;└ {getShortName(okul.ad)}
                         </option>
                       )
                     }
