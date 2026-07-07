@@ -191,7 +191,7 @@ export default function KurumDegerlendirmeler() {
   // Seçili sınıf seviyesiyle eşleşen rubrikler
   // Öğretmen modunda: branşı yoksa tümü göster, branşı varsa sadece kendi branşı
   const ilgiliRubrikler = rubrikler.filter(r => {
-    const seviyeUygun = !r.hedefSeviyeler?.length || (secilenSeviye && r.hedefSeviyeler.includes(secilenSeviye))
+    const seviyeUygun = !r.hedefSeviyeler?.length || (secilenSeviye && r.hedefSeviyeler.map(Number).includes(Number(secilenSeviye)))
     const bransUygun  = !ogretmenModu
       || !profil?.branslar?.length   // branş tanımlı değilse kısıtlama yok
       || !r.ders                     // rubrikte ders alanı yoksa herkese açık

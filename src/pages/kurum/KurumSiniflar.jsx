@@ -551,7 +551,7 @@ export default function KurumSiniflar() {
                           ) : seviyeGruplari.map(({ seviye: sev, siniflar: sevSiniflar }) => {
                             const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + getFilteredOgrenciler(k.id).filter(o => o.sinifId === sinif.id).length, 0)
                             const seviyeNo = Number(sev) || 0
-                            const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
+                            const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.map(Number).includes(seviyeNo))
                             const sevKey = `${k.id}_${sev}`
                             const sevAcik = !!acikSeviyeler[sevKey]
                             return (
@@ -575,7 +575,7 @@ export default function KurumSiniflar() {
                                 {sevAcik && sevSiniflar.map(sinif => {
                                   const sinifOgrenciSayisi = getFilteredOgrenciler(k.id).filter(o => o.sinifId === sinif.id).length
                                   const sinifSeviye = Number(sinif.seviye) || 0
-                                  const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye))
+                                  const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.map(Number).includes(sinifSeviye))
                                   return (
                                     <tr key={sinif.id}>
                                       <td style={{ ...s.td, paddingLeft: '2rem', cursor: 'pointer' }} onClick={() => setDetayModal(sinif)}>
@@ -647,7 +647,7 @@ export default function KurumSiniflar() {
                       ) : seviyeGruplari.map(({ seviye: sev, siniflar: sevSiniflar }) => {
                         const sevSayiOgrenci = sevSiniflar.reduce((t, sinif) => t + getFilteredOgrenciler(k.id).filter(o => o.sinifId === sinif.id).length, 0)
                         const seviyeNo = Number(sev) || 0
-                        const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.includes(seviyeNo))
+                        const sevRubrikler = kurumRubrikleri(k.id).filter(r => seviyeNo > 0 && r.hedefSeviyeler?.map(Number).includes(seviyeNo))
                         const sevKey = `${k.id}_${sev}`
                         const sevAcik = !!acikSeviyeler[sevKey]
 
@@ -690,7 +690,7 @@ export default function KurumSiniflar() {
                                 {sevSiniflar.map(sinif => {
                                   const sinifOgrenciSayisi = getFilteredOgrenciler(k.id).filter(o => o.sinifId === sinif.id).length
                                   const sinifSeviye = Number(sinif.seviye) || 0
-                                  const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.includes(sinifSeviye))
+                                  const sinifRubrikler = kurumRubrikleri(k.id).filter(r => sinifSeviye > 0 && r.hedefSeviyeler?.map(Number).includes(sinifSeviye))
                                   
                                   return (
                                     <div key={sinif.id} style={{

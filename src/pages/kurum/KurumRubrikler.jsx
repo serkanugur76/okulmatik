@@ -169,7 +169,7 @@ export default function KurumRubrikler() {
     if (rubrik) {
       setForm({
         ad: rubrik.ad, ders: rubrik.ders || '', aciklama: rubrik.aciklama || '',
-        hedefSeviyeler: rubrik.hedefSeviyeler || [],
+        hedefSeviyeler: (rubrik.hedefSeviyeler || []).map(Number),
         isKulup: rubrik.isKulup || false,
         kriterler: (rubrik.kriterler || []).map(k => ({
           ...k,
