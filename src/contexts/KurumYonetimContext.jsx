@@ -186,12 +186,11 @@ export function KurumYonetimProvider({ children }) {
 
   const secilenKurum = erisimKurumlar.find(k => k.id === secilenKurumId) || null
 
-  // Öğretmen için: seçili kurumda hangi sınıflar atanmış?
+  // Öğretmen için: hangi sınıflar atanmış?
   const ogretmenSinifIdleri = useMemo(() => {
-    if (!ogretmen || !secilenKurumId) return []
-    const atama = (profil?.sinifAtamalari || []).find(a => a.kurumId === secilenKurumId)
-    return atama?.siniflar || []
-  }, [ogretmen, secilenKurumId, profil?.sinifAtamalari]) // eslint-disable-line
+    if (!ogretmen) return []
+    return profil?.sinifIdler || []
+  }, [ogretmen, profil?.sinifIdler]) // eslint-disable-line
 
   return (
     <KurumYonetimContext.Provider value={{
