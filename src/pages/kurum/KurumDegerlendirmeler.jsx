@@ -429,6 +429,18 @@ export default function KurumDegerlendirmeler() {
 
   return (
     <div style={{ paddingBottom: '80px' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (min-width: 769px) {
+          .desktop-only-table { display: block !important; }
+          .mobile-only-cards { display: none !important; }
+          .sticky-save-bar { left: 240px !important; bottom: 0 !important; }
+        }
+        @media (max-width: 768px) {
+          .desktop-only-table { display: none !important; }
+          .mobile-only-cards { display: flex !important; }
+          .sticky-save-bar { left: 0 !important; bottom: 64px !important; padding: 0.75rem 1rem !important; }
+        }
+      ` }} />
       <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Değerlendirmeler</h1>
       <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
         <strong>{secilenKurum?.ad}</strong> — rubrik bazlı dönem değerlendirmesi
@@ -615,7 +627,8 @@ export default function KurumDegerlendirmeler() {
                   </div>
                 )}
 
-                <div style={{ overflowX: 'auto' }}>
+                {/* Desktop View (Table) */}
+                <div className="desktop-only-table" style={{ overflowX: 'auto', display: 'none' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                     <thead>
                       <tr>
@@ -676,6 +689,117 @@ export default function KurumDegerlendirmeler() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Mobile View (Cards) */}
+                <div className="mobile-only-cards" style={{ display: 'none', flexDirection: 'column', gap: '0.75rem', padding: '0.75rem 0.5rem', background: '#F8FAFC' }}>
+                  {filtreliOgrenciler.length === 0 ? (
+                    <div style={{ padding: '2rem 1rem', textAlign: 'center', color: '#94A3B8', background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                      Öğrenci bulunamadı
+                    </div>
+                  ) : (
+                    filtreliOgrenciler.map((ogr, idx) => {
+                      const sinif = siniflar.find(sf => sf.id === ogr.sinifId)
+                      const birlesik = {
+                        ...(mevcut[ogr.id] || {}),
+                        ...Object.fromEntries(
+                          Object.entries(degisiklikler[ogr.id] || {}).filter(([, v]) => v != null)
+                        ),
+                      }
+                      const ort     = hesaplaOrt(birlesik, secilenRubrik)
+                      const degisti = !!degisiklikler[ogr.id]
+
+                      return (
+                        <div key={ogr.id} style={{
+                          background: '#fff',
+                          borderRadius: '12px',
+                          border: degisti ? '2px solid #F59E0B' : '1px solid #E2E8F0',
+                          padding: '1rem',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.75rem'
+                        }}>
+                          {/* Student Header */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.5rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                              <span style={{ fontSize: '0.88rem', fontWeight: '700', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {idx + 1}. {ogr.ad} {ogr.soyad}
+                              </span>
+                              <span style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
+                                Sınıf: {sinif?.ad || '—'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                              {degisti && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B' }} title="Kaydedilmemiş" />}
+                              <OrtBadge ort={ort} />
+                            </div>
+                          </div>
+
+                          {/* Evaluation Rows */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {aklerFiltreli.map(ak => {
+                              const p = getPuan(ogr.id, ak.id)
+                              return (
+                                <div key={ak.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <span style={{ fontSize: '0.78rem', fontWeight: '600', color: '#475569', lineHeight: '1.3' }}>
+                                    {ak.ad}
+                                  </span>
+                                  
+                                  {/* Buttons 1-4 */}
+                                  <div style={{ display: 'flex', gap: '6px' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => puanDegisti(ogr.id, ak.id, '')}
+                                      style={{
+                                        flex: '0 0 36px',
+                                        padding: '6px 0',
+                                        borderRadius: '6px',
+                                        border: '1px solid #CBD5E1',
+                                        fontSize: '0.75rem',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        background: !p ? '#F1F5F9' : '#fff',
+                                        color: !p ? '#475569' : '#94A3B8',
+                                        transition: 'all 0.1s'
+                                      }}
+                                    >
+                                      —
+                                    </button>
+                                    {[1, 2, 3, 4].map(val => {
+                                      const aktif = p === val
+                                      const st = PUAN_BG[val]
+                                      return (
+                                        <button
+                                          key={val}
+                                          type="button"
+                                          onClick={() => puanDegisti(ogr.id, ak.id, val)}
+                                          style={{
+                                            flex: 1,
+                                            padding: '6px 0',
+                                            borderRadius: '6px',
+                                            border: '1px solid ' + (aktif ? st.color : '#CBD5E1'),
+                                            fontSize: '0.8rem',
+                                            fontWeight: '800',
+                                            cursor: 'pointer',
+                                            background: aktif ? st.background : '#fff',
+                                            color: aktif ? st.color : '#475569',
+                                            transition: 'all 0.1s'
+                                          }}
+                                        >
+                                          {val}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
               </div>
             )
           })()}
@@ -686,7 +810,7 @@ export default function KurumDegerlendirmeler() {
 
       {/* ── Sticky Kaydet Barı ── */}
       {degisiklikSayisi > 0 && (
-        <div style={{
+        <div className="sticky-save-bar" style={{
           position: 'fixed', bottom: 0, left: '240px', right: 0,
           background: '#fff', borderTop: '1px solid #E2E8F0',
           padding: '0.75rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
