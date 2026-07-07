@@ -683,7 +683,7 @@ function KurumLayoutInner() {
           }
           .sidebar-main {
             margin-left: 0 !important;
-            padding: 5rem 1rem 80px 1rem !important;
+            padding: 4.2rem 1rem 80px 1rem !important;
             overflow-x: hidden !important;
             max-width: 100vw !important;
           }
