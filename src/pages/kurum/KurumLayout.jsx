@@ -620,11 +620,15 @@ function KurumLayoutInner() {
 
   const getShortName = (fullName) => {
     if (!fullName) return ''
-    const prefix = rootKurum?.ad || 'Gelecek Okulları'
-    if (fullName.startsWith(prefix) && fullName !== prefix) {
-      return fullName.slice(prefix.length).trim()
+    let name = fullName.trim()
+    const prefixes = ['Gelecek Okulları', 'Gelecek Okulu', 'Gelecek']
+    for (const p of prefixes) {
+      if (name.startsWith(p) && name !== p) {
+        name = name.slice(p.length).trim()
+        break
+      }
     }
-    return fullName
+    return name
   }
 
   // ── Rol rozeti ────────────────────────────────────────────
@@ -1260,7 +1264,7 @@ function KurumLayoutInner() {
                       if (isSelectable(okul)) {
                         options.push(
                           <option key={okul.id} value={okul.id}>
-                            &nbsp;&nbsp;&nbsp;&nbsp;└ {getShortName(okul.ad)}
+                            &nbsp;&nbsp;└ {getShortName(okul.ad)}
                           </option>
                         )
                       }
@@ -1271,7 +1275,7 @@ function KurumLayoutInner() {
                     if (isSelectable(okul)) {
                       options.push(
                         <option key={okul.id} value={okul.id}>
-                          &nbsp;&nbsp;&nbsp;&nbsp;└ {getShortName(okul.ad)}
+                          &nbsp;&nbsp;└ {getShortName(okul.ad)}
                         </option>
                       )
                     }
