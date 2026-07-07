@@ -367,24 +367,31 @@ export default function KurumOgrenciler() {
           }
         }
       `}} />
-      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Öğrenciler</h1>
-      <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Öğrenci kayıt ve yönetimi</p>
-
-      <div className="student-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <div className="student-search-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <input value={aramaMetni} onChange={e => setAramaMetni(e.target.value)}
-            className="student-search-bar"
-            placeholder="Ad, soyad veya öğrenci no ara..."
-            style={{ padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', width: '280px', color: '#1E293B' }} />
-          <span style={{ fontSize: '0.875rem', color: '#64748B', whiteSpace: 'nowrap' }}>
-            {sayimKurumlar.length === 0 ? 'Sol menüden kurum seçin' : `${toplamOgrenci} öğrenci`}
-          </span>
-        </div>
+      <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#1B3A6B', marginBottom: '0.15rem' }}>Öğrenciler</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <p style={{ color: '#64748B', fontSize: '0.85rem', margin: 0 }}>
+          Öğrenci kayıt ve yönetimi
+          {sayimKurumlar.length > 0 && (
+            <>
+              <span style={{ color: '#CBD5E1', margin: '0 0.5rem' }}>•</span>
+              <span style={{ fontWeight: '700', color: '#475569' }}>{toplamOgrenci} öğrenci</span>
+            </>
+          )}
+        </p>
         {listKurumId && !ogretmenModu && (
-          <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <button onClick={() => modalAc()} style={{ padding: '0.45rem 1rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             + Yeni Öğrenci
           </button>
         )}
+      </div>
+
+      <div className="student-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div className="student-search-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%' }}>
+          <input value={aramaMetni} onChange={e => setAramaMetni(e.target.value)}
+            className="student-search-bar"
+            placeholder="Ad, soyad veya öğrenci no ara..."
+            style={{ padding: '0.5rem 0.75rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.825rem', width: '280px', color: '#1E293B' }} />
+        </div>
       </div>
 
       {sayimKurumlar.length > 0 && (() => {

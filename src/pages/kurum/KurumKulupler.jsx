@@ -1477,12 +1477,12 @@ export default function KurumKulupler() {
         }
       `}} />
       {/* Üst Bilgi Başlığı */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1B3A6B', margin: 0 }}>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#1B3A6B', marginBottom: '0.15rem' }}>
             🏆 Sosyal Kulüpler Yönetim Modülü
           </h1>
-          <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0.25rem 0 0' }}>
+          <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0 }}>
             Kurum içi sosyal kulüp tanımlamaları, öğretmen-öğrenci atamaları, yoklama defteri ve etkinlik planlamaları.
           </p>
         </div>

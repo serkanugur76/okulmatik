@@ -472,15 +472,19 @@ export default function KurumSiniflar() {
           }
         }
       `}} />
-      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Sınıflar</h1>
-      <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>Sınıf ve şube yönetimi</p>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <span style={{ fontSize: '0.875rem', color: '#64748B' }}>
-          {sayimKurumlar.length === 0 ? 'Sol menüden kurum seçin' : `${toplamSinif} sınıf · ${toplamOgrenci} öğrenci`}
-        </span>
+      <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#1B3A6B', marginBottom: '0.15rem' }}>Sınıflar</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <p style={{ color: '#64748B', fontSize: '0.85rem', margin: 0 }}>
+          Sınıf ve şube yönetimi
+          {sayimKurumlar.length > 0 && (
+            <>
+              <span style={{ color: '#CBD5E1', margin: '0 0.5rem' }}>•</span>
+              <span style={{ fontWeight: '700', color: '#475569' }}>{toplamSinif} sınıf · {toplamOgrenci} öğrenci</span>
+            </>
+          )}
+        </p>
         {listKurumId && !ogretmenModu && (
-          <button onClick={() => modalAc()} style={{ padding: '0.6rem 1.25rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+          <button onClick={() => modalAc()} style={{ padding: '0.45rem 1rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>
             + Yeni Sınıf
           </button>
         )}

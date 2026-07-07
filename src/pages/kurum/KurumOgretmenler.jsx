@@ -455,12 +455,12 @@ export default function KurumOgretmenler() {
         }
       `}} />
       {/* Header section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#1B3A6B', marginBottom: '0.15rem' }}>
             🧑‍🏫 Öğretmen Listesi
           </h1>
-          <p style={{ color: '#64748B', fontSize: '0.925rem', marginTop: '0.25rem' }}>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', margin: 0 }}>
             Kurum öğretmenleri, ders branşları, koordinatörlük yetkileri ve aktif sınıf atamaları
           </p>
         </div>
