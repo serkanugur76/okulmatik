@@ -1066,22 +1066,6 @@ export default function KurumRubrikler() {
           </div>
         </div>
       )}
-      {ogretmenModu && (
-        <div style={{ marginTop: '2rem', padding: '1rem', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-          <h3 style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '0.5rem' }}>🔧 Rubrik Sayfası Teşhis Paneli (Geçici)</h3>
-          <pre style={{ fontSize: '0.75rem', overflowX: 'auto', color: '#334155', margin: 0 }}>
-            {JSON.stringify({
-              ogretmenModu,
-              teacherGradeLevels,
-              teacherClubRubrikIds,
-              hamRubriklerCount: rubrikler.length,
-              hamRubrikler: rubrikler.map(r => ({ id: r.id, ad: r.ad, ders: r.ders, isKulup: r.isKulup, hedefSeviyeler: r.hedefSeviyeler })),
-              gorunurRubriklerCount: gorunurRubrikler.length,
-              gorunurRubrikler: gorunurRubrikler.map(r => ({ id: r.id, ad: r.ad, isKulup: r.isKulup }))
-            }, null, 2)}
-          </pre>
-        </div>
-      )}
     </div>
   )
 }

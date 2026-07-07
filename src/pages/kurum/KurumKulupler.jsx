@@ -1419,6 +1419,19 @@ export default function KurumKulupler() {
           .mobile-only-kriter-list {
             display: flex !important;
           }
+          .header-select {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .drawer-student-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 0.75rem !important;
+          }
+          .drawer-student-buttons {
+            justify-content: flex-end !important;
+          }
         }
         @media (min-width: 769px) {
           .desktop-only-table {
@@ -2691,6 +2704,7 @@ export default function KurumKulupler() {
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                   {/* Kulüp Seçimi */}
                   <select
+                    className="header-select"
                     value={seciliKulupId}
                     onChange={e => setSeciliKulupId(e.target.value)}
                     style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
@@ -2704,6 +2718,7 @@ export default function KurumKulupler() {
                   {/* Hafta Seçimi */}
                   {seciliKulup && (
                     <select
+                      className="header-select"
                       value={seciliHafta}
                       onChange={e => setSeciliHafta(e.target.value)}
                       style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
@@ -2720,6 +2735,7 @@ export default function KurumKulupler() {
                   {/* Rubrik Seçimi */}
                   {seciliKulup && (
                     <select
+                      className="header-select"
                       value={seciliDegerlendirmeRubrikId}
                       onChange={e => setSeciliDegerlendirmeRubrikId(e.target.value)}
                       style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
@@ -3022,12 +3038,12 @@ export default function KurumKulupler() {
                                     { ad: '4', puan: 4 }
                                   ]
                                   return (
-                                    <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
+                                    <div key={o.id} className="drawer-student-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
                                       <div>
                                         <div style={{ fontSize: '0.85rem', fontWeight: '600', color: '#1E293B' }}>{o.ad} {o.soyad || ''}</div>
                                         <div style={{ fontSize: '0.68rem', color: '#64748B', marginTop: '2px' }}>No: {o.ogrenciNo || '—'} · Sınıf: {o.sinifAd || '—'}</div>
                                       </div>
-                                      <div style={{ display: 'flex', gap: '4px' }}>
+                                      <div className="drawer-student-buttons" style={{ display: 'flex', gap: '4px' }}>
                                         {seviyeler.map(sev => {
                                           const secili = aktifPuan === sev.puan
                                           return (
