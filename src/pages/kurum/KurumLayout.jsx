@@ -1190,16 +1190,17 @@ function KurumLayoutInner() {
               value={secilenKurumId || ''}
               onChange={e => setSecilenKurumId(e.target.value || null)}
               style={{
-                padding: '0.35rem 0.5rem',
-                fontSize: '0.75rem',
+                padding: '0.35rem 0.4rem',
+                fontSize: '0.72rem',
                 fontWeight: '700',
                 color: '#1E293B',
                 background: '#F8FAFC',
                 border: '1px solid #CBD5E1',
                 borderRadius: '8px',
-                maxWidth: '150px',
+                flex: 1,
+                minWidth: 0,
                 outline: 'none',
-                marginLeft: '0.5rem',
+                marginLeft: '0.25rem',
                 textOverflow: 'ellipsis'
               }}
             >
