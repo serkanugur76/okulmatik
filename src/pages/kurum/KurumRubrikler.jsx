@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc,
-  doc, serverTimestamp, query, orderBy,
+  doc, serverTimestamp, query, orderBy, getDoc, getDocs, where
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
@@ -42,7 +42,7 @@ function toplamMaksPuan(kriterler) {
 
 export default function KurumRubrikler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
-  const { kurumId: benimKurumId, platformAdmin, profil } = useAuth()
+  const { kurumId: benimKurumId, platformAdmin, profil, kullanici } = useAuth()
 
   const ogretmenModu   = profil?.rol === 'ogretmen'
   const ogretmenBranslar = profil?.branslar || []
@@ -78,6 +78,51 @@ export default function KurumRubrikler() {
   const [kaydediyor,    setKaydediyor]    = useState(false)
   const [hata,          setHata]          = useState('')
   const xlsxRef = useRef()
+
+  // Öğretmen için seçili alt kurumdaki sınıf seviyeleri ve kulüp rubrikleri
+  const [teacherGradeLevels, setTeacherGradeLevels] = useState([])
+  const [teacherClubRubrikIds, setTeacherClubRubrikIds] = useState([])
+
+  useEffect(() => {
+    if (!ogretmenModu || !secilenKurumId || !kullanici?.uid) {
+      setTeacherGradeLevels([])
+      setTeacherClubRubrikIds([])
+      return
+    }
+
+    async function yukleOgretmenVerileri() {
+      try {
+        // 1. Sınıf seviyelerini çek
+        const atama = (profil?.sinifAtamalari || []).find(a => a.kurumId === secilenKurumId)
+        const ogretmenOkulSinifIds = atama?.siniflar || []
+        if (ogretmenOkulSinifIds.length > 0) {
+          const snaps = await Promise.all(
+            ogretmenOkulSinifIds.map(sid => getDoc(doc(db, 'kurumlar', secilenKurumId, 'siniflar', sid)))
+          )
+          const levels = snaps
+            .filter(s => s.exists())
+            .map(s => Number(s.data().seviye))
+            .filter(Boolean)
+          setTeacherGradeLevels([...new Set(levels)])
+        } else {
+          setTeacherGradeLevels([])
+        }
+
+        // 2. Kulüplerdeki rubrikleri çek
+        const qClubs = query(
+          collection(db, 'kurumlar', secilenKurumId, 'kulupler'),
+          where('ogretmenIds', 'array-contains', kullanici.uid)
+        )
+        const clubsSnap = await getDocs(qClubs)
+        const clubRubIds = clubsSnap.docs.flatMap(d => d.data().rubrikIds || [])
+        setTeacherClubRubrikIds([...new Set(clubRubIds)])
+      } catch (err) {
+        console.error('Öğretmen rubrik filtreleme verileri yüklenemedi:', err)
+      }
+    }
+
+    yukleOgretmenVerileri()
+  }, [secilenKurumId, profil?.sinifAtamalari, kullanici?.uid, ogretmenModu])
 
   // Platform şablonları
   useEffect(() => {
@@ -449,10 +494,25 @@ export default function KurumRubrikler() {
 
       {/* Rubrik Listesi — derse göre gruplandırılmış */}
       {(() => {
-        // Öğretmen: sadece kendi branşlarındaki rubrikler; branş yoksa tümü
-        const gorunurRubrikler = (ogretmenModu && ogretmenBranslar.length > 0)
-          ? rubrikler.filter(r => ogretmenBranslar.includes(r.ders))
-          : rubrikler
+        // Öğretmen filtrelemesi: branş, sınıf seviyeleri ve kulüp atamaları eşleşmeli
+        const gorunurRubrikler = (() => {
+          let liste = rubrikler
+          if (ogretmenModu) {
+            // 1. Branş filtrelemesi
+            if (ogretmenBranslar.length > 0) {
+              liste = liste.filter(r => ogretmenBranslar.includes(r.ders))
+            }
+            // 2. Alt kurum bazlı seviye/kulüp filtrelemesi
+            liste = liste.filter(r => {
+              if (r.isKulup) {
+                return teacherClubRubrikIds.includes(r.id)
+              } else {
+                return (r.hedefSeviyeler || []).some(lvl => teacherGradeLevels.includes(Number(lvl)))
+              }
+            })
+          }
+          return liste
+        })()
 
         if (gorunurRubrikler.length === 0) return (
           <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
