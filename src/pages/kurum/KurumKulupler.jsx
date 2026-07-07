@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import {
-  collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, query, orderBy, writeBatch
+  collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, query, orderBy, writeBatch, where
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
