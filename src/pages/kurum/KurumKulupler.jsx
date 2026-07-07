@@ -119,6 +119,7 @@ export default function KurumKulupler() {
   const [degerlendirmePuanlari, setDegerlendirmePuanlari] = useState({})
   const [degerlendirmeKaydediyor, setDegerlendirmeKaydediyor] = useState(false)
   const [odakKriter, setOdakKriter] = useState(null)
+  const [isRestored, setIsRestored] = useState(false)
 
   // Ders Planı Excel Tarih Seçici State'leri
   const [planTarihModalAcik, setPlanTarihModalAcik] = useState(false)
@@ -491,27 +492,56 @@ export default function KurumKulupler() {
 
   // Auto-select first club
   useEffect(() => {
-    if (goruntulenenKulupler.length > 0) {
+    if (isRestored && goruntulenenKulupler.length > 0) {
       const exists = goruntulenenKulupler.some(k => k.id === seciliKulupId)
       if (!seciliKulupId || !exists) {
         setSeciliKulupId(goruntulenenKulupler[0].id)
       }
-    } else {
+    } else if (isRestored && goruntulenenKulupler.length === 0) {
       setSeciliKulupId('')
     }
-  }, [goruntulenenKulupler, seciliKulupId])
+  }, [isRestored, goruntulenenKulupler, seciliKulupId])
 
-  // Reset week and rubric selections when active club or institution changes
+  // Restore tab and selections from sessionStorage
   useEffect(() => {
-    setSeciliHafta('')
-    setSeciliDegerlendirmeRubrikId('')
+    if (!kullanici?.uid || !secilenKurumId) {
+      setIsRestored(false)
+      return
+    }
+
+    const savedTab = sessionStorage.getItem(`okulmatik_kulupler_tab_${kullanici.uid}_${secilenKurumId}`)
+    const savedKulupId = sessionStorage.getItem(`okulmatik_kulupler_seciliKulup_${kullanici.uid}_${secilenKurumId}`)
+    const savedHafta = sessionStorage.getItem(`okulmatik_kulupler_seciliHafta_${kullanici.uid}_${secilenKurumId}`)
+    const savedRubrikId = sessionStorage.getItem(`okulmatik_kulupler_seciliRubrik_${kullanici.uid}_${secilenKurumId}`)
+
+    setAktifTab(savedTab || 'kulupler')
+    setSeciliKulupId(savedKulupId || '')
+    setSeciliHafta(savedHafta || '')
+    setSeciliDegerlendirmeRubrikId(savedRubrikId || '')
     setOdakKriter(null)
-  }, [seciliKulupId])
+    setIsRestored(true)
+  }, [kullanici?.uid, secilenKurumId])
+
+  // Save changes to sessionStorage
+  useEffect(() => {
+    if (!isRestored || !kullanici?.uid || !secilenKurumId) return
+    sessionStorage.setItem(`okulmatik_kulupler_tab_${kullanici.uid}_${secilenKurumId}`, aktifTab)
+  }, [isRestored, aktifTab, kullanici?.uid, secilenKurumId])
 
   useEffect(() => {
-    setSeciliKulupId('')
-    setOdakKriter(null)
-  }, [secilenKurumId])
+    if (!isRestored || !kullanici?.uid || !secilenKurumId) return
+    sessionStorage.setItem(`okulmatik_kulupler_seciliKulup_${kullanici.uid}_${secilenKurumId}`, seciliKulupId)
+  }, [isRestored, seciliKulupId, kullanici?.uid, secilenKurumId])
+
+  useEffect(() => {
+    if (!isRestored || !kullanici?.uid || !secilenKurumId) return
+    sessionStorage.setItem(`okulmatik_kulupler_seciliHafta_${kullanici.uid}_${secilenKurumId}`, seciliHafta)
+  }, [isRestored, seciliHafta, kullanici?.uid, secilenKurumId])
+
+  useEffect(() => {
+    if (!isRestored || !kullanici?.uid || !secilenKurumId) return
+    sessionStorage.setItem(`okulmatik_kulupler_seciliRubrik_${kullanici.uid}_${secilenKurumId}`, seciliDegerlendirmeRubrikId)
+  }, [isRestored, seciliDegerlendirmeRubrikId, kullanici?.uid, secilenKurumId])
 
   // Rubrik Değerlendirme useEffect ve Yardımcı Fonksiyonlar
   useEffect(() => {
@@ -2706,7 +2736,12 @@ export default function KurumKulupler() {
                   <select
                     className="header-select"
                     value={seciliKulupId}
-                    onChange={e => setSeciliKulupId(e.target.value)}
+                    onChange={e => {
+                      setSeciliKulupId(e.target.value)
+                      setSeciliHafta('')
+                      setSeciliDegerlendirmeRubrikId('')
+                      setOdakKriter(null)
+                    }}
                     style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
                   >
                     <option value="">— Kulüp Seçin —</option>
