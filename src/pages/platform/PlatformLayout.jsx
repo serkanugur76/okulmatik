@@ -387,6 +387,53 @@ function PlatformMain() {
   const navigate = useNavigate()
   const location = useLocation()
 
+  const rootKurum = erisimKurumlar.find(k => !k.parentId)
+
+  const getInitials = (phrase) => {
+    if (!phrase) return ''
+    const words = phrase.split(/\s+/).filter(Boolean)
+    if (words.length === 1 && words[0].length <= 4) {
+      return words[0]
+    }
+    return words
+      .map(word => {
+        const char = word.charAt(0)
+        if (char === 'I' || char === 'ı') return 'I'
+        if (char === 'İ' || char === 'i') return 'İ'
+        return char.toUpperCase()
+      })
+      .filter(Boolean)
+      .join('.') + '.'
+  }
+
+  const getShortName = (fullName) => {
+    if (!fullName) return ''
+    const name = fullName.trim()
+    const rootName = rootKurum?.ad ? rootKurum.ad.trim() : ''
+    
+    if (rootName && name !== rootName) {
+      const nameWords = name.split(/\s+/).filter(Boolean)
+      const rootWords = rootName.split(/\s+/).filter(Boolean)
+      
+      let commonCount = 0
+      while (
+        commonCount < nameWords.length &&
+        commonCount < rootWords.length &&
+        nameWords[commonCount].toLowerCase() === rootWords[commonCount].toLowerCase()
+      ) {
+        commonCount++
+      }
+      
+      if (commonCount > 0) {
+        const commonPrefix = nameWords.slice(0, commonCount).join(' ')
+        const initials = getInitials(commonPrefix)
+        const rest = nameWords.slice(commonCount).join(' ')
+        return `${initials} ${rest}`
+      }
+    }
+    return name
+  }
+
   // Okul seviyesi sıralama: ilkokul → ortaokul → lise
   function okulSira(ad = '') {
     const s = ad.toLocaleLowerCase('tr')
@@ -611,49 +658,51 @@ function PlatformMain() {
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.35rem',
             background: '#F1F5F9',
             border: 'none',
-            padding: '6px 12px',
+            padding: '6px 10px',
             borderRadius: '8px',
-            fontSize: '0.85rem',
+            fontSize: '0.9rem',
             fontWeight: '700',
             color: '#475569',
             cursor: 'pointer',
             transition: 'all 0.15s ease'
           }}
         >
-          ⬅ Geri Git
+          ⬅
         </button>
         {erisimKurumlar.length > 1 && (
           <select
             value={secilenKurumId || ''}
             onChange={e => setSecilenKurumId(e.target.value || null)}
             style={{
-              padding: '0.35rem 0.5rem',
-              fontSize: '0.75rem',
+              padding: '0.35rem 0.4rem',
+              fontSize: '0.72rem',
               fontWeight: '700',
               color: '#1E293B',
               background: '#F8FAFC',
               border: '1px solid #CBD5E1',
               borderRadius: '8px',
-              maxWidth: '150px',
+              flex: 1,
+              minWidth: 0,
               outline: 'none',
-              marginLeft: '0.5rem',
-              textOverflow: 'ellipsis'
+              marginLeft: '0.25rem',
+              textOverflow: 'ellipsis',
+              textAlign: 'right',
+              textAlignLast: 'right'
             }}
           >
             <option value="">— Kurum Seç —</option>
             {kurumGruplari.flatMap(({ root, campuses, kampusGruplari }) => [
-              <optgroup key={`root-${root.id}`} label={`🏛 ${root.ad.toUpperCase()}`}>
-                <option value={root.id}>🏛 {root.ad}</option>
+              <optgroup key={`root-${root.id}`} label={`🏛 ${getShortName(root.ad).toUpperCase()}`}>
+                <option value={root.id}>🏛 {getShortName(root.ad)}</option>
               </optgroup>,
               ...kampusGruplari.map(({ kampus, altKurumlar: altlar }) => (
-                <optgroup key={kampus.id} label={`  🏫 ${kampus.ad}`}>
-                  <option value={kampus.id}>🏫 {kampus.ad}</option>
+                <optgroup key={kampus.id} label={`  🏫 ${getShortName(kampus.ad)}`}>
+                  <option value={kampus.id}>🏫 {getShortName(kampus.ad)}</option>
                   {altlar.map(ak => (
                     <option key={ak.id} value={ak.id}>
-                      └ {ak.ad}
+                      &nbsp;&nbsp;└ {getShortName(ak.ad)}
                     </option>
                   ))}
                 </optgroup>
@@ -662,12 +711,33 @@ function PlatformMain() {
           </select>
         )}
         <div style={{
-          fontSize: '0.85rem',
-          fontWeight: '600',
-          color: '#64748B',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
           marginLeft: 'auto'
         }}>
-          {getSayfaEtiketi()}
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt="Logo"
+              style={{
+                height: '32px',
+                width: '32px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '1px solid #E2E8F0',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+              }}
+            />
+          ) : (
+            <span style={{
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              color: '#64748B'
+            }}>
+              {getSayfaEtiketi()}
+            </span>
+          )}
         </div>
       </div>
       {/* Breadcrumb + Logo satırı */}
@@ -698,7 +768,7 @@ function PlatformMain() {
             ))}
           </div>
           {logoUrl && (
-            <img src={logoUrl} alt="Kurum Logosu"
+            <img src={logoUrl} alt="Kurum Logosu" className="desktop-only-logo"
               style={{ height: '48px', maxWidth: '140px', objectFit: 'contain' }} />
           )}
         </div>
@@ -736,6 +806,9 @@ function PlatformLayoutInner() {
           text-decoration: underline;
         }
         @media (max-width: 768px) {
+          .desktop-only-logo {
+            display: none !important;
+          }
           .mobile-header-bar {
             display: flex !important;
             position: fixed !important;
@@ -759,7 +832,7 @@ function PlatformLayoutInner() {
           }
           .sidebar-main {
             margin-left: 0 !important;
-            padding: 5rem 1rem 80px 1rem !important;
+            padding: 4.2rem 1rem 80px 1rem !important;
             overflow-x: hidden !important;
             max-width: 100vw !important;
           }
