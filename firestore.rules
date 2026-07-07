@@ -113,6 +113,7 @@ service cloud.firestore {
     match /kurumlar/{kurumId}/siniflar/{sinifId} {
       // Öğretmen: atandığı sınıfları görebilir
       allow read:  if kurumUyesi(kurumId) || platformAdmin()
+                   || ogretmenKurumErisimi(kurumId)
                    || ogretmenSinifErisimi(kurumId, sinifId);
       allow write: if kurumAdmin(kurumId) || platformAdmin();
     }
