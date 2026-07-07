@@ -620,12 +620,11 @@ function KurumLayoutInner() {
 
   const getShortName = (fullName) => {
     if (!fullName) return ''
-    let name = fullName.trim()
-    const prefixes = ['Gelecek Okulları', 'Gelecek Okulu', 'Gelecek']
-    for (const p of prefixes) {
-      if (name.startsWith(p) && name !== p) {
-        name = name.slice(p.length).trim()
-        break
+    const name = fullName.trim()
+    if (rootKurum?.ad) {
+      const rootPrefix = rootKurum.ad.trim()
+      if (name.toLowerCase().startsWith(rootPrefix.toLowerCase()) && name.length > rootPrefix.length) {
+        return name.slice(rootPrefix.length).trim()
       }
     }
     return name
