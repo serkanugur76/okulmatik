@@ -2783,24 +2783,27 @@ export default function KurumKulupler() {
                                 onClick={() => setOdakKriter(ak)}
                                 title="Detaylı Değerlendir / Kriter Açıklamaları"
                                 style={{
-                                  padding: '0.75rem',
+                                  padding: '0.6rem 0.4rem',
                                   textAlign: 'center',
                                   fontWeight: '700',
                                   color: '#1B3A6B',
-                                  minWidth: '135px',
+                                  minWidth: '95px',
+                                  maxWidth: '120px',
                                   cursor: 'pointer',
                                   userSelect: 'none',
                                   transition: 'background 0.2s',
                                   borderLeft: '1px solid #E2E8F0',
-                                  borderRight: '1px solid #E2E8F0'
+                                  borderRight: '1px solid #E2E8F0',
+                                  whiteSpace: 'normal',
+                                  verticalAlign: 'top'
                                 }}
                                 onMouseEnter={e => e.currentTarget.style.background = '#EFF6FF'}
                                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                               >
-                                <div style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '3px' }}>
+                                <div style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '3px', fontSize: '0.78rem', lineHeight: '1.2' }}>
                                   💡 {ak.ad}
                                 </div>
-                                <span style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: '400', display: 'block', marginTop: '3px' }}>({ak.anaAd})</span>
+                                <span style={{ fontSize: '0.6rem', color: '#64748B', fontWeight: '400', display: 'block', marginTop: '4px' }}>({ak.anaAd})</span>
                               </th>
                             ))}
                             <th style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '700', color: '#1B3A6B', width: '80px' }}>Ort.</th>
@@ -2824,40 +2827,46 @@ export default function KurumKulupler() {
 
                                 {altKriterler.map(ak => {
                                   const aktifPuan = getKulupPuan(o.id, ak.id)
-                                  const seviyeler = Array.isArray(ak.seviyeler) ? ak.seviyeler : [
-                                    { ad: '1', puan: 1 },
-                                    { ad: '2', puan: 2 },
-                                    { ad: '3', puan: 3 },
-                                    { ad: '4', puan: 4 }
-                                  ]
+                                  
+                                  // HSL/Hex tailored colors for each score
+                                  let bg = '#F8FAFC'
+                                  let fg = '#64748B'
+                                  let border = '#E2E8F0'
+                                  if (aktifPuan === 4) { bg = '#DEF7EC'; fg = '#03543F'; border = '#BCF0DA' }
+                                  else if (aktifPuan === 3) { bg = '#E1EFFE'; fg = '#1E429F'; border = '#C3DDFD' }
+                                  else if (aktifPuan === 2) { bg = '#FDF6B2'; fg = '#723B13'; border = '#FCE96F' }
+                                  else if (aktifPuan === 1) { bg = '#FDE8E8'; fg = '#9B1C1C'; border = '#FBD5D5' }
 
                                   return (
-                                    <td key={ak.id} style={{ padding: '0.75rem', textAlign: 'center', borderLeft: '1px solid #F1F5F9', borderRight: '1px solid #F1F5F9' }}>
-                                      <div style={{ display: 'flex', gap: '3px', justifyContent: 'center' }}>
-                                        {seviyeler.map(sev => {
-                                          const secili = aktifPuan === sev.puan
-                                          return (
-                                            <button
-                                              key={sev.puan}
-                                              type="button"
-                                              onClick={() => handleKulupPuanDegis(o.id, ak.id, secili ? null : sev.puan)}
-                                              title={sev.ad || `Puan: ${sev.puan}`}
-                                              style={{
-                                                width: '24px', height: '24px', borderRadius: '50%',
-                                                border: '1px solid',
-                                                borderColor: secili ? '#1B3A6B' : '#CBD5E1',
-                                                background: secili ? '#1B3A6B' : '#fff',
-                                                color: secili ? '#fff' : '#475569',
-                                                fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                transition: 'all 0.1s'
-                                              }}
-                                            >
-                                              {sev.puan}
-                                            </button>
-                                          )
-                                        })}
-                                      </div>
+                                    <td key={ak.id} style={{ padding: '0.4rem', textAlign: 'center', borderLeft: '1px solid #F1F5F9', borderRight: '1px solid #F1F5F9' }}>
+                                      <select
+                                        value={aktifPuan || ''}
+                                        onChange={e => handleKulupPuanDegis(o.id, ak.id, e.target.value ? Number(e.target.value) : null)}
+                                        style={{
+                                          padding: '0.25rem 0.4rem',
+                                          background: bg,
+                                          color: fg,
+                                          border: `1px solid ${border}`,
+                                          borderRadius: '6px',
+                                          fontSize: '0.85rem',
+                                          fontWeight: '800',
+                                          cursor: 'pointer',
+                                          width: '48px',
+                                          textAlign: 'center',
+                                          textAlignLast: 'center',
+                                          outline: 'none',
+                                          transition: 'all 0.15s',
+                                          appearance: 'none',
+                                          WebkitAppearance: 'none',
+                                          MozAppearance: 'none'
+                                        }}
+                                      >
+                                        <option value="" style={{ background: '#fff', color: '#94A3B8' }}>—</option>
+                                        <option value="1" style={{ background: '#FDE8E8', color: '#9B1C1C' }}>1</option>
+                                        <option value="2" style={{ background: '#FDF6B2', color: '#723B13' }}>2</option>
+                                        <option value="3" style={{ background: '#E1EFFE', color: '#1E429F' }}>3</option>
+                                        <option value="4" style={{ background: '#DEF7EC', color: '#03543F' }}>4</option>
+                                      </select>
                                     </td>
                                   )
                                 })}
