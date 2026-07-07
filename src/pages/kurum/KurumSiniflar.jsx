@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc,
-  doc, serverTimestamp, query, orderBy, writeBatch,
+  doc, serverTimestamp, query, orderBy, writeBatch, getDoc,
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
@@ -111,23 +111,62 @@ export default function KurumSiniflar() {
 
   useEffect(() => {
     if (sayimKurumlar.length === 0) { setSiniflarMap({}); return }
-    const unsubs = sayimKurumlar.map(k => {
-      const kampus = erisimKurumlar.find(x => x.id === k.parentId)
-      const tamAd = kampus ? `${kampus.ad} · ${k.ad}` : k.ad
-      const q = query(collection(db, 'kurumlar', k.id, 'siniflar'), orderBy('olusturmaTarihi', 'asc'))
-      return onSnapshot(q, snap => {
-        setSiniflarMap(prev => ({ ...prev, [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, _kurumAd: tamAd, ...d.data() })) }))
+
+    if (ogretmenModu) {
+      const unsubs = []
+      sayimKurumlar.forEach(k => {
+        const kampus = erisimKurumlar.find(x => x.id === k.parentId)
+        const tamAd = kampus ? `${kampus.ad} · ${k.ad}` : k.ad
+
+        const atama = (profil?.sinifAtamalari || []).find(a => a.kurumId === k.id)
+        const ogretmenOkulSinifIds = atama?.siniflar || []
+
+        if (ogretmenOkulSinifIds.length > 0) {
+          const classesData = {}
+          ogretmenOkulSinifIds.forEach(sid => {
+            const docRef = doc(db, 'kurumlar', k.id, 'siniflar', sid)
+            const unsub = onSnapshot(docRef, docSnap => {
+              if (docSnap.exists()) {
+                classesData[sid] = { id: docSnap.id, _kurumId: k.id, _kurumAd: tamAd, ...docSnap.data() }
+              } else {
+                delete classesData[sid]
+              }
+              setSiniflarMap(prev => ({
+                ...prev,
+                [k.id]: Object.values(classesData).sort((a, b) => (a.olusturmaTarihi?.seconds || 0) - (b.olusturmaTarihi?.seconds || 0))
+              }))
+            }, err => {
+              console.warn(`Sınıf ${sid} dinleme hatası:`, err)
+            })
+            unsubs.push(unsub)
+          })
+        } else {
+          setSiniflarMap(prev => ({ ...prev, [k.id]: [] }))
+        }
       })
-    })
-    setSiniflarMap(prev => {
-      const ids = new Set(sayimKurumlar.map(k => k.id))
-      const t = {}; Object.keys(prev).forEach(id => { if (ids.has(id)) t[id] = prev[id] }); return t
-    })
-    setAcikGruplar(prev => {
-      const g = { ...prev }; sayimKurumlar.forEach(k => { if (!(k.id in g)) g[k.id] = false }); return g
-    })
-    return () => unsubs.forEach(u => u())
-  }, [sayimKurumlar.map(k => k.id).join(',')]) // eslint-disable-line
+      setAcikGruplar(prev => {
+        const g = { ...prev }; sayimKurumlar.forEach(k => { if (!(k.id in g)) g[k.id] = false }); return g
+      })
+      return () => unsubs.forEach(u => u())
+    } else {
+      const unsubs = sayimKurumlar.map(k => {
+        const kampus = erisimKurumlar.find(x => x.id === k.parentId)
+        const tamAd = kampus ? `${kampus.ad} · ${k.ad}` : k.ad
+        const q = query(collection(db, 'kurumlar', k.id, 'siniflar'), orderBy('olusturmaTarihi', 'asc'))
+        return onSnapshot(q, snap => {
+          setSiniflarMap(prev => ({ ...prev, [k.id]: snap.docs.map(d => ({ id: d.id, _kurumId: k.id, _kurumAd: tamAd, ...d.data() })) }))
+        })
+      })
+      setSiniflarMap(prev => {
+        const ids = new Set(sayimKurumlar.map(k => k.id))
+        const t = {}; Object.keys(prev).forEach(id => { if (ids.has(id)) t[id] = prev[id] }); return t
+      })
+      setAcikGruplar(prev => {
+        const g = { ...prev }; sayimKurumlar.forEach(k => { if (!(k.id in g)) g[k.id] = false }); return g
+      })
+      return () => unsubs.forEach(u => u())
+    }
+  }, [sayimKurumlar.map(k => k.id).join(','), ogretmenModu, profil?.sinifAtamalari]) // eslint-disable-line
 
   // Öğrenci sayıları için subscription
   useEffect(() => {
