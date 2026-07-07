@@ -638,11 +638,25 @@ function KurumLayoutInner() {
   const getShortName = (fullName) => {
     if (!fullName) return ''
     const name = fullName.trim()
-    if (rootKurum?.ad) {
-      const rootPrefix = rootKurum.ad.trim()
-      if (name.toLowerCase().startsWith(rootPrefix.toLowerCase()) && name.length > rootPrefix.length) {
-        const initials = getInitials(rootPrefix)
-        const rest = name.slice(rootPrefix.length).trim()
+    const rootName = rootKurum?.ad ? rootKurum.ad.trim() : ''
+    
+    if (rootName && name !== rootName) {
+      const nameWords = name.split(/\s+/).filter(Boolean)
+      const rootWords = rootName.split(/\s+/).filter(Boolean)
+      
+      let commonCount = 0
+      while (
+        commonCount < nameWords.length &&
+        commonCount < rootWords.length &&
+        nameWords[commonCount].toLowerCase() === rootWords[commonCount].toLowerCase()
+      ) {
+        commonCount++
+      }
+      
+      if (commonCount > 0) {
+        const commonPrefix = nameWords.slice(0, commonCount).join(' ')
+        const initials = getInitials(commonPrefix)
+        const rest = nameWords.slice(commonCount).join(' ')
         return `${initials} ${rest}`
       }
     }
