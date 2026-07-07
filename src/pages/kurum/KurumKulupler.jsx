@@ -11,18 +11,23 @@ import { getDescendants, getAncestors } from '../../utils/hierarchy'
 
 // Rubrikten tüm alt kriterler (düz liste)
 function altKriterListesi(rubrik) {
-  return (rubrik?.kriterler || []).flatMap(k =>
-    (k.altKriterler || []).map(ak => ({ ...ak, anaAd: k.ad, anaId: k.id }))
-  )
+  if (!rubrik || !Array.isArray(rubrik.kriterler)) return []
+  return rubrik.kriterler.flatMap(k => {
+    if (!k || !Array.isArray(k.altKriterler)) return []
+    return k.altKriterler.map(ak => {
+      if (!ak) return null
+      return { ...ak, anaAd: k.ad || '', anaId: k.id || '' }
+    }).filter(Boolean)
+  })
 }
 
 // Ortalama hesapla (tüm alt kriterler üzerinden)
 function hesaplaOrt(puanlar, rubrik) {
   const liste = altKriterListesi(rubrik)
-  if (!liste.length) return null
-  const degerler = liste.map(ak => puanlar?.[ak.id]).filter(v => v > 0)
+  if (!liste || liste.length === 0) return null
+  const degerler = liste.map(ak => ak && puanlar?.[ak.id]).filter(v => typeof v === 'number' && v > 0)
   if (!degerler.length) return null
-  return degerler.reduce((a, b) => a + b, 0) / degerler.length
+  return Number((degerler.reduce((a, b) => a + b, 0) / degerler.length).toFixed(2))
 }
 
 const KULUP_ALANLARI = [
@@ -310,8 +315,8 @@ export default function KurumKulupler() {
     sorguIds.forEach(kid => {
       const unsub = onSnapshot(collection(db, 'kurumlar', kid, 'rubrikler'), (snap) => {
         rubrikParcalar[kid] = snap.docs.map(d => ({ ...d.data(), id: d.id, _kurumId: kid }))
-        const birlesik = [...new Map(Object.values(rubrikParcalar).flat().map(r => [`${r._kurumId}_${r.id}`, r])).values()]
-          .sort((a, b) => (a.ad || a.baslik || '').localeCompare(b.ad || b.baslik || '', 'tr'))
+        const birlesik = [...new Map(Object.values(rubrikParcalar).flat().filter(Boolean).map(r => [`${r._kurumId}_${r.id}`, r])).values()]
+          .sort((a, b) => (a?.ad || a?.baslik || '').localeCompare(b?.ad || b?.baslik || '', 'tr'))
         setRubrikler(birlesik)
       }, (err) => {
         console.warn(`Rubrikler yüklenemedi (${kid}):`, err.message)
@@ -2680,7 +2685,7 @@ export default function KurumKulupler() {
                       style={{ padding: '0.4rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1B3A6B' }}
                     >
                       <option value="">— Hafta / Konu Seçin —</option>
-                      {(seciliKulup.dersPlani || []).map(h => (
+                      {(Array.isArray(seciliKulup.dersPlani) ? seciliKulup.dersPlani : []).map(h => (
                         <option key={h.hafta} value={h.hafta}>
                           Hafta {h.hafta}: {h.konu} {h.tamamlandi ? '(Tamamlandı)' : ''}
                         </option>
@@ -2720,12 +2725,12 @@ export default function KurumKulupler() {
                 <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8', fontSize: '0.85rem' }}>
                   Lütfen üst kısımdan değerlendirilecek haftayı seçin. Ders planınız yoksa önce "Ders Planı" sekmesinden plan ekleyin.
                 </div>
-              ) : (seciliKulup?.dersPlani?.find(h => h.hafta === Number(seciliHafta))?.konu || '').toUpperCase().startsWith('TATİL') ? (
+              ) : (Array.isArray(seciliKulup?.dersPlani) ? (seciliKulup.dersPlani.find(h => h.hafta === Number(seciliHafta))?.konu || '') : '').toString().toUpperCase().startsWith('TATİL') ? (
                 <div style={{
                   textAlign: 'center', padding: '3rem', color: '#B91C1C', fontSize: '0.9rem', fontWeight: '700',
                   background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '12px', margin: '1rem 0'
                 }}>
-                  🚫 Seçilen hafta resmi tatil ({seciliKulup?.dersPlani?.find(h => h.hafta === Number(seciliHafta))?.konu}) olduğu için ders planı dışındadır ve rubrik değerlendirmesi yapılamaz.
+                  🚫 Seçilen hafta resmi tatil ({(Array.isArray(seciliKulup?.dersPlani) ? seciliKulup.dersPlani.find(h => h.hafta === Number(seciliHafta))?.konu : '') || ''}) olduğu için ders planı dışındadır ve rubrik değerlendirmesi yapılamaz.
                 </div>
               ) : !seciliDegerlendirmeRubrikId ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8', fontSize: '0.85rem' }}>
@@ -2773,7 +2778,7 @@ export default function KurumKulupler() {
 
                               {altKriterler.map(ak => {
                                 const aktifPuan = getKulupPuan(o.id, ak.id)
-                                const seviyeler = ak.seviyeler || [
+                                const seviyeler = Array.isArray(ak.seviyeler) ? ak.seviyeler : [
                                   { ad: '1', puan: 1 },
                                   { ad: '2', puan: 2 },
                                   { ad: '3', puan: 3 },
