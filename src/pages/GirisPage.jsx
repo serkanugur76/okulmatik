@@ -93,11 +93,32 @@ export default function GirisPage() {
           <form onSubmit={handleGiris} style={s.form}>
             <div style={s.alan}>
               <label style={s.etiket}>E-posta</label>
-              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} style={s.girdi} placeholder="ornek@okul.com" required autoFocus />
+              <input 
+                type="email" 
+                name="email"
+                id="email"
+                autoComplete="username"
+                value={email} 
+                onChange={e=>setEmail(e.target.value)} 
+                style={s.girdi} 
+                placeholder="ornek@okul.com" 
+                required 
+                autoFocus 
+              />
             </div>
             <div style={s.alan}>
               <label style={s.etiket}>Şifre</label>
-              <input type="password" value={sifre} onChange={e=>setSifre(e.target.value)} style={s.girdi} placeholder="••••••••" required />
+              <input 
+                type="password" 
+                name="password"
+                id="password"
+                autoComplete="current-password"
+                value={sifre} 
+                onChange={e=>setSifre(e.target.value)} 
+                style={s.girdi} 
+                placeholder="••••••••" 
+                required 
+              />
             </div>
             {hata && <p style={s.hata}>{hata}</p>}
             <button type="submit" style={s.buton} disabled={yukleniyor}>
@@ -115,7 +136,17 @@ export default function GirisPage() {
             <p style={{ fontSize:'0.875rem', color:'#64748B' }}>E-postanıza sıfırlama bağlantısı göndereceğiz.</p>
             <div style={s.alan}>
               <label style={s.etiket}>E-posta</label>
-              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} style={s.girdi} required autoFocus />
+              <input 
+                type="email" 
+                name="reset-email" 
+                id="reset-email" 
+                autoComplete="email" 
+                value={email} 
+                onChange={e=>setEmail(e.target.value)} 
+                style={s.girdi} 
+                required 
+                autoFocus 
+              />
             </div>
             {hata  && <p style={s.hata}>{hata}</p>}
             {mesaj && <p style={s.basari}>{mesaj}</p>}

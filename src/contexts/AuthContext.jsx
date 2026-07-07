@@ -26,7 +26,9 @@ export function AuthProvider({ children }) {
           if (profilSnap.exists()) {
             const data = profilSnap.data()
             setProfil(data)
-            deleteDoc(doc(db, 'yetkiliKullanicilar', user.email)).catch(() => {})
+            if (user.email) {
+              deleteDoc(doc(db, 'yetkiliKullanicilar', user.email)).catch(() => {})
+            }
             
             // Google profil fotoğrafı veya isim güncellemesi varsa senkronize et
             const updates = {}
@@ -46,32 +48,36 @@ export function AuthProvider({ children }) {
             }
           } else {
             // İlk giriş: yetkiliKullanicilar'da e-posta var mı?
-            const yetkiSnap = await getDoc(doc(db, 'yetkiliKullanicilar', user.email))
-            if (yetkiSnap.exists()) {
-              const yetki = yetkiSnap.data()
-              const yeniProfil = {
-                ad: user.displayName || user.email.split('@')[0],
-                email: user.email,
-                rol: yetki.rol,
-                kurumId: yetki.kurumId || null,
-                modulIzinler:     yetki.modulIzinler     || {},
-                sinifAtamalari:   yetki.sinifAtamalari   || [],
-                sinifIdler:       yetki.sinifIdler       || [],
-                erisimKurumIdler: yetki.erisimKurumIdler || [],
-                parentKurumIdler: yetki.parentKurumIdler || [],
-                branslar:         yetki.branslar         || [],
-                olusturmaTarihi: serverTimestamp(),
-                photoURL: user.photoURL || '',
+            if (user.email) {
+              const yetkiSnap = await getDoc(doc(db, 'yetkiliKullanicilar', user.email))
+              if (yetkiSnap.exists()) {
+                const yetki = yetkiSnap.data()
+                const yeniProfil = {
+                  ad: user.displayName || user.email.split('@')[0],
+                  email: user.email,
+                  rol: yetki.rol,
+                  kurumId: yetki.kurumId || null,
+                  modulIzinler:     yetki.modulIzinler     || {},
+                  sinifAtamalari:   yetki.sinifAtamalari   || [],
+                  sinifIdler:       yetki.sinifIdler       || [],
+                  erisimKurumIdler: yetki.erisimKurumIdler || [],
+                  parentKurumIdler: yetki.parentKurumIdler || [],
+                  branslar:         yetki.branslar         || [],
+                  olusturmaTarihi: serverTimestamp(),
+                  photoURL: user.photoURL || '',
+                }
+                await setDoc(doc(db, 'kullanicilar', user.uid), yeniProfil)
+                if (yetki.kurumId) {
+                  // Hata olsa bile profili set et — kural izin vermezse admin düzeltir
+                  setDoc(doc(db, 'kurumlar', yetki.kurumId, 'kullanicilar', user.uid), {
+                    ...yeniProfil, durum: 'aktif',
+                  }).catch(err => console.warn('Kurum subcollection yazılamadı:', err.message))
+                }
+                await deleteDoc(doc(db, 'yetkiliKullanicilar', user.email))
+                setProfil(yeniProfil)
+              } else {
+                setProfil(null)
               }
-              await setDoc(doc(db, 'kullanicilar', user.uid), yeniProfil)
-              if (yetki.kurumId) {
-                // Hata olsa bile profili set et — kural izin vermezse admin düzeltir
-                setDoc(doc(db, 'kurumlar', yetki.kurumId, 'kullanicilar', user.uid), {
-                  ...yeniProfil, durum: 'aktif',
-                }).catch(err => console.warn('Kurum subcollection yazılamadı:', err.message))
-              }
-              await deleteDoc(doc(db, 'yetkiliKullanicilar', user.email))
-              setProfil(yeniProfil)
             } else {
               setProfil(null)
             }
