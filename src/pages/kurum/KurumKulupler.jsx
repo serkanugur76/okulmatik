@@ -118,6 +118,7 @@ export default function KurumKulupler() {
   const [mevcutDegerlendirmeler, setMevcutDegerlendirmeler] = useState({})
   const [degerlendirmePuanlari, setDegerlendirmePuanlari] = useState({})
   const [degerlendirmeKaydediyor, setDegerlendirmeKaydediyor] = useState(false)
+  const [odakKriter, setOdakKriter] = useState(null)
 
   // Ders Planı Excel Tarih Seçici State'leri
   const [planTarihModalAcik, setPlanTarihModalAcik] = useState(false)
@@ -504,10 +505,12 @@ export default function KurumKulupler() {
   useEffect(() => {
     setSeciliHafta('')
     setSeciliDegerlendirmeRubrikId('')
+    setOdakKriter(null)
   }, [seciliKulupId])
 
   useEffect(() => {
     setSeciliKulupId('')
+    setOdakKriter(null)
   }, [secilenKurumId])
 
   // Rubrik Değerlendirme useEffect ve Yardımcı Fonksiyonlar
@@ -516,6 +519,7 @@ export default function KurumKulupler() {
     if (!targetKurumId || !seciliKulupId || !seciliHafta || !seciliDegerlendirmeRubrikId) {
       setMevcutDegerlendirmeler({})
       setDegerlendirmePuanlari({})
+      setOdakKriter(null)
       return
     }
 
@@ -1407,6 +1411,26 @@ export default function KurumKulupler() {
             max-width: 100% !important;
             width: 100% !important;
           }
+        }
+        @media (max-width: 768px) {
+          .desktop-only-table {
+            display: none !important;
+          }
+          .mobile-only-kriter-list {
+            display: flex !important;
+          }
+        }
+        @media (min-width: 769px) {
+          .desktop-only-table {
+            display: block !important;
+          }
+          .mobile-only-kriter-list {
+            display: none !important;
+          }
+        }
+        @keyframes slideIn {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
         }
       `}} />
       {/* Üst Bilgi Başlığı */}
@@ -2746,95 +2770,307 @@ export default function KurumKulupler() {
                 const altKriterler = altKriterListesi(seciliRubrik)
 
                 return (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                      <thead>
-                        <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
-                          <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '700', color: '#1B3A6B' }}>Öğrenci Adı Soyadı</th>
-                          {altKriterler.map(ak => (
-                            <th key={ak.id} style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '700', color: '#1B3A6B', minWidth: '130px' }}>
-                              <div>{ak.ad}</div>
-                              <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '400' }}>({ak.anaAd})</span>
-                            </th>
-                          ))}
-                          <th style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '700', color: '#1B3A6B', width: '80px' }}>Ort.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {kulupOgrencileri.map(o => {
-                          const satirPuanlar = {}
-                          altKriterler.forEach(ak => {
-                            const p = getKulupPuan(o.id, ak.id)
-                            if (p != null) satirPuanlar[ak.id] = p
-                          })
-                          const ort = hesaplaOrt(satirPuanlar, seciliRubrik)
+                  <div>
+                    {/* Desktop View (Table with scroll and clickable headers) */}
+                    <div className="desktop-only-table" style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                        <thead>
+                          <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
+                            <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '700', color: '#1B3A6B' }}>Öğrenci Adı Soyadı</th>
+                            {altKriterler.map(ak => (
+                              <th
+                                key={ak.id}
+                                onClick={() => setOdakKriter(ak)}
+                                title="Detaylı Değerlendir / Kriter Açıklamaları"
+                                style={{
+                                  padding: '0.75rem',
+                                  textAlign: 'center',
+                                  fontWeight: '700',
+                                  color: '#1B3A6B',
+                                  minWidth: '135px',
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                  transition: 'background 0.2s',
+                                  borderLeft: '1px solid #E2E8F0',
+                                  borderRight: '1px solid #E2E8F0'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#EFF6FF'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                              >
+                                <div style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '3px' }}>
+                                  💡 {ak.ad}
+                                </div>
+                                <span style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: '400', display: 'block', marginTop: '3px' }}>({ak.anaAd})</span>
+                              </th>
+                            ))}
+                            <th style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '700', color: '#1B3A6B', width: '80px' }}>Ort.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {kulupOgrencileri.map(o => {
+                            const satirPuanlar = {}
+                            altKriterler.forEach(ak => {
+                              const p = getKulupPuan(o.id, ak.id)
+                              if (p != null) satirPuanlar[ak.id] = p
+                            })
+                            const ort = hesaplaOrt(satirPuanlar, seciliRubrik)
 
-                          return (
-                            <tr key={o.id} style={{ borderBottom: '1px solid #E2E8F0' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                              <td style={{ padding: '0.75rem', fontWeight: '600', color: '#1E293B' }}>
-                                <div>{o.ad} {o.soyad || ''}</div>
-                                <div style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '400' }}>No: {o.ogrenciNo || '—'} · Sınıf: {o.sinifAd || '—'}</div>
-                              </td>
+                            return (
+                              <tr key={o.id} style={{ borderBottom: '1px solid #E2E8F0' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                <td style={{ padding: '0.75rem', fontWeight: '600', color: '#1E293B' }}>
+                                  <div>{o.ad} {o.soyad || ''}</div>
+                                  <div style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: '400' }}>No: {o.ogrenciNo || '—'} · Sınıf: {o.sinifAd || '—'}</div>
+                                </td>
 
-                              {altKriterler.map(ak => {
-                                const aktifPuan = getKulupPuan(o.id, ak.id)
-                                const seviyeler = Array.isArray(ak.seviyeler) ? ak.seviyeler : [
-                                  { ad: '1', puan: 1 },
-                                  { ad: '2', puan: 2 },
-                                  { ad: '3', puan: 3 },
-                                  { ad: '4', puan: 4 }
-                                ]
+                                {altKriterler.map(ak => {
+                                  const aktifPuan = getKulupPuan(o.id, ak.id)
+                                  const seviyeler = Array.isArray(ak.seviyeler) ? ak.seviyeler : [
+                                    { ad: '1', puan: 1 },
+                                    { ad: '2', puan: 2 },
+                                    { ad: '3', puan: 3 },
+                                    { ad: '4', puan: 4 }
+                                  ]
 
-                                return (
-                                  <td key={ak.id} style={{ padding: '0.75rem', textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', gap: '3px', justifyContent: 'center' }}>
-                                      {seviyeler.map(sev => {
-                                        const secili = aktifPuan === sev.puan
-                                        return (
-                                          <button
-                                            key={sev.puan}
-                                            type="button"
-                                            onClick={() => handleKulupPuanDegis(o.id, ak.id, secili ? null : sev.puan)}
-                                            title={sev.ad || `Puan: ${sev.puan}`}
-                                            style={{
-                                              width: '24px', height: '24px', borderRadius: '50%',
-                                              border: '1px solid',
-                                              borderColor: secili ? '#1B3A6B' : '#CBD5E1',
-                                              background: secili ? '#1B3A6B' : '#fff',
-                                              color: secili ? '#fff' : '#475569',
-                                              fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer',
-                                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                              transition: 'all 0.1s'
-                                            }}
-                                          >
-                                            {sev.puan}
-                                          </button>
-                                        )
-                                      })}
+                                  return (
+                                    <td key={ak.id} style={{ padding: '0.75rem', textAlign: 'center', borderLeft: '1px solid #F1F5F9', borderRight: '1px solid #F1F5F9' }}>
+                                      <div style={{ display: 'flex', gap: '3px', justifyContent: 'center' }}>
+                                        {seviyeler.map(sev => {
+                                          const secili = aktifPuan === sev.puan
+                                          return (
+                                            <button
+                                              key={sev.puan}
+                                              type="button"
+                                              onClick={() => handleKulupPuanDegis(o.id, ak.id, secili ? null : sev.puan)}
+                                              title={sev.ad || `Puan: ${sev.puan}`}
+                                              style={{
+                                                width: '24px', height: '24px', borderRadius: '50%',
+                                                border: '1px solid',
+                                                borderColor: secili ? '#1B3A6B' : '#CBD5E1',
+                                                background: secili ? '#1B3A6B' : '#fff',
+                                                color: secili ? '#fff' : '#475569',
+                                                fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                transition: 'all 0.1s'
+                                              }}
+                                            >
+                                              {sev.puan}
+                                            </button>
+                                          )
+                                        })}
+                                      </div>
+                                    </td>
+                                  )
+                                })}
+
+                                <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                                  {ort != null ? (
+                                    <span style={{
+                                      padding: '2px 8px', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem',
+                                      background: ort >= 3.5 ? '#D1FAE5' : ort >= 2.5 ? '#DBEAFE' : ort >= 1.5 ? '#FEF3C7' : '#FEE2E2',
+                                      color: ort >= 3.5 ? '#065F46' : ort >= 2.5 ? '#1E40AF' : ort >= 1.5 ? '#92400E' : '#991B1B'
+                                    }}>
+                                      {ort.toFixed(2)}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#CBD5E1' }}>—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobil Kriter Listesi (Sadece Mobil) */}
+                    <div className="mobile-only-kriter-list" style={{ display: 'none', flexDirection: 'column', gap: '0.75rem' }}>
+                      <div style={{ background: '#EFF6FF', color: '#1E40AF', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: '600', border: '1px solid #BFDBFE' }}>
+                        ℹ️ Herhangi bir kritere tıklayarak tüm öğrencileri hızlıca değerlendirebilir ve kriter detaylarını görebilirsiniz.
+                      </div>
+                      {altKriterler.map(ak => {
+                        const degerlendirilmisSayisi = kulupOgrencileri.filter(o => getKulupPuan(o.id, ak.id) != null).length
+                        return (
+                          <div
+                            key={ak.id}
+                            onClick={() => setOdakKriter(ak)}
+                            style={{
+                              background: '#fff',
+                              borderRadius: '12px',
+                              border: '1px solid #E2E8F0',
+                              padding: '1rem',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontWeight: '700', color: '#1B3A6B', fontSize: '0.85rem' }}>{ak.ad}</div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>{ak.anaAd}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{
+                                fontSize: '0.72rem',
+                                background: degerlendirilmisSayisi === kulupOgrencileri.length ? '#E8F5E9' : '#FFF3E0',
+                                color: degerlendirilmisSayisi === kulupOgrencileri.length ? '#2E7D32' : '#E65100',
+                                padding: '2px 8px',
+                                borderRadius: '999px',
+                                fontWeight: '700'
+                              }}>
+                                {degerlendirilmisSayisi} / {kulupOgrencileri.length}
+                              </span>
+                              <span style={{ color: '#94A3B8', fontSize: '0.8rem' }}>▶</span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Sağdan Açılan Kriter Odak Paneli (Drawer) */}
+                    {odakKriter && (
+                      <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        right: 0,
+                        bottom: 0,
+                        left: 0,
+                        background: 'rgba(15, 23, 42, 0.4)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 3000,
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                      }} onClick={() => setOdakKriter(null)}>
+                        <div style={{
+                          width: '100%',
+                          maxWidth: '480px',
+                          height: '100%',
+                          background: '#fff',
+                          boxShadow: '-10px 0 30px rgba(0,0,0,0.15)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          animation: 'slideIn 0.2s ease-out'
+                        }} onClick={e => e.stopPropagation()}>
+                          
+                          {/* Drawer Header */}
+                          <div style={{ padding: '1.25rem', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#6366F1', fontWeight: '700', letterSpacing: '0.05em' }}>{odakKriter.anaAd}</span>
+                              <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1B3A6B', margin: '2px 0 0 0' }}>{odakKriter.ad}</h2>
+                            </div>
+                            <button
+                              onClick={() => setOdakKriter(null)}
+                              style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B', fontWeight: 'bold' }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+
+                          {/* Drawer Content */}
+                          <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                            
+                            {/* Seviye Tanımları */}
+                            {(() => {
+                              const seviyeler = Array.isArray(odakKriter.seviyeler) ? odakKriter.seviyeler : [
+                                { ad: 'Başlangıç', puan: 1, aciklama: 'Kısmen gerçekleştirir.' },
+                                { ad: 'Gelişiyor', puan: 2, aciklama: 'Beklenen düzeyde gerçekleştirir.' },
+                                { ad: 'İyi', puan: 3, aciklama: 'Belirgin şekilde gerçekleştirir.' },
+                                { ad: 'Mükemmel', puan: 4, aciklama: 'Sıradışı düzeyde gerçekleştirir.' }
+                              ]
+                              return (
+                                <div style={{ background: '#F8FAFC', borderRadius: '10px', padding: '1rem', border: '1px solid #E2E8F0' }}>
+                                  <h4 style={{ fontSize: '0.78rem', color: '#475569', fontWeight: '700', marginBottom: '0.5rem', textTransform: 'uppercase' }}>📊 Kriter Puan Açıklamaları</h4>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {seviyeler.map(s => (
+                                      <div key={s.puan} style={{ display: 'flex', gap: '8px', background: '#fff', padding: '8px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                                        <span style={{
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%',
+                                          background: '#1B3A6B', color: '#fff', fontSize: '0.75rem', fontWeight: '700', flexShrink: 0
+                                        }}>
+                                          {s.puan}
+                                        </span>
+                                        <div>
+                                          <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#1E293B' }}>{s.ad}</div>
+                                          {s.aciklama && <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px', lineHeight: '1.3' }}>{s.aciklama}</div>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            })()}
+
+                            {/* Öğrenci Listesi */}
+                            <div>
+                              <h4 style={{ fontSize: '0.78rem', color: '#475569', fontWeight: '700', marginBottom: '0.5rem', textTransform: 'uppercase' }}>🎒 Öğrenci Değerlendirme Listesi</h4>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {kulupOgrencileri.map(o => {
+                                  const aktifPuan = getKulupPuan(o.id, odakKriter.id)
+                                  const seviyeler = Array.isArray(odakKriter.seviyeler) ? odakKriter.seviyeler : [
+                                    { ad: '1', puan: 1 },
+                                    { ad: '2', puan: 2 },
+                                    { ad: '3', puan: 3 },
+                                    { ad: '4', puan: 4 }
+                                  ]
+                                  return (
+                                    <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
+                                      <div>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: '600', color: '#1E293B' }}>{o.ad} {o.soyad || ''}</div>
+                                        <div style={{ fontSize: '0.68rem', color: '#64748B', marginTop: '2px' }}>No: {o.ogrenciNo || '—'} · Sınıf: {o.sinifAd || '—'}</div>
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '4px' }}>
+                                        {seviyeler.map(sev => {
+                                          const secili = aktifPuan === sev.puan
+                                          return (
+                                            <button
+                                              key={sev.puan}
+                                              type="button"
+                                              onClick={() => handleKulupPuanDegis(o.id, odakKriter.id, secili ? null : sev.puan)}
+                                              title={sev.ad || `Puan: ${sev.puan}`}
+                                              style={{
+                                                width: '28px', height: '28px', borderRadius: '50%',
+                                                border: '1px solid',
+                                                borderColor: secili ? '#1B3A6B' : '#CBD5E1',
+                                                background: secili ? '#1B3A6B' : '#fff',
+                                                color: secili ? '#fff' : '#475569',
+                                                fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                transition: 'all 0.15s'
+                                              }}
+                                            >
+                                              {sev.puan}
+                                            </button>
+                                          )
+                                        })}
+                                      </div>
                                     </div>
-                                  </td>
-                                )
-                              })}
+                                  )
+                                })}
+                              </div>
+                            </div>
 
-                              <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                                {ort != null ? (
-                                  <span style={{
-                                    padding: '2px 8px', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem',
-                                    background: ort >= 3.5 ? '#D1FAE5' : ort >= 2.5 ? '#DBEAFE' : ort >= 1.5 ? '#FEF3C7' : '#FEE2E2',
-                                    color: ort >= 3.5 ? '#065F46' : ort >= 2.5 ? '#1E40AF' : ort >= 1.5 ? '#92400E' : '#991B1B'
-                                  }}>
-                                    {ort.toFixed(2)}
-                                  </span>
-                                ) : (
-                                  <span style={{ color: '#CBD5E1' }}>—</span>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
+                          </div>
 
+                          {/* Drawer Footer */}
+                          <div style={{ padding: '1rem 1.25rem', borderTop: '1px solid #F1F5F9', background: '#F8FAFC', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            {Object.keys(degerlendirmePuanlari).length > 0 && (
+                              <span style={{ fontSize: '0.7rem', color: '#C2410C', fontWeight: '700', maxWidth: '180px' }}>
+                                ⚠️ Kaydedilmemiş değişiklikler var!
+                              </span>
+                            )}
+                            <button
+                              onClick={() => setOdakKriter(null)}
+                              style={{ marginLeft: 'auto', padding: '0.5rem 1.5rem', background: '#1B3A6B', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}
+                            >
+                              Kapat
+                            </button>
+                          </div>
+
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Değerlendirmeleri Kaydet Butonu */}
                     <div style={{
                       display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
                       marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #F1F5F9', gap: '1rem'
@@ -2856,6 +3092,7 @@ export default function KurumKulupler() {
                         {degerlendirmeKaydediyor ? 'Kaydediliyor...' : 'Değerlendirmeleri Kaydet'}
                       </button>
                     </div>
+
                   </div>
                 )
               })()}
