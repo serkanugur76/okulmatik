@@ -442,6 +442,13 @@ export default function KurumDegerlendirmeler() {
           .sticky-save-bar { left: 0 !important; bottom: 64px !important; padding: 0.75rem 1rem !important; }
           .page-title { font-size: 1.25rem !important; margin-bottom: 0px !important; }
           .page-subtitle { display: none !important; }
+          .desktop-only-action { display: none !important; }
+          .mobile-hide-title { display: none !important; }
+          .mobile-legend-compact { font-size: 0.7rem !important; text-align: center !important; width: 100% !important; margin: 0 !important; }
+          .mobile-card-header { padding: 0.5rem 0.75rem !important; }
+          .branch-label { min-width: auto !important; font-size: 0.72rem !important; margin-right: 4px; }
+          .rubric-btn { padding: 4px 10px !important; font-size: 0.75rem !important; border-radius: 12px !important; }
+          .period-btn { padding: 6px !important; font-size: 0.8rem !important; border-radius: 6px !important; }
         }
         .hide-scrollbar::-webkit-scrollbar {
           display: none !important;
@@ -576,11 +583,11 @@ export default function KurumDegerlendirmeler() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
                 {dersler.map(ders => (
                   <div key={ders} style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748B', minWidth: '120px', whiteSpace: 'nowrap' }}>
+                    <span className="branch-label" style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748B', minWidth: '120px', whiteSpace: 'nowrap' }}>
                       📚 {ders}
                     </span>
                     {ilgiliRubrikler.filter(r => (r.ders || '—') === ders).map(r => (
-                      <button key={r.id} onClick={() => setSecilenRubrikId(r.id)}
+                      <button className="rubric-btn" key={r.id} onClick={() => setSecilenRubrikId(r.id)}
                         style={{
                           padding: '6px 14px', borderRadius: '20px', border: '1.5px solid',
                           borderColor: secilenRubrikId === r.id ? '#1B3A6B' : '#CBD5E1',
@@ -600,7 +607,7 @@ export default function KurumDegerlendirmeler() {
           {/* ── Dönem Seçici ── */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
             {[1, 2].map(d => (
-              <button key={d} onClick={() => setSecilenDonem(d)}
+              <button className="period-btn" key={d} onClick={() => setSecilenDonem(d)}
                 style={{
                   flex: 1, maxWidth: '200px', padding: '9px', border: '1.5px solid',
                   borderColor: secilenDonem === d ? '#0E7490' : '#CBD5E1',
@@ -614,7 +621,7 @@ export default function KurumDegerlendirmeler() {
           </div>
 
           {/* ── Araç Çubuğu ── */}
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+          <div className="desktop-only-action" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginBottom: '1rem' }}>
             <button onClick={sablonIndir}
               style={{ padding: '6px 14px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '7px', fontSize: '0.8rem', fontWeight: '600', color: '#4338CA', cursor: 'pointer' }}>
               ⬇ Şablon İndir
@@ -637,11 +644,11 @@ export default function KurumDegerlendirmeler() {
             return (
               <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
                 {/* Başlık */}
-                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1B3A6B' }}>
+                <div className="mobile-card-header" style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="mobile-hide-title" style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1B3A6B' }}>
                     {secilenRubrik.ad} — {secilenDonem}. Dönem
                   </span>
-                  <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
+                  <span className="mobile-legend-compact" style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
                     4=Mükemmel · 3=İyi · 2=Gelişiyor · 1=Başlangıç
                   </span>
                 </div>
