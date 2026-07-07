@@ -600,6 +600,9 @@ function KurumLayoutInner() {
 
   // Root kurum (parentId yok)
   const rootKurum = erisimKurumlar.find(k => !k.parentId)
+  const activeLogo = secilenKurum?.logoUrl
+    || (secilenKurum?.rootKurumId ? erisimKurumlar.find(k => k.id === secilenKurum.rootKurumId)?.logoUrl : null)
+    || rootKurum?.logoUrl
 
   // Seçili kurum için breadcrumb: root → kampüs → altKurum
   function buildBreadcrumb(kurum) {
@@ -671,6 +674,9 @@ function KurumLayoutInner() {
             padding: 0.75rem 1rem !important;
             background: #ffffff !important;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03) !important;
+          }
+          .desktop-only-logo {
+            display: none !important;
           }
           .sidebar-aside {
             display: none !important;
@@ -1166,19 +1172,18 @@ function KurumLayoutInner() {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.35rem',
               background: '#F1F5F9',
               border: 'none',
-              padding: '6px 12px',
+              padding: '6px 10px',
               borderRadius: '8px',
-              fontSize: '0.85rem',
+              fontSize: '0.9rem',
               fontWeight: '700',
               color: '#475569',
               cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
           >
-            ⬅ Geri Git
+            ⬅
           </button>
           {erisimKurumlar.length > 1 && (
             <select
@@ -1266,12 +1271,33 @@ function KurumLayoutInner() {
             </select>
           )}
           <div style={{
-            fontSize: '0.85rem',
-            fontWeight: '600',
-            color: '#64748B',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
             marginLeft: 'auto'
           }}>
-            {getSayfaEtiketi()}
+            {activeLogo ? (
+              <img
+                src={activeLogo}
+                alt="Logo"
+                style={{
+                  height: '32px',
+                  width: '32px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '1px solid #E2E8F0',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+              />
+            ) : (
+              <span style={{
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                color: '#64748B'
+              }}>
+                {getSayfaEtiketi()}
+              </span>
+            )}
           </div>
         </div>
         {/* Breadcrumb + Logo satırı */}
@@ -1312,7 +1338,7 @@ function KurumLayoutInner() {
               ) : <div />}
               {/* Kurum logosu */}
               {logo && (
-                <img src={logo} alt="Kurum Logosu"
+                <img src={logo} alt="Kurum Logosu" className="desktop-only-logo"
                   style={{ height: '48px', maxWidth: '140px', objectFit: 'contain' }} />
               )}
             </div>
