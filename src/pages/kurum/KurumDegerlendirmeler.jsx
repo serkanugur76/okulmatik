@@ -440,6 +440,8 @@ export default function KurumDegerlendirmeler() {
           .desktop-only-table { display: none !important; }
           .mobile-only-cards { display: flex !important; }
           .sticky-save-bar { left: 0 !important; bottom: 64px !important; padding: 0.75rem 1rem !important; }
+          .page-title { font-size: 1.25rem !important; margin-bottom: 0px !important; }
+          .page-subtitle { display: none !important; }
         }
         .hide-scrollbar::-webkit-scrollbar {
           display: none !important;
@@ -451,8 +453,8 @@ export default function KurumDegerlendirmeler() {
           -webkit-overflow-scrolling: touch;
         }
       ` }} />
-      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Değerlendirmeler</h1>
-      <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+      <h1 className="page-title" style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Değerlendirmeler</h1>
+      <p className="page-subtitle" style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
         <strong>{secilenKurum?.ad}</strong> — rubrik bazlı dönem değerlendirmesi
       </p>
 
@@ -499,21 +501,54 @@ export default function KurumDegerlendirmeler() {
       ) : (
         <>
           {/* ── 1. Sınıf Seçimi (zorunlu) ── */}
-          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #E2E8F0', padding: '1rem 1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', whiteSpace: 'nowrap' }}>Sınıf:</span>
-            <select value={secilenSinifId} onChange={e => setSecilenSinifId(e.target.value)}
-              style={{ padding: '6px 10px', border: '1.5px solid ' + (secilenSinifId ? '#1B3A6B' : '#FCD34D'), borderRadius: '7px', fontSize: '0.875rem', background: '#fff', color: '#374151', cursor: 'pointer', fontWeight: secilenSinifId ? '600' : '400' }}>
-              <option value="">— Önce bir sınıf seçin —</option>
-              {siniflar
-                .filter(sf => !ogretmenModu || ogretmenSinifIdleri.includes(sf.id))
-                .slice().sort((a, b) => (Number(a.seviye)||0)-(Number(b.seviye)||0) || (a.sube||'').localeCompare(b.sube||''))
-                .map(sf => {
-                  const say = ogrenciler.filter(o => o.sinifId === sf.id).length
-                  return <option key={sf.id} value={sf.id}>{sf.ad} ({say} öğrenci)</option>
-                })}
-            </select>
+          <div style={{
+            background: '#fff',
+            borderRadius: '12px',
+            border: '1px solid #E2E8F0',
+            padding: '0.875rem 1rem',
+            marginBottom: '1rem',
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: '0.75rem',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: '700', color: '#374151', whiteSpace: 'nowrap' }}>Sınıf:</span>
+              <select value={secilenSinifId} onChange={e => setSecilenSinifId(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '6px 10px',
+                  border: '1.5px solid ' + (secilenSinifId ? '#1B3A6B' : '#FCD34D'),
+                  borderRadius: '8px',
+                  fontSize: '0.875rem',
+                  background: '#fff',
+                  color: '#374151',
+                  cursor: 'pointer',
+                  fontWeight: secilenSinifId ? '600' : '400',
+                  minHeight: '38px'
+                }}
+              >
+                <option value="">— Önce bir sınıf seçin —</option>
+                {siniflar
+                  .filter(sf => !ogretmenModu || ogretmenSinifIdleri.includes(sf.id))
+                  .slice().sort((a, b) => (Number(a.seviye)||0)-(Number(b.seviye)||0) || (a.sube||'').localeCompare(b.sube||''))
+                  .map(sf => {
+                    const say = ogrenciler.filter(o => o.sinifId === sf.id).length
+                    return <option key={sf.id} value={sf.id}>{sf.ad} ({say} öğrenci)</option>
+                  })}
+              </select>
+            </div>
             {secilenSinif && (
-              <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
+              <span style={{
+                fontSize: '0.78rem',
+                color: '#475569',
+                background: '#F1F5F9',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                fontWeight: '600'
+              }}>
                 {secilenSinif.seviye}. sınıf seviyesi · {ilgiliRubrikler.length} rubrik mevcut
               </span>
             )}
