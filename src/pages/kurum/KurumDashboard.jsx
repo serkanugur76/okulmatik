@@ -3,7 +3,7 @@ import { collection, getCountFromServer, query, where, doc, getDoc, getDocs } fr
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { getDescendants } from '../../utils/hierarchy'
+import { getDescendants, getAncestors } from '../../utils/hierarchy'
 
 function IstatKart({ baslik, deger, ikon, renk, altyazi }) {
   return (
@@ -34,7 +34,6 @@ export default function KurumDashboard() {
   const { erisimKurumlar, secilenKurumId, secilenKurum, yukleniyor, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
   const [sayilar, setSayilar] = useState({ siniflar: null, ogrenciler: null, kullanicilar: null, mentorOgrenciler: null, rubrikler: null })
   const [quotaError, setQuotaError] = useState(false)
-  const [rubrikDebug, setRubrikDebug] = useState({})
 
   // Seçili kurumun seviyesi
   const ust = erisimKurumlar.find(k => k.id === secilenKurum?.parentId)
@@ -74,7 +73,6 @@ export default function KurumDashboard() {
       return
     }
     setQuotaError(false)
-    setRubrikDebug({})
 
     async function yukle() {
       try {
@@ -130,10 +128,17 @@ export default function KurumDashboard() {
                 const snapshotOgr = await getCountFromServer(qOgr)
                 const ogrenciSayisi = snapshotOgr.data().count
 
-                // Rubrik sayısını çek
-                let rubrikSayisi = 0
-                const rubrikSnap = await getDocs(collection(db, 'kurumlar', k.id, 'rubrikler'))
-                const tumRubrikler = rubrikSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+                 // Rubrik sayısını çek (Seçili okul ve onun tüm üst hiyerarşisinden/kampüs/root rubrikleri yükler)
+                 let rubrikSayisi = 0
+                 const ancestors = getAncestors(k.id, erisimKurumlar)
+                 const rubrikKurumIds = [...new Set([k.id, ...ancestors])]
+                 const rubrikSnaps = await Promise.all(
+                   rubrikKurumIds.map(kid => getDocs(collection(db, 'kurumlar', kid, 'rubrikler')))
+                 )
+                 const tumRubrikler = rubrikSnaps.flatMap((snap, idx) => {
+                   const kid = rubrikKurumIds[idx]
+                   return snap.docs.map(d => ({ id: d.id, ...d.data(), _kurumId: kid }))
+                 })
 
                 // 1. Ders/Branş ve Sınıf Seviyesine Göre Eşleşen Rubrikler
                 let dersRubrikIds = []
@@ -164,18 +169,7 @@ export default function KurumDashboard() {
                 const benzersizRubrikIds = [...new Set([...dersRubrikIds, ...kulupRubrikIds])]
                 rubrikSayisi = benzersizRubrikIds.length
 
-                setRubrikDebug(prev => ({
-                  ...prev,
-                  [k.id]: {
-                    ad: k.ad,
-                    teacherGradeLevels,
-                    tumRubriklerCount: tumRubrikler.length,
-                    dersRubrikIds,
-                    kulupSorguSonucu,
-                    kulupRubrikIds,
-                    toplamBenzersizIds: benzersizRubrikIds
-                  }
-                }))
+
 
                 return {
                   siniflar: ogretmenOkulSinifIds.length,
@@ -297,14 +291,7 @@ export default function KurumDashboard() {
         {!ogretmenModu && <IstatKart baslik="Kullanıcı" deger={sayilar.kullanicilar} ikon="👥" renk="#065F46" />}
       </div>
 
-      {ogretmenModu && (
-        <div style={{ marginTop: '2rem' }}>
-          <h3 style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '0.5rem' }}>🔧 Rubrik Teşhis Paneli (Geçici)</h3>
-          <pre style={{ fontSize: '0.75rem', background: '#F8FAFC', padding: '1rem', overflowX: 'auto', borderRadius: '8px', border: '1px solid #E2E8F0', color: '#334155' }}>
-            {JSON.stringify(rubrikDebug, null, 2)}
-          </pre>
-        </div>
-      )}
+
     </div>
   )
 }
