@@ -33,7 +33,6 @@ export default function KurumDashboard() {
   const { kullanici, profil } = useAuth()
   const { erisimKurumlar, secilenKurumId, secilenKurum, yukleniyor, ogretmenModu, ogretmenSinifIdleri } = useKurumYonetim()
   const [sayilar, setSayilar] = useState({ siniflar: null, ogrenciler: null, kullanicilar: null, mentorOgrenciler: null, rubrikler: null })
-  const [debugLog, setDebugLog] = useState('')
   const [quotaError, setQuotaError] = useState(false)
 
   // Seçili kurumun seviyesi
@@ -165,13 +164,7 @@ export default function KurumDashboard() {
             toplamRubrik += r.rubrikler
           })
 
-          setDebugLog(JSON.stringify({
-            secilenKurumId,
-            sayimKurumlar: sayimKurumlar.map(x => ({ id: x.id, tip: x.tip, ad: x.ad })),
-            ogretmenOkullari: ogretmenOkullari.map(x => ({ id: x.id, ad: x.ad })),
-            sinifAtamalari: profil?.sinifAtamalari,
-            okullarSonuclari
-          }, null, 2))
+
 
           setSayilar({
             siniflar: toplamSinif,
@@ -269,14 +262,7 @@ export default function KurumDashboard() {
         {!ogretmenModu && <IstatKart baslik="Kullanıcı" deger={sayilar.kullanicilar} ikon="👥" renk="#065F46" />}
       </div>
 
-      {ogretmenModu && (
-        <div style={{ marginTop: '2rem' }}>
-          <h3 style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '0.5rem' }}>🔧 Hata Teşhis Paneli (Geçici)</h3>
-          <pre style={{ fontSize: '0.75rem', background: '#F8FAFC', padding: '1rem', overflowX: 'auto', borderRadius: '8px', border: '1px solid #E2E8F0', color: '#334155' }}>
-            {debugLog || 'Yükleniyor...'}
-          </pre>
-        </div>
-      )}
+
     </div>
   )
 }
