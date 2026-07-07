@@ -106,6 +106,7 @@ export default function KurumDegerlendirmeler() {
   const [degisiklikler,   setDegisiklikler]   = useState({})
   const [kaydediyor,      setKaydediyor]      = useState(false)
   const [secilenAnaKriterId, setSecilenAnaKriterId] = useState(null)
+  const [acikOgrenciler, setAcikOgrenciler] = useState({})
 
   // ── Import ───────────────────────────────────────────────
   const [importModal,    setImportModal]    = useState(false)
@@ -691,6 +692,7 @@ export default function KurumDegerlendirmeler() {
                 </div>
 
                 {/* Mobile View (Cards) */}
+                {/* Mobile View (Cards) */}
                 <div className="mobile-only-cards" style={{ display: 'none', flexDirection: 'column', gap: '0.75rem', padding: '0.75rem 0.5rem', background: '#F8FAFC' }}>
                   {filtreliOgrenciler.length === 0 ? (
                     <div style={{ padding: '2rem 1rem', textAlign: 'center', color: '#94A3B8', background: '#fff', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
@@ -708,93 +710,159 @@ export default function KurumDegerlendirmeler() {
                       const ort     = hesaplaOrt(birlesik, secilenRubrik)
                       const degisti = !!degisiklikler[ogr.id]
 
+                      const tamamlananKriterSayisi = aklerFiltreli.filter(ak => {
+                        const p = getPuan(ogr.id, ak.id)
+                        return p != null && p !== ''
+                      }).length
+                      const toplamKriterSayisi = aklerFiltreli.length
+                      const tamamlandi = toplamKriterSayisi > 0 && tamamlananKriterSayisi === toplamKriterSayisi
+                      const acik = !!acikOgrenciler[ogr.id]
+
                       return (
                         <div key={ogr.id} style={{
                           background: '#fff',
                           borderRadius: '12px',
                           border: degisti ? '2px solid #F59E0B' : '1px solid #E2E8F0',
-                          padding: '1rem',
                           boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '0.75rem'
+                          overflow: 'hidden'
                         }}>
                           {/* Student Header */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.5rem' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                              <span style={{ fontSize: '0.88rem', fontWeight: '700', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div 
+                            onClick={() => setAcikOgrenciler(prev => ({ ...prev, [ogr.id]: !prev[ogr.id] }))}
+                            style={{ 
+                              display: 'flex', 
+                              justifyContent: 'space-between', 
+                              alignItems: 'center', 
+                              padding: '1rem',
+                              background: acik ? '#F8FAFC' : '#fff',
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                              borderBottom: acik ? '1px solid #E2E8F0' : 'none',
+                              transition: 'background 0.2s'
+                            }}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, gap: '2px' }}>
+                              <span style={{ 
+                                fontSize: '0.88rem', 
+                                fontWeight: '700', 
+                                color: tamamlandi ? '#059669' : '#1E293B',
+                                whiteSpace: 'nowrap', 
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis' 
+                              }}>
                                 {idx + 1}. {ogr.ad} {ogr.soyad}
                               </span>
-                              <span style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
+                              <span style={{ fontSize: '0.72rem', color: '#64748B' }}>
                                 Sınıf: {sinif?.ad || '—'}
                               </span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                              {/* Tamamlanma/Durum Göstergesi */}
+                              {tamamlandi ? (
+                                <span style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: '700',
+                                  background: '#D1FAE5',
+                                  color: '#065F46',
+                                  padding: '2px 8px',
+                                  borderRadius: '999px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}>
+                                  ✓ Tamam
+                                </span>
+                              ) : tamamlananKriterSayisi > 0 ? (
+                                <span style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: '700',
+                                  background: '#FEF3C7',
+                                  color: '#92400E',
+                                  padding: '2px 8px',
+                                  borderRadius: '999px'
+                                }}>
+                                  {tamamlananKriterSayisi}/{toplamKriterSayisi}
+                                </span>
+                              ) : null}
+
                               {degisti && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B' }} title="Kaydedilmemiş" />}
                               <OrtBadge ort={ort} />
+                              <span style={{ 
+                                fontSize: '0.8rem', 
+                                color: '#94A3B8', 
+                                transform: acik ? 'rotate(180deg)' : 'none', 
+                                transition: 'transform 0.2s',
+                                display: 'inline-block'
+                              }}>
+                                ▼
+                              </span>
                             </div>
                           </div>
 
                           {/* Evaluation Rows */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {aklerFiltreli.map(ak => {
-                              const p = getPuan(ogr.id, ak.id)
-                              return (
-                                <div key={ak.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                  <span style={{ fontSize: '0.78rem', fontWeight: '600', color: '#475569', lineHeight: '1.3' }}>
-                                    {ak.ad}
-                                  </span>
-                                  
-                                  {/* Buttons 1-4 */}
-                                  <div style={{ display: 'flex', gap: '6px' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => puanDegisti(ogr.id, ak.id, '')}
-                                      style={{
-                                        flex: '0 0 36px',
-                                        padding: '6px 0',
-                                        borderRadius: '6px',
-                                        border: '1px solid #CBD5E1',
-                                        fontSize: '0.75rem',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                        background: !p ? '#F1F5F9' : '#fff',
-                                        color: !p ? '#475569' : '#94A3B8',
-                                        transition: 'all 0.1s'
-                                      }}
-                                    >
-                                      —
-                                    </button>
-                                    {[1, 2, 3, 4].map(val => {
-                                      const aktif = p === val
-                                      const st = PUAN_BG[val]
-                                      return (
-                                        <button
-                                          key={val}
-                                          type="button"
-                                          onClick={() => puanDegisti(ogr.id, ak.id, val)}
-                                          style={{
-                                            flex: 1,
-                                            padding: '6px 0',
-                                            borderRadius: '6px',
-                                            border: '1px solid ' + (aktif ? st.color : '#CBD5E1'),
-                                            fontSize: '0.8rem',
-                                            fontWeight: '800',
-                                            cursor: 'pointer',
-                                            background: aktif ? st.background : '#fff',
-                                            color: aktif ? st.color : '#475569',
-                                            transition: 'all 0.1s'
-                                          }}
-                                        >
-                                          {val}
-                                        </button>
-                                      )
-                                    })}
+                          {acik && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', background: '#fff' }}>
+                              {aklerFiltreli.map(ak => {
+                                const p = getPuan(ogr.id, ak.id)
+                                return (
+                                  <div key={ak.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <span style={{ fontSize: '0.78rem', fontWeight: '600', color: '#475569', lineHeight: '1.3' }}>
+                                      {ak.ad}
+                                    </span>
+                                    
+                                    {/* Buttons 1-4 */}
+                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => puanDegisti(ogr.id, ak.id, '')}
+                                        style={{
+                                          flex: '0 0 36px',
+                                          padding: '6px 0',
+                                          borderRadius: '6px',
+                                          border: '1px solid #CBD5E1',
+                                          fontSize: '0.75rem',
+                                          fontWeight: '700',
+                                          cursor: 'pointer',
+                                          background: !p ? '#F1F5F9' : '#fff',
+                                          color: !p ? '#475569' : '#94A3B8',
+                                          transition: 'all 0.1s'
+                                        }}
+                                      >
+                                        —
+                                      </button>
+                                      {[1, 2, 3, 4].map(val => {
+                                        const aktif = p === val
+                                        const st = PUAN_BG[val]
+                                        return (
+                                          <button
+                                            key={val}
+                                            type="button"
+                                            onClick={() => puanDegisti(ogr.id, ak.id, val)}
+                                            style={{
+                                              flex: 1,
+                                              padding: '6px 0',
+                                              borderRadius: '6px',
+                                              border: '1px solid ' + (aktif ? st.color : '#CBD5E1'),
+                                              fontSize: '0.8rem',
+                                              fontWeight: '800',
+                                              cursor: 'pointer',
+                                              background: aktif ? st.background : '#fff',
+                                              color: aktif ? st.color : '#475569',
+                                              transition: 'all 0.1s'
+                                            }}
+                                          >
+                                            {val}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
                                   </div>
-                                </div>
-                              )
-                            })}
-                          </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
                       )
                     })
