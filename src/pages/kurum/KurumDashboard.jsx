@@ -130,17 +130,35 @@ export default function KurumDashboard() {
 
                 // Rubrik sayısını çek
                 let rubrikSayisi = 0
+                const rubrikSnap = await getDocs(collection(db, 'kurumlar', k.id, 'rubrikler'))
+                const tumRubrikler = rubrikSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+                // 1. Ders/Branş ve Sınıf Seviyesine Göre Eşleşen Rubrikler
+                let dersRubrikIds = []
                 if (teacherGradeLevels.length > 0) {
-                  const rubrikSnap = await getDocs(collection(db, 'kurumlar', k.id, 'rubrikler'))
-                  const tumRubrikler = rubrikSnap.docs.map(d => ({ id: d.id, ...d.data() }))
                   const branslar = profil?.branslar || []
                   const eslesen = tumRubrikler.filter(r => {
                     const bransMatch = branslar.length === 0 || branslar.includes(r.ders)
                     const levelMatch = (r.hedefSeviyeler || []).some(lvl => teacherGradeLevels.includes(Number(lvl)))
                     return bransMatch && levelMatch
                   })
-                  rubrikSayisi = eslesen.length
+                  dersRubrikIds = eslesen.map(r => r.id)
                 }
+
+                // 2. Kulüplere Göre Eşleşen Rubrikler
+                let kulupRubrikIds = []
+                if (kullanici?.uid) {
+                  const qClubs = query(
+                    collection(db, 'kurumlar', k.id, 'kulupler'),
+                    where('ogretmenIds', 'array-contains', kullanici.uid)
+                  )
+                  const clubsSnap = await getDocs(qClubs)
+                  kulupRubrikIds = clubsSnap.docs.flatMap(d => d.data().rubrikIds || [])
+                }
+
+                // Toplam benzersiz aktif rubrik sayısı
+                const benzersizRubrikIds = [...new Set([...dersRubrikIds, ...kulupRubrikIds])]
+                rubrikSayisi = benzersizRubrikIds.length
 
                 return {
                   siniflar: ogretmenOkulSinifIds.length,
