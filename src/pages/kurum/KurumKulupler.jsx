@@ -2057,17 +2057,18 @@ export default function KurumKulupler() {
                   <button
                     onClick={() => setAktifTab('kulupler')}
                     style={{
-                      padding: '0.4rem 0.8rem',
-                      fontSize: '0.75rem',
+                      width: '30px',
+                      height: '30px',
+                      fontSize: '0.85rem',
                       fontWeight: '700',
                       background: '#F1F5F9',
                       color: '#475569',
                       border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
+                      borderRadius: '50%',
                       cursor: 'pointer',
-                      display: 'flex',
+                      display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '4px',
+                      justifyContent: 'center',
                       transition: 'all 0.15s'
                     }}
                     onMouseEnter={e => {
@@ -2081,7 +2082,7 @@ export default function KurumKulupler() {
                       e.currentTarget.style.borderColor = '#CBD5E1';
                     }}
                   >
-                    ✕ Kapat
+                    ✕
                   </button>
                 </div>
 
@@ -3189,10 +3190,19 @@ export default function KurumKulupler() {
               <button
                 onClick={() => { setKulupModalAcik(false); formTemizle() }}
                 style={{
-                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
-                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
-                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                  gap: '4px', transition: 'all 0.15s'
+                  width: '30px',
+                  height: '30px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s'
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.background = '#EF4444';
@@ -3205,7 +3215,7 @@ export default function KurumKulupler() {
                   e.currentTarget.style.borderColor = '#CBD5E1';
                 }}
               >
-                ✕ Kapat
+                ✕
               </button>
             </div>
 
@@ -3392,10 +3402,19 @@ export default function KurumKulupler() {
               <button
                 onClick={() => { setOgrenciModalAcik(false); setOgrenciArama('') }}
                 style={{
-                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
-                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
-                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                  gap: '4px', transition: 'all 0.15s'
+                  width: '30px',
+                  height: '30px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s'
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.background = '#EF4444';
@@ -3408,7 +3427,7 @@ export default function KurumKulupler() {
                   e.currentTarget.style.borderColor = '#CBD5E1';
                 }}
               >
-                ✕ Kapat
+                ✕
               </button>
             </div>
 
@@ -3517,10 +3536,19 @@ export default function KurumKulupler() {
               <button
                 onClick={() => setEtkinlikModalAcik(false)}
                 style={{
-                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
-                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
-                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                  gap: '4px', transition: 'all 0.15s'
+                  width: '30px',
+                  height: '30px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s'
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.background = '#EF4444';
@@ -3533,7 +3561,7 @@ export default function KurumKulupler() {
                   e.currentTarget.style.borderColor = '#CBD5E1';
                 }}
               >
-                ✕ Kapat
+                ✕
               </button>
             </div>
 
@@ -3642,10 +3670,19 @@ export default function KurumKulupler() {
               <button
                 onClick={() => setTalepModalAcik(false)}
                 style={{
-                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
-                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
-                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                  gap: '4px', transition: 'all 0.15s'
+                  width: '30px',
+                  height: '30px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s'
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.background = '#EF4444';
@@ -3658,7 +3695,7 @@ export default function KurumKulupler() {
                   e.currentTarget.style.borderColor = '#CBD5E1';
                 }}
               >
-                ✕ Kapat
+                ✕
               </button>
             </div>
 
@@ -3935,10 +3972,19 @@ export default function KurumKulupler() {
               <button
                 onClick={() => setMateryalModalAcik(false)}
                 style={{
-                  padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '700',
-                  background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1',
-                  borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                  gap: '4px', transition: 'all 0.15s'
+                  width: '30px',
+                  height: '30px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s'
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.background = '#EF4444';
@@ -3951,7 +3997,7 @@ export default function KurumKulupler() {
                   e.currentTarget.style.borderColor = '#CBD5E1';
                 }}
               >
-                ✕ Kapat
+                ✕
               </button>
             </div>
 
