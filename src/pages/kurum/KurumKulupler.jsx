@@ -1759,7 +1759,7 @@ export default function KurumKulupler() {
         brans: brans,
         kategori: t.kategori,
         tarih: t.tarih,
-        basvuruLinki: t.basvuruLinki,
+        basvuruLinki: `https://www.google.com/search?q=${encodeURIComponent(finalAd)}`,
         aciklama: `${t.aciklama} (Arama Terimi: "${promptText}")`,
         kaynak: "AI Canlı Web Taraması (Scout)",
         taramaDonemi: "2026-2027 Güz",
