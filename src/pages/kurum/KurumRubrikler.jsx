@@ -447,12 +447,12 @@ export default function KurumRubrikler() {
           }
           .rubrik-header-actions > div {
             display: grid !important;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
-            gap: 0.5rem !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 0.35rem !important;
           }
           .rubrik-header-actions > div > button {
-            padding: 0.6rem 0.5rem !important;
-            font-size: 0.78rem !important;
+            padding: 0.5rem 0.2rem !important;
+            font-size: 0.7rem !important;
             text-align: center;
             width: 100% !important;
           }
