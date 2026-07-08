@@ -470,7 +470,7 @@ export default function KurumRubrikler() {
       <input ref={xlsxRef} type="file" accept=".xlsx,.xls" onChange={rubrikXlsxOku} style={{ display: 'none' }} />
 
       <div className="rubrik-header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', gap: '0.75rem' }}>
-        <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{rubrikler.length} rubrik</span>
+        <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{gorunurRubrikler.length} rubrik</span>
         {/* Admin veya koordinatör: tüm butonlar; normal öğretmen: hiçbiri */}
         {(!ogretmenModu || profil?.modulIzinler?.rubrik_olustur) && (
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
