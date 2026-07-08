@@ -911,6 +911,32 @@ export default function KurumResmiIslemler() {
           .mobile-tabs-dropdown {
             display: block !important;
           }
+          .istatistik-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.65rem !important;
+          }
+          .istatistik-kart {
+            padding: 0.85rem 0.65rem !important;
+            text-align: center;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            min-height: 100px !important;
+          }
+          .istatistik-kart-baslik {
+            font-size: 0.72rem !important;
+            font-weight: 700 !important;
+            line-height: 1.3 !important;
+          }
+          .istatistik-kart-sayi {
+            font-size: 1.5rem !important;
+            font-weight: 800 !important;
+            margin-top: 4px !important;
+          }
+          .istatistik-kart-alt {
+            display: none !important;
+          }
         }
         @media (min-width: 769px) {
           .desktop-task-table {
@@ -1108,26 +1134,26 @@ export default function KurumResmiIslemler() {
       {aktifDonem === 'sene_basi' ? (
         <>
           {/* İstatistik Kartları */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-            <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-              <div style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: '600' }}>Toplam Görev / Evrak</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1E293B', marginTop: '4px' }}>{istatistikler.toplam}</div>
-              <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>MEB Mevzuatı standardı</div>
+          <div className="istatistik-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="istatistik-kart" style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+              <div className="istatistik-kart-baslik" style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: '600' }}>Toplam Görev / Evrak</div>
+              <div className="istatistik-kart-sayi" style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1E293B', marginTop: '4px' }}>{istatistikler.toplam}</div>
+              <div className="istatistik-kart-alt" style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>MEB Mevzuatı standardı</div>
             </div>
-            <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-              <div style={{ fontSize: '0.8rem', color: '#10B981', fontWeight: '600' }}>Tamamlanan / Arşivlenen</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#10B981', marginTop: '4px' }}>{istatistikler.tamamlanan}</div>
-              <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Islak imzalı ve onaylılar dahil</div>
+            <div className="istatistik-kart" style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+              <div className="istatistik-kart-baslik" style={{ fontSize: '0.8rem', color: '#10B981', fontWeight: '600' }}>Tamamlanan / Arşivlenen</div>
+              <div className="istatistik-kart-sayi" style={{ fontSize: '1.75rem', fontWeight: '800', color: '#10B981', marginTop: '4px' }}>{istatistikler.tamamlanan}</div>
+              <div className="istatistik-kart-alt" style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Islak imzalı ve onaylılar dahil</div>
             </div>
-            <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-              <div style={{ fontSize: '0.8rem', color: '#F59E0B', fontWeight: '600' }}>İmza ve Onay Bekleyen</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#F59E0B', marginTop: '4px' }}>{istatistikler.onayBekleyen}</div>
-              <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Kontrolü yapılması gerekenler</div>
+            <div className="istatistik-kart" style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+              <div className="istatistik-kart-baslik" style={{ fontSize: '0.8rem', color: '#F59E0B', fontWeight: '600' }}>İmza ve Onay Bekleyen</div>
+              <div className="istatistik-kart-sayi" style={{ fontSize: '1.75rem', fontWeight: '800', color: '#F59E0B', marginTop: '4px' }}>{istatistikler.onayBekleyen}</div>
+              <div className="istatistik-kart-alt" style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Kontrolü yapılması gerekenler</div>
             </div>
-            <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-              <div style={{ fontSize: '0.8rem', color: '#3B82F6', fontWeight: '600' }}>İmza Çağrısı Yapılan</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#3B82F6', marginTop: '4px' }}>{istatistikler.imzayaCagrilan}</div>
-              <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Öğretmenler imzaya bekleniyor</div>
+            <div className="istatistik-kart" style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+              <div className="istatistik-kart-baslik" style={{ fontSize: '0.8rem', color: '#3B82F6', fontWeight: '600' }}>İmza Çağrısı Yapılan</div>
+              <div className="istatistik-kart-sayi" style={{ fontSize: '1.75rem', fontWeight: '800', color: '#3B82F6', marginTop: '4px' }}>{istatistikler.imzayaCagrilan}</div>
+              <div className="istatistik-kart-alt" style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>Öğretmenler imzaya bekleniyor</div>
             </div>
           </div>
 
