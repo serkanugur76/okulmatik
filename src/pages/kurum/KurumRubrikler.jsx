@@ -75,11 +75,25 @@ export default function KurumRubrikler() {
   const [acikAna,       setAcikAna]       = useState({})
   const [acikAlt,       setAcikAlt]       = useState({})
   const [onizleme,      setOnizleme]      = useState(null)
+  const [previewExpandedId, setPreviewExpandedId] = useState(null)
   const [sablonSecici,  setSablonSecici]  = useState(false)
   const [openMenuId,    setOpenMenuId]    = useState(null)
   const [kaydediyor,    setKaydediyor]    = useState(false)
   const [hata,          setHata]          = useState('')
   const xlsxRef = useRef()
+
+  useEffect(() => {
+    if (onizleme) {
+      const firstKriter = onizleme.kriterler?.[0]
+      if (firstKriter) {
+        setPreviewExpandedId(firstKriter.id || '0')
+      } else {
+        setPreviewExpandedId(null)
+      }
+    } else {
+      setPreviewExpandedId(null)
+    }
+  }, [onizleme])
 
   // Öğretmen için seçili alt kurumdaki sınıf seviyeleri ve kulüp rubrikleri
   const [teacherGradeLevels, setTeacherGradeLevels] = useState([])
@@ -1128,53 +1142,77 @@ export default function KurumRubrikler() {
                   </div>
 
                   {/* Mobile View (Stacked Cards) */}
-                  <div className="preview-mobile-list" style={{ display: 'none', flexDirection: 'column', gap: '1rem' }}>
-                    {onizleme.kriterler.map((k, ki) => (
-                      <div key={k.id} style={{ border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden' }}>
-                        {/* Main Criterion Title */}
-                        <div style={{ background: '#EEF2FF', padding: '0.75rem 1rem', fontWeight: '700', color: '#4338CA', fontSize: '0.85rem' }}>
-                          {ki + 1}. {k.ad}
-                        </div>
-                        
-                        {/* Alt Criteria */}
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          {(k.altKriterler || []).map((ak, aki) => (
-                            <div key={ak.id} style={{ padding: '0.875rem 1rem', borderTop: aki > 0 ? '1px solid #F1F5F9' : 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                              <div style={{ fontSize: '0.825rem', fontWeight: '700', color: '#1B3A6B' }}>
-                                ↳ {ak.ad}
-                              </div>
-                              
-                              {/* 4 Levels Stacked */}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '4px' }}>
-                                {(ak.seviyeler || []).map((sv, si) => (
-                                  <div key={si} style={{
-                                    background: '#F8FAFC',
-                                    border: '1px solid #E2E8F0',
-                                    borderRadius: '8px',
-                                    padding: '8px 10px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '4px'
-                                  }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                      <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#374151' }}>
-                                        {sv.ad || `Seviye ${si + 1}`}
-                                      </span>
-                                      <span style={{ fontSize: '0.7rem', fontWeight: '800', background: '#E2E8F0', color: '#475569', padding: '1px 6px', borderRadius: '4px' }}>
-                                        {sv.puan} Puan
-                                      </span>
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#64748B', lineHeight: '1.4' }}>
-                                      {sv.aciklama || <span style={{ color: '#CBD5E1' }}>Açıklama belirtilmemiş</span>}
-                                    </div>
+                  <div className="preview-mobile-list" style={{ display: 'none', flexDirection: 'column', gap: '0.75rem' }}>
+                    {onizleme.kriterler.map((k, ki) => {
+                      const isExpanded = previewExpandedId === (k.id || String(ki))
+                      return (
+                        <div key={k.id || ki} style={{ border: '1.5px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', background: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                          {/* Main Criterion Title (Clickable Header) */}
+                          <div 
+                            onClick={() => setPreviewExpandedId(isExpanded ? null : (k.id || String(ki)))}
+                            style={{
+                              background: isExpanded ? '#EEF2FF' : '#F8FAFC',
+                              padding: '0.85rem 1rem',
+                              fontWeight: '700',
+                              color: isExpanded ? '#4338CA' : '#334155',
+                              fontSize: '0.85rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              userSelect: 'none',
+                              borderBottom: isExpanded ? '1px solid #C7D2FE' : 'none',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <span>{ki + 1}. {k.ad}</span>
+                            <span style={{ fontSize: '0.75rem', color: isExpanded ? '#4338CA' : '#64748B', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                              ▼
+                            </span>
+                          </div>
+                          
+                          {/* Alt Criteria (Expandable Body) */}
+                          {isExpanded && (
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              {(k.altKriterler || []).map((ak, aki) => (
+                                <div key={ak.id || aki} style={{ padding: '0.875rem 1rem', borderTop: aki > 0 ? '1px solid #F1F5F9' : 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  <div style={{ fontSize: '0.825rem', fontWeight: '700', color: '#1B3A6B' }}>
+                                    ↳ {ak.ad}
                                   </div>
-                                ))}
-                              </div>
+                                  
+                                  {/* 4 Levels Stacked */}
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '4px' }}>
+                                    {(ak.seviyeler || []).map((sv, si) => (
+                                      <div key={si} style={{
+                                        background: '#F8FAFC',
+                                        border: '1px solid #E2E8F0',
+                                        borderRadius: '8px',
+                                        padding: '8px 10px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '4px'
+                                      }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                          <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#374151' }}>
+                                            {sv.ad || `Seviye ${si + 1}`}
+                                          </span>
+                                          <span style={{ fontSize: '0.7rem', fontWeight: '800', background: '#E2E8F0', color: '#475569', padding: '1px 6px', borderRadius: '4px' }}>
+                                            {sv.puan} Puan
+                                          </span>
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: '#64748B', lineHeight: '1.4' }}>
+                                          {sv.aciklama || <span style={{ color: '#CBD5E1' }}>Açıklama belirtilmemiş</span>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                     
                     {/* Total Max Score */}
                     <div style={{
