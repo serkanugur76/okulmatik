@@ -57,6 +57,79 @@ const ALAN_ICONLARI = {
   'Genel': '🌍'
 }
 
+const VARSAYILAN_TURNUVALAR = [
+  {
+    ad: "TEKNOFEST 2026 Havacılık, Uzay ve Teknoloji Festivali",
+    brans: "Bilişim Teknolojileri",
+    kategori: "Ulusal",
+    tarih: "30.08.2026",
+    basvuruLinki: "https://www.teknofest.org",
+    aciklama: "Türkiye'nin en büyük teknoloji yarışması. İnsansız Hava Araçları, Robotik, Yapay Zeka ve Akıllı Ulaşım gibi kategorilerde ilkokul, ortaokul ve lise seviyelerinde başvurular kabul edilmektedir.",
+    kaynak: "Teknofest Vakfı",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "17. MEB Uluslararası Robot Yarışması",
+    brans: "Bilişim Teknolojileri",
+    kategori: "Uluslararası",
+    tarih: "15.10.2026",
+    basvuruLinki: "https://robot.meb.gov.tr",
+    aciklama: "Milli Eğitim Bakanlığı tarafından düzenlenen, İleri Çizgi İzleyen, Mini Sumo, İnsansız Hava Araçları ve Tasarla-Çalıştır robot kategorilerini içeren uluslararası prestijli okul yarışması.",
+    kaynak: "MEB Yeğitek",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "TÜBİTAK 2204-A Lise Öğrencileri Araştırma Projeleri Yarışması",
+    brans: "Bilişim Teknolojileri",
+    kategori: "Ulusal",
+    tarih: "05.01.2027",
+    basvuruLinki: "https://www.tubitak.gov.tr",
+    aciklama: "Lise öğrencilerinin fen, sosyal ve yazılım bilimleri alanlarında özgün proje geliştirmelerini teşvik etmeyi amaçlayan TÜBİTAK resmi araştırma projeleri yarışması.",
+    kaynak: "TÜBİTAK",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "TÜBİTAK 2204-B Ortaokul Öğrencileri Araştırma Projeleri",
+    brans: "Fen ve Bilim",
+    kategori: "Ulusal",
+    tarih: "15.01.2027",
+    basvuruLinki: "https://www.tubitak.gov.tr",
+    aciklama: "Ortaokul seviyesinde bilimsel düşünme ve proje geliştirme kabiliyetini ölçen TÜBİTAK resmi araştırma yarışması.",
+    kaynak: "TÜBİTAK",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "GSB Okul Sporları Satranç İl Birinciliği",
+    brans: "Spor",
+    kategori: "Yerel",
+    tarih: "12.11.2026",
+    basvuruLinki: "https://okulsportr.gsb.gov.tr",
+    aciklama: "Gençlik ve Spor Bakanlığı Okul Sporları kapsamında düzenlenen, okullar arası yıldızlar ve gençler satranç takım turnuvaları.",
+    kaynak: "GSB Okul Sporları",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "First Lego League (FLL) Challenge Robotik Yarışması",
+    brans: "Bilişim Teknolojileri",
+    kategori: "Ulusal",
+    tarih: "20.12.2026",
+    basvuruLinki: "https://www.bilimkahramanlari.org",
+    aciklama: "Her yıl belirlenen küresel bir tema çerçevesinde, Lego robot tasarımı ve yenilikçi araştırma projelerinin sunulduğu ortaokul seviyesindeki küresel turnuva.",
+    kaynak: "Bilim Kahramanları",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "Genç Sesler Okullar Arası Koro ve Şarkı Yarışması",
+    brans: "Müzik ve Gösteri Sanatları",
+    kategori: "Yerel",
+    tarih: "15.04.2027",
+    basvuruLinki: "https://yegitek.meb.gov.tr",
+    aciklama: "Milli Eğitim Bakanlığı izinli, okullar arası popüler müzik ve klasik koro performanslarının sergilendiği yerel müzik yarışması.",
+    kaynak: "MEB Yeğitek",
+    taramaDonemi: "2026-2027 Güz"
+  }
+]
+
 export default function KurumKulupler() {
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
   const { profil, kullanici } = useAuth()
@@ -97,7 +170,7 @@ export default function KurumKulupler() {
   const [yukleniyor, setYukleniyor] = useState(true)
   
   // Turnuva Radarı State'leri
-  const [turnuvalar, setTurnuvalar] = useState([])
+  const [turnuvalar, setTurnuvalar] = useState(VARSAYILAN_TURNUVALAR.map((t, idx) => ({ id: `default_${idx}`, ...t })))
   const [turnuvaArama, setTurnuvaArama] = useState('')
   const [turnuvaSeciliBrans, setTurnuvaSeciliBrans] = useState('Hepsi')
   const [turnuvaSeciliKategori, setTurnuvaSeciliKategori] = useState('Hepsi')
@@ -439,90 +512,24 @@ export default function KurumKulupler() {
 
     // 9. Global Turnuvaları Dinle ve Otomatik Tohumla (Seeding)
     const unsubTournaments = onSnapshot(collection(db, 'tournaments'), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setTurnuvalar(data)
-      if (snap.empty) {
-        const VARSAYILAN_TURNUVALAR = [
-          {
-            ad: "TEKNOFEST 2026 Havacılık, Uzay ve Teknoloji Festivali",
-            brans: "Bilişim Teknolojileri",
-            kategori: "Ulusal",
-            tarih: "30.08.2026",
-            basvuruLinki: "https://www.teknofest.org",
-            aciklama: "Türkiye'nin en büyük teknoloji yarışması. İnsansız Hava Araçları, Robotik, Yapay Zeka ve Akıllı Ulaşım gibi kategorilerde ilkokul, ortaokul ve lise seviyelerinde başvurular kabul edilmektedir.",
-            kaynak: "Teknofest Vakfı",
-            taramaDonemi: "2026-2027 Güz"
-          },
-          {
-            ad: "17. MEB Uluslararası Robot Yarışması",
-            brans: "Bilişim Teknolojileri",
-            kategori: "Uluslararası",
-            tarih: "15.10.2026",
-            basvuruLinki: "https://robot.meb.gov.tr",
-            aciklama: "Milli Eğitim Bakanlığı tarafından düzenlenen, İleri Çizgi İzleyen, Mini Sumo, İnsansız Hava Araçları ve Tasarla-Çalıştır robot kategorilerini içeren uluslararası prestijli okul yarışması.",
-            kaynak: "MEB Yeğitek",
-            taramaDonemi: "2026-2027 Güz"
-          },
-          {
-            ad: "TÜBİTAK 2204-A Lise Öğrencileri Araştırma Projeleri Yarışması",
-            brans: "Bilişim Teknolojileri",
-            kategori: "Ulusal",
-            tarih: "05.01.2027",
-            basvuruLinki: "https://www.tubitak.gov.tr",
-            aciklama: "Lise öğrencilerinin fen, sosyal ve yazılım bilimleri alanlarında özgün proje geliştirmelerini teşvik etmeyi amaçlayan TÜBİTAK resmi araştırma projeleri yarışması.",
-            kaynak: "TÜBİTAK",
-            taramaDonemi: "2026-2027 Güz"
-          },
-          {
-            ad: "TÜBİTAK 2204-B Ortaokul Öğrencileri Araştırma Projeleri",
-            brans: "Fen ve Bilim",
-            kategori: "Ulusal",
-            tarih: "15.01.2027",
-            basvuruLinki: "https://www.tubitak.gov.tr",
-            aciklama: "Ortaokul seviyesinde bilimsel düşünme ve proje geliştirme kabiliyetini ölçen TÜBİTAK resmi araştırma yarışması.",
-            kaynak: "TÜBİTAK",
-            taramaDonemi: "2026-2027 Güz"
-          },
-          {
-            ad: "GSB Okul Sporları Satranç İl Birinciliği",
-            brans: "Spor",
-            kategori: "Yerel",
-            tarih: "12.11.2026",
-            basvuruLinki: "https://okulsportr.gsb.gov.tr",
-            aciklama: "Gençlik ve Spor Bakanlığı Okul Sporları kapsamında düzenlenen, okullar arası yıldızlar ve gençler satranç takım turnuvaları.",
-            kaynak: "GSB Okul Sporları",
-            taramaDonemi: "2026-2027 Güz"
-          },
-          {
-            ad: "First Lego League (FLL) Challenge Robotik Yarışması",
-            brans: "Bilişim Teknolojileri",
-            kategori: "Ulusal",
-            tarih: "20.12.2026",
-            basvuruLinki: "https://www.bilimkahramanlari.org",
-            aciklama: "Her yıl belirlenen küresel bir tema çerçevesinde, Lego robot tasarımı ve yenilikçi araştırma projelerinin sunulduğu ortaokul seviyesindeki küresel turnuva.",
-            kaynak: "Bilim Kahramanları",
-            taramaDonemi: "2026-2027 Güz"
-          },
-          {
-            ad: "Genç Sesler Okullar Arası Koro ve Şarkı Yarışması",
-            brans: "Müzik ve Gösteri Sanatları",
-            kategori: "Yerel",
-            tarih: "15.04.2027",
-            basvuruLinki: "https://yegitek.meb.gov.tr",
-            aciklama: "Milli Eğitim Bakanlığı izinli, okullar arası popüler müzik ve klasik koro performanslarının sergilendiği yerel müzik yarışması.",
-            kaynak: "MEB Yeğitek",
-            taramaDonemi: "2026-2027 Güz"
-          }
-        ]
+      if (!snap.empty) {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        setTurnuvalar(data)
+      } else {
+        // Eğer veritabanı tamamen boşsa veya izin hatası varsa yerel sabitleri göster
+        setTurnuvalar(VARSAYILAN_TURNUVALAR.map((t, idx) => ({ id: `default_${idx}`, ...t })))
+        
+        // Tohumlamayı arka planda dene
         VARSAYILAN_TURNUVALAR.forEach(t => {
           addDoc(collection(db, 'tournaments'), {
             ...t,
             tarihTimestamp: serverTimestamp()
-          }).catch(err => console.warn("Tohumlanamadı:", err.message))
+          }).catch(err => console.warn("Tohumlanamadı (Yetki veya bağlantı hatası):", err.message))
         })
       }
     }, (err) => {
-      console.warn("Turnuvalar dinlenemedi:", err.message)
+      console.warn("Turnuvalar dinlenemedi (Yerel veriler yedek olarak yüklendi):", err.message)
+      setTurnuvalar(VARSAYILAN_TURNUVALAR.map((t, idx) => ({ id: `default_${idx}`, ...t })))
     })
     unsubs.push(unsubTournaments)
 
@@ -1499,6 +1506,31 @@ export default function KurumKulupler() {
     
     setTaramaAdimi("Yeni turnuvalar ve başvuru linkleri Firestore havuzuyla eşitleniyor...")
     await new Promise(resolve => setTimeout(resolve, 1000))
+
+    try {
+      const dbRef = collection(db, 'tournaments')
+      for (const t of VARSAYILAN_TURNUVALAR) {
+        if (!turnuvalar.some(x => x.ad === t.ad)) {
+          await addDoc(dbRef, {
+            ...t,
+            tarihTimestamp: serverTimestamp()
+          })
+        }
+      }
+    } catch (e) {
+      console.warn("Otomatik taramada Firestore yazma hatası (Yerel yedek devrede):", e.message)
+    }
+    
+    // Her ihtimale karşı state'te taranan turnuvaları yerel olarak da garantile
+    setTurnuvalar(prev => {
+      const list = [...prev]
+      VARSAYILAN_TURNUVALAR.forEach((t, idx) => {
+        if (!list.some(x => x.ad === t.ad)) {
+          list.push({ id: `scanned_${idx}`, ...t })
+        }
+      })
+      return list
+    })
     
     const bugun = new Date().toLocaleDateString('tr-TR')
     setSonTaramaTarihi(bugun)
