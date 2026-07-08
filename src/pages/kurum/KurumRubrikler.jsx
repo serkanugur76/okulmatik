@@ -459,18 +459,19 @@ export default function KurumRubrikler() {
           .modal-box input, .modal-box select, .modal-box textarea {
             font-size: 16px !important;
           }
+          .page-title { font-size: 1.25rem !important; margin-bottom: 0px !important; }
+          .page-subtitle { display: none !important; }
         }
       ` }} />
-      <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Rubrikler</h1>
-      <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '2rem' }}>
-        <strong>{secilenKurum?.ad}</strong> — değerlendirme rubrikleri
+      <h1 className="page-title" style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>Rubrikler</h1>
+      <p className="page-subtitle" style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+        <strong>{secilenKurum?.ad}</strong>
       </p>
 
       {/* Gizli Excel input — her zaman render edilir */}
       <input ref={xlsxRef} type="file" accept=".xlsx,.xls" onChange={rubrikXlsxOku} style={{ display: 'none' }} />
 
-      <div className="rubrik-header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', gap: '0.75rem' }}>
-        <span style={{ fontSize: '0.875rem', color: '#64748B' }}>{gorunurRubrikler.length} rubrik</span>
+      <div className="rubrik-header-actions" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '1.25rem', gap: '0.75rem' }}>
         {/* Admin veya koordinatör: tüm butonlar; normal öğretmen: hiçbiri */}
         {(!ogretmenModu || profil?.modulIzinler?.rubrik_olustur) && (
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
