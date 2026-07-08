@@ -2038,25 +2038,24 @@ export default function KurumKulupler() {
                   background: '#F8FAFC',
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  position: 'relative'
                 }}>
-                  <h2 className="sub-module-title" style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h2 className="sub-module-title" style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', paddingRight: '40px' }}>
                     {aktifTab === 'yoklama' && '📝 Yoklama Defteri'}
                     {aktifTab === 'dersPlani' && '📖 Ders Planı'}
                     {aktifTab === 'etkinlikler' && '🏁 Etkinlik & Turnuvalar'}
                     {aktifTab === 'talepler' && '📩 Geçiş Talepleri'}
                     {aktifTab === 'degerlendirme' && '📊 Rubrik Değerlendirme'}
-                    <span style={{ fontSize: '0.85rem', fontWeight: '500', color: '#64748B', marginLeft: '0.5rem' }}>
-                      ({(() => {
-                        const selectedClubObj = goruntulenenKulupler.find(k => k.id === seciliKulupId);
-                        return selectedClubObj ? selectedClubObj.ad : '';
-                      })()})
-                    </span>
                   </h2>
 
                   <button
                     onClick={() => setAktifTab('kulupler')}
                     style={{
+                      position: 'absolute',
+                      right: '1.25rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
                       width: '30px',
                       height: '30px',
                       fontSize: '0.85rem',
@@ -3182,14 +3181,19 @@ export default function KurumKulupler() {
             {/* Modal Başlığı */}
             <div style={{
               padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              position: 'relative'
             }}>
-              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B' }}>
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B', paddingRight: '40px' }}>
                 {duzenlenenKulupId ? '🏆 Kulüp Bilgilerini Güncelle' : '🏆 Yeni Sosyal Kulüp Oluştur'}
               </h2>
               <button
                 onClick={() => { setKulupModalAcik(false); formTemizle() }}
                 style={{
+                  position: 'absolute',
+                  right: '1.25rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
                   width: '30px',
                   height: '30px',
                   fontSize: '0.85rem',
@@ -3391,9 +3395,10 @@ export default function KurumKulupler() {
             {/* Modal Başlığı */}
             <div style={{
               padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              position: 'relative'
             }}>
-              <div>
+              <div style={{ paddingRight: '40px' }}>
                 <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B' }}>
                   👥 Kulüp Öğrenci Listesini Düzenle
                 </h2>
@@ -3402,6 +3407,10 @@ export default function KurumKulupler() {
               <button
                 onClick={() => { setOgrenciModalAcik(false); setOgrenciArama('') }}
                 style={{
+                  position: 'absolute',
+                  right: '1.25rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
                   width: '30px',
                   height: '30px',
                   fontSize: '0.85rem',
@@ -3525,9 +3534,10 @@ export default function KurumKulupler() {
             {/* Modal Başlığı */}
             <div style={{
               padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              position: 'relative'
             }}>
-              <div>
+              <div style={{ paddingRight: '40px' }}>
                 <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B' }}>
                   🏁 Yeni Etkinlik / Turnuva Tanımla
                 </h2>
@@ -3536,6 +3546,10 @@ export default function KurumKulupler() {
               <button
                 onClick={() => setEtkinlikModalAcik(false)}
                 style={{
+                  position: 'absolute',
+                  right: '1.25rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
                   width: '30px',
                   height: '30px',
                   fontSize: '0.85rem',
@@ -3659,9 +3673,10 @@ export default function KurumKulupler() {
             {/* Modal Başlığı */}
             <div style={{
               padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              position: 'relative'
             }}>
-              <div>
+              <div style={{ paddingRight: '40px' }}>
                 <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B' }}>
                   📩 Kulüp Geçiş / Çıkış Talebi
                 </h2>
@@ -3670,6 +3685,10 @@ export default function KurumKulupler() {
               <button
                 onClick={() => setTalepModalAcik(false)}
                 style={{
+                  position: 'absolute',
+                  right: '1.25rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
                   width: '30px',
                   height: '30px',
                   fontSize: '0.85rem',
@@ -3961,9 +3980,10 @@ export default function KurumKulupler() {
             {/* Modal Başlığı */}
             <div style={{
               padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              position: 'relative'
             }}>
-              <div>
+              <div style={{ paddingRight: '40px' }}>
                 <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1B3A6B' }}>
                   📦 Kulüp Materyal Listesi Yönetimi
                 </h2>
@@ -3972,6 +3992,10 @@ export default function KurumKulupler() {
               <button
                 onClick={() => setMateryalModalAcik(false)}
                 style={{
+                  position: 'absolute',
+                  right: '1.25rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
                   width: '30px',
                   height: '30px',
                   fontSize: '0.85rem',
