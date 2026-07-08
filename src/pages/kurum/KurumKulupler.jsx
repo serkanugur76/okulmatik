@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, query, orderBy, writeBatch, where
@@ -74,6 +75,19 @@ export default function KurumKulupler() {
     return Object.values(kuluplerMap).flat()
       .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
   }, [kuluplerMap])
+
+  const location = useLocation()
+  useEffect(() => {
+    if (kulupler.length > 0) {
+      if (location.state?.seciliRubrikId) {
+        const matchingClub = kulupler.find(k => k.rubrikId === location.state.seciliRubrikId)
+        if (matchingClub) {
+          setSeciliKulupId(matchingClub.id)
+          setAktifTab('degerlendirme')
+        }
+      }
+    }
+  }, [location.state, kulupler]) // eslint-disable-line
   const [ogretmenler, setOgretmenler] = useState([])
   const [ogrenciler, setOgrenciler] = useState([])
   const [rubrikler, setRubrikler] = useState([])

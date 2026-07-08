@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc,
@@ -41,6 +42,7 @@ function toplamMaksPuan(kriterler) {
 }
 
 export default function KurumRubrikler() {
+  const navigate = useNavigate()
   const { secilenKurumId, secilenKurum, erisimKurumlar } = useKurumYonetim()
   const { kurumId: benimKurumId, platformAdmin, profil, kullanici } = useAuth()
 
@@ -667,6 +669,20 @@ export default function KurumRubrikler() {
                                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#1E293B' }}
                                   >
                                     👁️ Önizle
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(null);
+                                      if (r.isKulup) {
+                                        navigate('/kurum/kulupler', { state: { seciliRubrikId: r.id } });
+                                      } else {
+                                        navigate(`/kurum/degerlendirmeler?r=${r.id}`);
+                                      }
+                                    }}
+                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', border: 'none', background: 'none', fontSize: '0.825rem', fontWeight: '700', cursor: 'pointer', textAlign: 'left', borderRadius: '6px', color: '#1B3A6B' }}
+                                  >
+                                    📝 Değerlendir
                                   </button>
                                   {yazabilir(r) && (
                                     <>
