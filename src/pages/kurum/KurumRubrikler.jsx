@@ -431,8 +431,22 @@ export default function KurumRubrikler() {
           .mobile-cards-container {
             display: none !important;
           }
+          .preview-desktop-table {
+            display: block !important;
+          }
+          .preview-mobile-list {
+            display: none !important;
+          }
         }
         @media (max-width: 768px) {
+          .preview-desktop-table {
+            display: none !important;
+          }
+          .preview-mobile-list {
+            display: flex !important;
+            flex-direction: column;
+            gap: 1rem;
+          }
           .desktop-table-container {
             display: none !important;
           }
@@ -1016,68 +1030,170 @@ export default function KurumRubrikler() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, overflowY: 'auto', padding: '2rem 1rem' }}
           onClick={e => e.target === e.currentTarget && setOnizleme(null)}>
           <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '900px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: '1.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
-              <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', position: 'relative' }}>
+              <div style={{ paddingRight: '40px' }}>
                 <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B' }}>{onizleme.ad}</h2>
                 {onizleme.aciklama && <p style={{ fontSize: '0.825rem', color: '#64748B', marginTop: '2px' }}>{onizleme.aciklama}</p>}
               </div>
-              <button onClick={() => setOnizleme(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: '#94A3B8' }}>✕</button>
+              <button
+                onClick={() => setOnizleme(null)}
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 0,
+                  width: '30px',
+                  height: '30px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#EF4444';
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = '#DC2626';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = '#F1F5F9';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                }}
+              >
+                ✕
+              </button>
             </div>
             {(() => {
               const ilkSev = onizleme.kriterler?.[0]?.altKriterler?.[0]?.seviyeler || []
               return (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                    <thead>
-                      <tr style={{ background: '#1B3A6B' }}>
-                        <th style={{ padding: '0.625rem 0.875rem', textAlign: 'left', color: '#fff', fontWeight: '600', borderBottom: '2px solid #E2E8F0', minWidth: '180px' }}>Kriter</th>
-                        {ilkSev.map((sv, i) => (
-                          <th key={i} style={{ padding: '0.625rem 0.875rem', textAlign: 'center', color: '#fff', fontWeight: '600', borderBottom: '2px solid #E2E8F0', minWidth: '120px' }}>
-                            {sv.ad || `Seviye ${i + 1}`}
-                            <div style={{ fontWeight: '400', fontSize: '0.7rem', color: 'rgba(255,255,255,0.65)' }}>{sv.puan} puan</div>
-                          </th>
-                        ))}
-                        <th style={{ padding: '0.625rem 0.875rem', textAlign: 'center', color: '#fff', fontWeight: '600', borderBottom: '2px solid #E2E8F0' }}>Maks.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {onizleme.kriterler.map((k, ki) => (
-                        <>
-                          <tr key={'ana_' + k.id} style={{ background: '#EEF2FF' }}>
-                            <td colSpan={2 + ilkSev.length}
-                              style={{ padding: '0.5rem 0.875rem', fontWeight: '700', color: '#4338CA', fontSize: '0.85rem', borderBottom: '1px solid #E2E8F0' }}>
-                              {ki + 1}. {k.ad}
-                            </td>
-                          </tr>
-                          {(k.altKriterler || []).map((ak, aki) => (
-                            <tr key={ak.id} style={{ background: aki % 2 === 0 ? '#fff' : '#FAFAFA' }}>
-                              <td style={{ padding: '0.625rem 0.875rem 0.625rem 1.75rem', fontWeight: '500', color: '#374151', borderBottom: '1px solid #F1F5F9', verticalAlign: 'top' }}>
-                                ↳ {ak.ad}
-                              </td>
-                              {(ak.seviyeler || []).map((sv, si) => (
-                                <td key={si} style={{ padding: '0.625rem 0.875rem', color: '#64748B', borderBottom: '1px solid #F1F5F9', verticalAlign: 'top', textAlign: 'center', maxWidth: '150px', lineHeight: '1.4' }}>
-                                  {sv.aciklama || <span style={{ color: '#CBD5E1' }}>—</span>}
-                                </td>
-                              ))}
-                              <td style={{ padding: '0.625rem 0.875rem', fontWeight: '700', color: '#1B3A6B', borderBottom: '1px solid #F1F5F9', textAlign: 'center' }}>
-                                {Math.max(...(ak.seviyeler || []).map(s => s.puan || 0), 0)}
+                <>
+                  {/* Desktop View (Table) */}
+                  <div className="preview-desktop-table" style={{ overflowX: 'auto', display: 'none' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ background: '#1B3A6B' }}>
+                          <th style={{ padding: '0.625rem 0.875rem', textAlign: 'left', color: '#fff', fontWeight: '600', borderBottom: '2px solid #E2E8F0', minWidth: '180px' }}>Kriter</th>
+                          {ilkSev.map((sv, i) => (
+                            <th key={i} style={{ padding: '0.625rem 0.875rem', textAlign: 'center', color: '#fff', fontWeight: '600', borderBottom: '2px solid #E2E8F0', minWidth: '120px' }}>
+                              {sv.ad || `Seviye ${i + 1}`}
+                              <div style={{ fontWeight: '400', fontSize: '0.7rem', color: 'rgba(255,255,255,0.65)' }}>{sv.puan} puan</div>
+                            </th>
+                          ))}
+                          <th style={{ padding: '0.625rem 0.875rem', textAlign: 'center', color: '#fff', fontWeight: '600', borderBottom: '2px solid #E2E8F0' }}>Maks.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {onizleme.kriterler.map((k, ki) => (
+                          <>
+                            <tr key={'ana_' + k.id} style={{ background: '#EEF2FF' }}>
+                              <td colSpan={2 + ilkSev.length}
+                                style={{ padding: '0.5rem 0.875rem', fontWeight: '700', color: '#4338CA', fontSize: '0.85rem', borderBottom: '1px solid #E2E8F0' }}>
+                                {ki + 1}. {k.ad}
                               </td>
                             </tr>
+                            {(k.altKriterler || []).map((ak, aki) => (
+                              <tr key={ak.id} style={{ background: aki % 2 === 0 ? '#fff' : '#FAFAFA' }}>
+                                <td style={{ padding: '0.625rem 0.875rem 0.625rem 1.75rem', fontWeight: '500', color: '#374151', borderBottom: '1px solid #F1F5F9', verticalAlign: 'top' }}>
+                                  ↳ {ak.ad}
+                                </td>
+                                {(ak.seviyeler || []).map((sv, si) => (
+                                  <td key={si} style={{ padding: '0.625rem 0.875rem', color: '#64748B', borderBottom: '1px solid #F1F5F9', verticalAlign: 'top', textAlign: 'center', maxWidth: '150px', lineHeight: '1.4' }}>
+                                    {sv.aciklama || <span style={{ color: '#CBD5E1' }}>—</span>}
+                                  </td>
+                                ))}
+                                <td style={{ padding: '0.625rem 0.875rem', fontWeight: '700', color: '#1B3A6B', borderBottom: '1px solid #F1F5F9', textAlign: 'center' }}>
+                                  {Math.max(...(ak.seviyeler || []).map(s => s.puan || 0), 0)}
+                                </td>
+                              </tr>
+                            ))}
+                          </>
+                        ))}
+                        <tr style={{ background: '#F8FAFC' }}>
+                          <td colSpan={1 + ilkSev.length}
+                            style={{ padding: '0.625rem 0.875rem', fontWeight: '600', color: '#64748B', textAlign: 'right', fontSize: '0.8rem' }}>
+                            Toplam Maksimum:
+                          </td>
+                          <td style={{ padding: '0.625rem 0.875rem', fontWeight: '800', color: '#1B3A6B', textAlign: 'center' }}>
+                            {toplamMaksPuan(onizleme.kriterler)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile View (Stacked Cards) */}
+                  <div className="preview-mobile-list" style={{ display: 'none', flexDirection: 'column', gap: '1rem' }}>
+                    {onizleme.kriterler.map((k, ki) => (
+                      <div key={k.id} style={{ border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden' }}>
+                        {/* Main Criterion Title */}
+                        <div style={{ background: '#EEF2FF', padding: '0.75rem 1rem', fontWeight: '700', color: '#4338CA', fontSize: '0.85rem' }}>
+                          {ki + 1}. {k.ad}
+                        </div>
+                        
+                        {/* Alt Criteria */}
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          {(k.altKriterler || []).map((ak, aki) => (
+                            <div key={ak.id} style={{ padding: '0.875rem 1rem', borderTop: aki > 0 ? '1px solid #F1F5F9' : 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                              <div style={{ fontSize: '0.825rem', fontWeight: '700', color: '#1B3A6B' }}>
+                                ↳ {ak.ad}
+                              </div>
+                              
+                              {/* 4 Levels Stacked */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '4px' }}>
+                                {(ak.seviyeler || []).map((sv, si) => (
+                                  <div key={si} style={{
+                                    background: '#F8FAFC',
+                                    border: '1px solid #E2E8F0',
+                                    borderRadius: '8px',
+                                    padding: '8px 10px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '4px'
+                                  }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#374151' }}>
+                                        {sv.ad || `Seviye ${si + 1}`}
+                                      </span>
+                                      <span style={{ fontSize: '0.7rem', fontWeight: '800', background: '#E2E8F0', color: '#475569', padding: '1px 6px', borderRadius: '4px' }}>
+                                        {sv.puan} Puan
+                                      </span>
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#64748B', lineHeight: '1.4' }}>
+                                      {sv.aciklama || <span style={{ color: '#CBD5E1' }}>Açıklama belirtilmemiş</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           ))}
-                        </>
-                      ))}
-                      <tr style={{ background: '#F8FAFC' }}>
-                        <td colSpan={1 + ilkSev.length}
-                          style={{ padding: '0.625rem 0.875rem', fontWeight: '600', color: '#64748B', textAlign: 'right', fontSize: '0.8rem' }}>
-                          Toplam Maksimum:
-                        </td>
-                        <td style={{ padding: '0.625rem 0.875rem', fontWeight: '800', color: '#1B3A6B', textAlign: 'center' }}>
-                          {toplamMaksPuan(onizleme.kriterler)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Total Max Score */}
+                    <div style={{
+                      background: '#F1F5F9',
+                      borderRadius: '10px',
+                      border: '1px solid #E2E8F0',
+                      padding: '0.75rem 1rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontWeight: '700',
+                      fontSize: '0.825rem',
+                      color: '#1B3A6B'
+                    }}>
+                      <span>Toplam Maksimum Puan:</span>
+                      <span>{toplamMaksPuan(onizleme.kriterler)} Puan</span>
+                    </div>
+                  </div>
+                </>
               )
             })()}
           </div>
