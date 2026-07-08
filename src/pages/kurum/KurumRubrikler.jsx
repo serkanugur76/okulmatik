@@ -783,12 +783,45 @@ export default function KurumRubrikler() {
 
       {/* ── Şablon Seçici Modal ── */}
       {sablonSecici && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '1rem' }}
           onClick={e => e.target === e.currentTarget && setSablonSecici(false)}>
           <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '560px', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '1rem', fontWeight: '700', color: '#1E293B' }}>📋 Şablon Seç</h2>
-              <button onClick={() => setSablonSecici(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: '#94A3B8' }}>✕</button>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+              <h2 style={{ fontSize: '1rem', fontWeight: '700', color: '#1E293B', paddingRight: '40px' }}>📋 Şablon Seç</h2>
+              <button
+                onClick={() => setSablonSecici(false)}
+                style={{
+                  position: 'absolute',
+                  right: '1.25rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: '30px',
+                  height: '30px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#EF4444';
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = '#DC2626';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = '#F1F5F9';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                }}
+              >
+                ✕
+              </button>
             </div>
             <div style={{ overflowY: 'auto', padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
               {sablonlar.map(sb => (
@@ -815,10 +848,44 @@ export default function KurumRubrikler() {
 
       {/* ── Oluştur / Düzenle Modal ── */}
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, overflowY: 'auto', padding: '2rem 1rem' }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 10000, overflowY: 'auto', padding: '2rem 1rem' }}
           onClick={e => e.target === e.currentTarget && modalKapat()}>
-          <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '760px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
-            <div style={{ padding: '1.5rem 1.75rem 0' }}>
+          <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '760px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', position: 'relative' }}>
+            <button
+              onClick={modalKapat}
+              style={{
+                position: 'absolute',
+                right: '1.5rem',
+                top: '1.5rem',
+                width: '30px',
+                height: '30px',
+                fontSize: '0.85rem',
+                fontWeight: '700',
+                background: '#F1F5F9',
+                color: '#475569',
+                border: '1px solid #CBD5E1',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s',
+                zIndex: 10
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = '#EF4444';
+                e.currentTarget.style.color = '#fff';
+                e.currentTarget.style.borderColor = '#DC2626';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#F1F5F9';
+                e.currentTarget.style.color = '#475569';
+                e.currentTarget.style.borderColor = '#CBD5E1';
+              }}
+            >
+              ✕
+            </button>
+            <div style={{ padding: '1.5rem 1.75rem 0', paddingRight: '4rem' }}>
               <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.25rem' }}>
                 {duzenlenen ? 'Rubriği Düzenle' : 'Yeni Rubrik'}
               </h2>
@@ -1041,7 +1108,7 @@ export default function KurumRubrikler() {
 
       {/* ── Önizleme Modal ── */}
       {onizleme && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, overflowY: 'auto', padding: '2rem 1rem' }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 10000, overflowY: 'auto', padding: '2rem 1rem' }}
           onClick={e => e.target === e.currentTarget && setOnizleme(null)}>
           <div className="modal-box" style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '900px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: '1.75rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', position: 'relative' }}>
