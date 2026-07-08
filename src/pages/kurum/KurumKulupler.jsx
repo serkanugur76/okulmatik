@@ -127,6 +127,106 @@ const VARSAYILAN_TURNUVALAR = [
     aciklama: "Milli Eğitim Bakanlığı izinli, okullar arası popüler müzik ve klasik koro performanslarının sergilendiği yerel müzik yarışması.",
     kaynak: "MEB Yeğitek",
     taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "VEX Robotics Türkiye Turnuvası",
+    brans: "Bilişim Teknolojileri",
+    kategori: "Ulusal",
+    tarih: "18.11.2026",
+    basvuruLinki: "https://www.vexrobotics.com",
+    aciklama: "İlkokul, ortaokul ve lise öğrencilerinin STEM, takım çalışması ve tasarım becerilerini geliştiren, otonom ve manuel kontrol robotik mücadele turnuvası.",
+    kaynak: "VEX Robotics",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "eTwinning Okul Ortaklığı ve STEM Projeleri",
+    brans: "Yabancı Dil",
+    kategori: "Uluslararası",
+    tarih: "01.10.2026",
+    basvuruLinki: "https://etwinning.meb.gov.tr",
+    aciklama: "Avrupa'daki okullarla işbirliği içinde, öğrencilerin dijital, kültürel ve yabancı dil becerilerini geliştiren MEB onaylı uluslararası okul proje ağları.",
+    kaynak: "MEB eTwinning",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "Bebras Uluslararası Enformatik ve Bilgi-İşlemsel Düşünme Yarışması",
+    brans: "Bilişim Teknolojileri",
+    kategori: "Uluslararası",
+    tarih: "09.11.2026",
+    basvuruLinki: "http://www.bebras.tr",
+    aciklama: "Öğrencilerin bilişsel düşünme, algoritma kurma ve problem çözme becerilerini ölçen uluslararası enformatik yarışması.",
+    kaynak: "Bebras Türkiye",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "Technovation Girls Kız Öğrenciler İçin Mobil Girişimcilik Yarışması",
+    brans: "Bilişim Teknolojileri",
+    kategori: "Uluslararası",
+    tarih: "22.02.2027",
+    basvuruLinki: "https://www.technovationchallenge.org",
+    aciklama: "Kız öğrencilerin toplumsal sorunlara teknolojik çözümler üreterek mobil uygulama geliştirdiği ve küresel girişimcilik becerisi kazandığı kodlama yarışması.",
+    kaynak: "Technovation Girls",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "The World Scholar's Cup Bölgesel Münazara Turnuvası",
+    brans: "Kültür ve Edebiyat",
+    kategori: "Uluslararası",
+    tarih: "14.12.2026",
+    basvuruLinki: "https://www.scholarscup.org",
+    aciklama: "Öğrencilerin İngilizce münazara, genel kültür sınavı ve kompozisyon yazma alanlarında yarıştığı, küresel düşünce liderliğini hedefleyen prestijli turnuva.",
+    kaynak: "The World Scholar's Cup",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "Destination Imagination (DI) Türkiye Yaratıcılık ve STEM Turnuvası",
+    brans: "Kişisel Gelişim ve Zeka Oyunları",
+    kategori: "Ulusal",
+    tarih: "25.02.2027",
+    basvuruLinki: "http://www.diturkiye.org",
+    aciklama: "Öğrencilerin doğaçlama, yapısal tasarım, sosyal sorumluluk ve teknik alanlarda yaratıcı problem çözme yeteneklerini sergilediği küresel takım turnuvası.",
+    kaynak: "DI Türkiye",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "MakeX Türkiye Robotik Yarışması",
+    brans: "Bilişim Teknolojileri",
+    kategori: "Ulusal",
+    tarih: "07.12.2026",
+    basvuruLinki: "https://www.makex.cc",
+    aciklama: "Öğrencilerin STEAM alanında işbirliği, inovasyon ve sistem tasarımı becerilerini ölçen, otonom görev odaklı robotik müsabaka.",
+    kaynak: "MakeX Robotics",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "Owlypia Uluslararası İngilizce Bilgi ve Kültür Yarışması",
+    brans: "Yabancı Dil",
+    kategori: "Uluslararası",
+    tarih: "15.03.2027",
+    basvuruLinki: "https://www.owlypia.org",
+    aciklama: "Sosyal bilimler, sanat, edebiyat ve bilim alanlarında öğrencilerin İngilizce araştırma, sunum yapma ve genel kültür becerilerini ölçen küresel yarışma.",
+    kaynak: "Owlypia",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "Conrad Challenge STEM ve Girişimcilik Müsabakası",
+    brans: "Fen ve Bilim",
+    kategori: "Uluslararası",
+    tarih: "10.01.2027",
+    basvuruLinki: "https://www.conradchallenge.org",
+    aciklama: "Öğrencilerin küresel sorunlara yenilikçi, ticari olarak uygulanabilir ve bilim tabanlı çözümler geliştirdiği uluslararası STEM ve teknolojik girişimcilik platformu.",
+    kaynak: "Conrad Foundation",
+    taramaDonemi: "2026-2027 Güz"
+  },
+  {
+    ad: "Genç Başarı / Junior Achievement Şirket Programı Yarışması",
+    brans: "Kişisel Gelişim ve Zeka Oyunları",
+    kategori: "Ulusal",
+    tarih: "18.04.2027",
+    basvuruLinki: "https://www.gencbasari.org",
+    aciklama: "Lise seviyesindeki öğrencilerin kendi mini şirketlerini kurup ürün ürettiği, hisse senedi dağıttığı ve gerçek ticari tecrübe kazandığı girişimcilik programı.",
+    kaynak: "Genç Başarı Eğitim Vakfı",
+    taramaDonemi: "2026-2027 Güz"
   }
 ]
 
