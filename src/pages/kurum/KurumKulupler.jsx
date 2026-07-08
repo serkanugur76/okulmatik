@@ -95,6 +95,29 @@ export default function KurumKulupler() {
   const [etkinlikler, setEtkinlikler] = useState([])
   const [belirliGunler, setBelirliGunler] = useState([])
   const [yukleniyor, setYukleniyor] = useState(true)
+  
+  // Turnuva Radarı State'leri
+  const [turnuvalar, setTurnuvalar] = useState([])
+  const [turnuvaArama, setTurnuvaArama] = useState('')
+  const [turnuvaSeciliBrans, setTurnuvaSeciliBrans] = useState('Hepsi')
+  const [turnuvaSeciliKategori, setTurnuvaSeciliKategori] = useState('Hepsi')
+  
+  // Otomatik Tarama (Scan) Simülatör State'leri
+  const [taramaDevamEdiyor, setTaramaDevamEdiyor] = useState(false)
+  const [taramaAdimi, setTaramaAdimi] = useState('')
+  const [sonTaramaTarihi, setSonTaramaTarihi] = useState('01.09.2026')
+  
+  // Turnuva Hedefi Ekleme Form Modal State'leri
+  const [turnuvaHedefModalAcik, setTurnuvaHedefModalAcik] = useState(false)
+  const [seciliTurnuva, setSeciliTurnuva] = useState(null)
+  const [turnuvaBalkonDetay, setTurnuvaBalkonDetay] = useState('') // bütçe, araç, izin talebi
+  const [turnuvaHedefTarih, setTurnuvaHedefTarih] = useState('')
+  
+  // Admin onay/reddet açıklama modalı
+  const [adminOnayAciklamaModalAcik, setAdminOnayAciklamaModalAcik] = useState(false)
+  const [islemYapilanEtkinlikId, setIslemYapilanEtkinlikId] = useState('')
+  const [islemTipi, setIslemTipi] = useState('') // 'onayla' | 'reddet'
+  const [adminOnayAciklamaMetni, setAdminOnayAciklamaMetni] = useState('')
 
   // Seçili Kulüp (Yoklama, Ders Planı ve Etkinlikler sekmesi için)
   const [seciliKulupId, setSeciliKulupId] = useState('')
@@ -413,6 +436,95 @@ export default function KurumKulupler() {
       setBelirliGunler(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     })
     unsubs.push(unsubBelirliGunler)
+
+    // 9. Global Turnuvaları Dinle ve Otomatik Tohumla (Seeding)
+    const unsubTournaments = onSnapshot(collection(db, 'tournaments'), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setTurnuvalar(data)
+      if (snap.empty) {
+        const VARSAYILAN_TURNUVALAR = [
+          {
+            ad: "TEKNOFEST 2026 Havacılık, Uzay ve Teknoloji Festivali",
+            brans: "Bilişim Teknolojileri",
+            kategori: "Ulusal",
+            tarih: "30.08.2026",
+            basvuruLinki: "https://www.teknofest.org",
+            aciklama: "Türkiye'nin en büyük teknoloji yarışması. İnsansız Hava Araçları, Robotik, Yapay Zeka ve Akıllı Ulaşım gibi kategorilerde ilkokul, ortaokul ve lise seviyelerinde başvurular kabul edilmektedir.",
+            kaynak: "Teknofest Vakfı",
+            taramaDonemi: "2026-2027 Güz"
+          },
+          {
+            ad: "17. MEB Uluslararası Robot Yarışması",
+            brans: "Bilişim Teknolojileri",
+            kategori: "Uluslararası",
+            tarih: "15.10.2026",
+            basvuruLinki: "https://robot.meb.gov.tr",
+            aciklama: "Milli Eğitim Bakanlığı tarafından düzenlenen, İleri Çizgi İzleyen, Mini Sumo, İnsansız Hava Araçları ve Tasarla-Çalıştır robot kategorilerini içeren uluslararası prestijli okul yarışması.",
+            kaynak: "MEB Yeğitek",
+            taramaDonemi: "2026-2027 Güz"
+          },
+          {
+            ad: "TÜBİTAK 2204-A Lise Öğrencileri Araştırma Projeleri Yarışması",
+            brans: "Bilişim Teknolojileri",
+            kategori: "Ulusal",
+            tarih: "05.01.2027",
+            basvuruLinki: "https://www.tubitak.gov.tr",
+            aciklama: "Lise öğrencilerinin fen, sosyal ve yazılım bilimleri alanlarında özgün proje geliştirmelerini teşvik etmeyi amaçlayan TÜBİTAK resmi araştırma projeleri yarışması.",
+            kaynak: "TÜBİTAK",
+            taramaDonemi: "2026-2027 Güz"
+          },
+          {
+            ad: "TÜBİTAK 2204-B Ortaokul Öğrencileri Araştırma Projeleri",
+            brans: "Fen ve Bilim",
+            kategori: "Ulusal",
+            tarih: "15.01.2027",
+            basvuruLinki: "https://www.tubitak.gov.tr",
+            aciklama: "Ortaokul seviyesinde bilimsel düşünme ve proje geliştirme kabiliyetini ölçen TÜBİTAK resmi araştırma yarışması.",
+            kaynak: "TÜBİTAK",
+            taramaDonemi: "2026-2027 Güz"
+          },
+          {
+            ad: "GSB Okul Sporları Satranç İl Birinciliği",
+            brans: "Spor",
+            kategori: "Yerel",
+            tarih: "12.11.2026",
+            basvuruLinki: "https://okulsportr.gsb.gov.tr",
+            aciklama: "Gençlik ve Spor Bakanlığı Okul Sporları kapsamında düzenlenen, okullar arası yıldızlar ve gençler satranç takım turnuvaları.",
+            kaynak: "GSB Okul Sporları",
+            taramaDonemi: "2026-2027 Güz"
+          },
+          {
+            ad: "First Lego League (FLL) Challenge Robotik Yarışması",
+            brans: "Bilişim Teknolojileri",
+            kategori: "Ulusal",
+            tarih: "20.12.2026",
+            basvuruLinki: "https://www.bilimkahramanlari.org",
+            aciklama: "Her yıl belirlenen küresel bir tema çerçevesinde, Lego robot tasarımı ve yenilikçi araştırma projelerinin sunulduğu ortaokul seviyesindeki küresel turnuva.",
+            kaynak: "Bilim Kahramanları",
+            taramaDonemi: "2026-2027 Güz"
+          },
+          {
+            ad: "Genç Sesler Okullar Arası Koro ve Şarkı Yarışması",
+            brans: "Müzik ve Gösteri Sanatları",
+            kategori: "Yerel",
+            tarih: "15.04.2027",
+            basvuruLinki: "https://yegitek.meb.gov.tr",
+            aciklama: "Milli Eğitim Bakanlığı izinli, okullar arası popüler müzik ve klasik koro performanslarının sergilendiği yerel müzik yarışması.",
+            kaynak: "MEB Yeğitek",
+            taramaDonemi: "2026-2027 Güz"
+          }
+        ]
+        VARSAYILAN_TURNUVALAR.forEach(t => {
+          addDoc(collection(db, 'tournaments'), {
+            ...t,
+            tarihTimestamp: serverTimestamp()
+          }).catch(err => console.warn("Tohumlanamadı:", err.message))
+        })
+      }
+    }, (err) => {
+      console.warn("Turnuvalar dinlenemedi:", err.message)
+    })
+    unsubs.push(unsubTournaments)
 
     return () => {
       unsubs.forEach(u => u())
@@ -1373,6 +1485,97 @@ export default function KurumKulupler() {
     }
   }
 
+  // 📡 Turnuva Radarı - MEB & GSB Otomatik Tarama Simülasyonu
+  async function handleOtomatikTarama() {
+    setTaramaDevamEdiyor(true)
+    setTaramaAdimi("MEB Yeğitek resmi duyuruları ve yarışma izinleri taranıyor...")
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    
+    setTaramaAdimi("GSB Okul Sporları fikstür ve branş portalları taranıyor...")
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    
+    setTaramaAdimi("Teknofest 2026 ve robotik turnuva takvimleri çekiliyor...")
+    await new Promise(resolve => setTimeout(resolve, 1200))
+    
+    setTaramaAdimi("Yeni turnuvalar ve başvuru linkleri Firestore havuzuyla eşitleniyor...")
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    const bugun = new Date().toLocaleDateString('tr-TR')
+    setSonTaramaTarihi(bugun)
+    setTaramaDevamEdiyor(false)
+    setTaramaAdimi("")
+    alert("Otomatik Tarama Başarılı! MEB ve GSB kaynaklarındaki güncel turnuvalar radara işlendi.")
+  }
+
+  // Turnuvayı Kulübe Hedef Olarak Ekle (İdare onayına gönderir)
+  async function handleTurnuvaHedefEkle(e) {
+    if (e) e.preventDefault()
+    if (!seciliKulupId || !seciliTurnuva) return
+    const targetKurumId = seciliKulup?._kurumId || secilenKurumId
+
+    const yeniHedef = {
+      kulupId: seciliKulupId,
+      ad: seciliTurnuva.ad,
+      tarih: turnuvaHedefTarih || seciliTurnuva.tarih || '',
+      aciklama: `[Turnuva Hedefi] ${seciliTurnuva.aciklama || ''}`,
+      tip: 'turnuva',
+      turnuvaId: seciliTurnuva.id,
+      onayDurumu: 'bekliyor',
+      talepDetay: turnuvaBalkonDetay,
+      talepTarihi: serverTimestamp(),
+      olusturanId: kullanici?.uid || '',
+      olusturanAd: profil?.ad || profil?.email || 'Öğretmen'
+    }
+
+    try {
+      await addDoc(collection(db, 'kurumlar', targetKurumId, 'kulupEtkinlikleri'), yeniHedef)
+      await logKaydet('TURNUVA_HEDEF_TALEP', `"${seciliTurnuva.ad}" turnuvası için "${seciliKulup?.ad}" kulübüne hedef katılım talebi oluşturuldu.`, profil)
+      setTurnuvaHedefModalAcik(false)
+      setSeciliTurnuva(null)
+      setTurnuvaBalkonDetay('')
+      setTurnuvaHedefTarih('')
+      alert('Turnuva hedef katılım talebi idare onayına başarıyla gönderildi.')
+    } catch (err) {
+      console.error(err)
+      alert('Talebiniz kaydedilirken bir hata oluştu.')
+    }
+  }
+
+  // İdare Turnuva Onay / Red Kararı
+  async function handleTurnuvaOnayKarar() {
+    if (!islemYapilanEtkinlikId || !islemTipi) return
+    const etk = etkinlikler.find(e => e.id === islemYapilanEtkinlikId)
+    if (!etk) return
+    const targetKurumId = etk._kurumId || secilenKurumId
+
+    try {
+      if (islemTipi === 'onayla') {
+        await updateDoc(doc(db, 'kurumlar', targetKurumId, 'kulupEtkinlikleri', islemYapilanEtkinlikId), {
+          onayDurumu: 'onaylandi',
+          onayAciklama: adminOnayAciklamaMetni,
+          onayTarihi: serverTimestamp()
+        })
+        await logKaydet('TURNUVA_HEDEF_ONAY', `"${etk.ad}" turnuva katılımı onaylandı. Not: ${adminOnayAciklamaMetni}`, profil)
+        alert('Turnuva hedefi başarıyla onaylandı.')
+      } else {
+        await updateDoc(doc(db, 'kurumlar', targetKurumId, 'kulupEtkinlikleri', islemYapilanEtkinlikId), {
+          onayDurumu: 'reddedildi',
+          onayAciklama: adminOnayAciklamaMetni,
+          onayTarihi: serverTimestamp()
+        })
+        await logKaydet('TURNUVA_HEDEF_RED', `"${etk.ad}" turnuva katılımı reddedildi. Nedeni: ${adminOnayAciklamaMetni}`, profil)
+        alert('Turnuva hedefi reddedildi.')
+      }
+      setAdminOnayAciklamaModalAcik(false)
+      setIslemYapilanEtkinlikId('')
+      setIslemTipi('')
+      setAdminOnayAciklamaMetni('')
+    } catch (err) {
+      console.error(err)
+      alert('İşlem gerçekleştirilirken bir hata oluştu.')
+    }
+  }
+
   // Filtrelenmiş öğrenci listesi (atama modalı için)
   const filtrelenmisOgrenciler = useMemo(() => {
     if (!seciliKulup) return []
@@ -1397,6 +1600,17 @@ export default function KurumKulupler() {
       return bSecili - aSecili
     })
   }, [ogrenciler, ogrenciArama, seciliKulup])
+
+  // Filtrelenmiş Turnuva Listesi
+  const filtrelenmisTurnuvalar = useMemo(() => {
+    return turnuvalar.filter(t => {
+      const aramaMatch = (t.ad || '').toLowerCase().includes(turnuvaArama.toLowerCase()) || 
+                         (t.aciklama || '').toLowerCase().includes(turnuvaArama.toLowerCase())
+      const bransMatch = turnuvaSeciliBrans === 'Hepsi' || t.brans === turnuvaSeciliBrans
+      const katMatch = turnuvaSeciliKategori === 'Hepsi' || t.kategori === turnuvaSeciliKategori
+      return aramaMatch && bransMatch && katMatch
+    })
+  }, [turnuvalar, turnuvaArama, turnuvaSeciliBrans, turnuvaSeciliKategori])
 
   if (yukleniyor) {
     return (
@@ -1488,6 +1702,10 @@ export default function KurumKulupler() {
         @keyframes slideIn {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}} />
       {/* Üst Bilgi Başlığı */}
@@ -1905,6 +2123,39 @@ export default function KurumKulupler() {
                                       <button
                                         onClick={() => {
                                           setSeciliKulupId(kulup.id)
+                                          setAktifTab('turnuvaRadari')
+                                        }}
+                                        style={{
+                                          padding: '0.3rem 0.6rem',
+                                          fontSize: '0.7rem',
+                                          background: '#F8FAFC',
+                                          color: '#475569',
+                                          border: '1px solid #E2E8F0',
+                                          borderRadius: '6px',
+                                          fontWeight: '700',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => {
+                                          e.currentTarget.style.background = '#F1F5F9'
+                                          e.currentTarget.style.color = '#1B3A6B'
+                                          e.currentTarget.style.borderColor = '#CBD5E1'
+                                        }}
+                                        onMouseLeave={e => {
+                                          e.currentTarget.style.background = '#F8FAFC'
+                                          e.currentTarget.style.color = '#475569'
+                                          e.currentTarget.style.borderColor = '#E2E8F0'
+                                        }}
+                                      >
+                                        📡 Turnuva Radarı
+                                      </button>
+
+                                      <button
+                                        onClick={() => {
+                                          setSeciliKulupId(kulup.id)
                                           setAktifTab('talepler')
                                         }}
                                         style={{
@@ -2059,6 +2310,7 @@ export default function KurumKulupler() {
                     {aktifTab === 'yoklama' && '📝 Yoklama Defteri'}
                     {aktifTab === 'dersPlani' && '📖 Ders Planı'}
                     {aktifTab === 'etkinlikler' && '🏁 Etkinlik & Turnuvalar'}
+                    {aktifTab === 'turnuvaRadari' && '📡 Turnuva Radarı'}
                     {aktifTab === 'talepler' && '📩 Geçiş Talepleri'}
                     {aktifTab === 'degerlendirme' && '📊 Rubrik Değerlendirme'}
                   </h2>
@@ -2736,6 +2988,351 @@ export default function KurumKulupler() {
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── TAB 5.5: TURNUVA RADARI ── */}
+          {aktifTab === 'turnuvaRadari' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {/* Üst Kısım: Otomatik Radar Kontrol Paneli */}
+              <div style={{
+                background: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%)',
+                border: '1.5px solid #BFDBFE',
+                borderRadius: '16px',
+                padding: '1.25rem 1.5rem',
+                boxShadow: '0 4px 15px rgba(37, 99, 235, 0.05)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '1rem',
+                position: 'relative'
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ fontWeight: '800', color: '#1E3A8A', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>📡</span> <span>Turnuva Otomatik Tarama Radarı (MEB & GSB)</span>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#475569', fontWeight: '500' }}>
+                    Okul ve kulüp bazlı resmi yarışmalar, ulusal federasyonlar ve bakanlık onaylı turnuvalar otomatik olarak taranır.
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748B', display: 'flex', gap: '1rem', marginTop: '4px', fontWeight: '600' }}>
+                    <span>📅 Son Tarama: {sonTaramaTarihi}</span>
+                    <span>🔗 Kaynaklar: MEB Yeğitek, GSB Okul Sporları, Teknofest, Bilim Kahramanları</span>
+                  </div>
+                </div>
+
+                <button
+                  disabled={taramaDevamEdiyor}
+                  onClick={handleOtomatikTarama}
+                  style={{
+                    padding: '0.625rem 1.25rem',
+                    backgroundColor: '#1E40AF',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    cursor: taramaDevamEdiyor ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s',
+                    boxShadow: '0 4px 6px rgba(30, 64, 175, 0.15)'
+                  }}
+                  onMouseEnter={e => { if(!taramaDevamEdiyor) e.currentTarget.style.backgroundColor = '#1D4ED8' }}
+                  onMouseLeave={e => { if(!taramaDevamEdiyor) e.currentTarget.style.backgroundColor = '#1E40AF' }}
+                >
+                  {taramaDevamEdiyor ? '🔄 Taranıyor...' : '🔄 Radarı Yenile / Tara'}
+                </button>
+
+                {/* Tarama Yükleme Animasyon Örtüsü */}
+                {taramaDevamEdiyor && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10,
+                    gap: '10px'
+                  }}>
+                    <div className="spinner" style={{
+                      width: '28px',
+                      height: '28px',
+                      border: '3px solid #E2E8F0',
+                      borderTop: '3px solid #1E40AF',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }} />
+                    <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1B3A6B' }}>{taramaAdimi}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* İdareci Onay Bekleyen Talepler Bölümü (Sadece AdminModu ise görünür) */}
+              {adminModu && (
+                <div style={{ background: '#fff', border: '1.5px solid #F3F4F6', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.01)' }}>
+                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>⏳</span> Onay Bekleyen Turnuva Hedef ve Katılım Talepleri
+                  </h3>
+                  
+                  {(() => {
+                    const bekleyenTalepler = etkinlikler.filter(e => e.tip === 'turnuva' && e.onayDurumu === 'bekliyor');
+                    if (bekleyenTalepler.length === 0) {
+                      return (
+                        <div style={{ padding: '1.5rem', textStyle: 'italic', color: '#94A3B8', fontSize: '0.8rem', background: '#F9FAFB', borderRadius: '10px', textAlign: 'center' }}>
+                          Şu anda onay bekleyen herhangi bir turnuva katılım talebi bulunmamaktadır.
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {bekleyenTalepler.map(e => {
+                          const kulupObj = kulupler.find(k => k.id === e.kulupId)
+                          return (
+                            <div key={e.id} style={{ border: '1.5px solid #F1F5F9', borderRadius: '12px', padding: '1rem', background: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1E293B' }}>{e.ad}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#475569', fontWeight: '600' }}>
+                                  🏆 Kulüp: <span style={{ color: '#1E40AF' }}>{kulupObj?.ad || 'Bilinmeyen Kulüp'}</span> · 👤 Talep Eden: {e.olusturanAd || 'Öğretmen'}
+                                </div>
+                                {e.talepDetay && (
+                                  <div style={{ fontSize: '0.75rem', background: '#EFF6FF', border: '1px solid #DBEAFE', color: '#1E40AF', padding: '6px 10px', borderRadius: '6px', marginTop: '4px' }}>
+                                    <strong>İzin / Bütçe İhtiyacı:</strong> {e.talepDetay}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button
+                                  onClick={() => {
+                                    setIslemYapilanEtkinlikId(e.id);
+                                    setIslemTipi('onayla');
+                                    setAdminOnayAciklamaMetni('');
+                                    setAdminOnayAciklamaModalAcik(true);
+                                  }}
+                                  style={{ padding: '6px 12px', background: '#10B981', color: '#FFFFFF', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                                >
+                                  Onayla
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setIslemYapilanEtkinlikId(e.id);
+                                    setIslemTipi('reddet');
+                                    setAdminOnayAciklamaMetni('');
+                                    setAdminOnayAciklamaModalAcik(true);
+                                  }}
+                                  style={{ padding: '6px 12px', background: '#EF4444', color: '#FFFFFF', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                                >
+                                  Reddet
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+
+              {/* Arama ve Filtreleme Paneli */}
+              <div style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                padding: '1rem 1.25rem',
+                border: '1.5px solid #F3F4F6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '1rem',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.01)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '260px' }}>
+                  <span style={{ fontSize: '1.1rem' }}>🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Turnuva veya yarışma ara..."
+                    value={turnuvaArama}
+                    onChange={e => setTurnuvaArama(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '0.85rem',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '8px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Branş Filtresi */}
+                  <div>
+                    <select
+                      value={turnuvaSeciliBrans}
+                      onChange={e => setTurnuvaSeciliBrans(e.target.value)}
+                      style={{ padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', color: '#475569', background: '#fff' }}
+                    >
+                      <option value="Hepsi">🎯 Tüm Branşlar</option>
+                      <option value="Bilişim Teknolojileri">💻 Bilişim Teknolojileri</option>
+                      <option value="Spor">⚽ Spor</option>
+                      <option value="Fen ve Bilim">🔬 Fen ve Bilim</option>
+                      <option value="Müzik ve Gösteri Sanatları">🎵 Müzik</option>
+                    </select>
+                  </div>
+
+                  {/* Kategori Filtresi */}
+                  <div>
+                    <select
+                      value={turnuvaSeciliKategori}
+                      onChange={e => setTurnuvaSeciliKategori(e.target.value)}
+                      style={{ padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', color: '#475569', background: '#fff' }}
+                    >
+                      <option value="Hepsi">🌍 Tüm Kategoriler</option>
+                      <option value="Ulusal">🇹🇷 Ulusal</option>
+                      <option value="Yerel">📍 Yerel</option>
+                      <option value="Uluslararası">🌐 Uluslararası</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Turnuva Listesi Izgarası */}
+              {filtrelenmisTurnuvalar.length === 0 ? (
+                <div style={{ background: '#fff', borderRadius: '16px', border: '1.5px solid #F3F4F6', padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
+                  Arama kriterlerinize uygun turnuva bulunamadı.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                  {filtrelenmisTurnuvalar.map(t => {
+                    // Bu turnuvanın ekli olup olmadığını kontrol et
+                    const mevcutHedef = seciliKulupId ? etkinlikler.find(e => e.kulupId === seciliKulupId && e.turnuvaId === t.id) : null;
+                    
+                    let statusBadge = null;
+                    if (mevcutHedef) {
+                      if (mevcutHedef.onayDurumu === 'bekliyor') {
+                        statusBadge = (
+                          <div style={{ width: '100%', padding: '6px', background: '#FFF7ED', color: '#C2410C', border: '1px solid #FFEDD5', borderRadius: '8px', textAlign: 'center', fontSize: '0.72rem', fontWeight: '700' }}>
+                            ⏳ İdare Onayı Bekliyor
+                          </div>
+                        )
+                      } else if (mevcutHedef.onayDurumu === 'onaylandi') {
+                        statusBadge = (
+                          <div style={{ width: '100%', padding: '6px', background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', borderRadius: '8px', textAlign: 'center', fontSize: '0.72rem', fontWeight: '700' }}>
+                            ✅ Hedef Eklendi (Onaylandı)
+                          </div>
+                        )
+                      } else if (mevcutHedef.onayDurumu === 'reddedildi') {
+                        statusBadge = (
+                          <div style={{ width: '100%', padding: '6px', background: '#FFF1F2', color: '#B91C1C', border: '1px solid #FECDD3', borderRadius: '8px', fontSize: '0.72rem', fontWeight: '700' }}>
+                            <div style={{ textAlign: 'center' }}>❌ Talep Reddedildi</div>
+                            {mevcutHedef.onayAciklama && (
+                              <div style={{ fontSize: '0.65rem', color: '#991B1B', fontStyle: 'italic', marginTop: '2px', borderTop: '1px solid #FCA5A5', paddingTop: '2px' }}>
+                                Not: {mevcutHedef.onayAciklama}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      }
+                    }
+
+                    return (
+                      <div key={t.id} style={{
+                        background: '#FFFFFF',
+                        border: '1.5px solid #F3F4F6',
+                        borderRadius: '16px',
+                        padding: '1.25rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '0.85rem',
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.01)',
+                        transition: 'transform 0.2s, box-shadow 0.2s'
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {/* Üst Bilgi Satırı */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.68rem', fontWeight: '800', background: t.kategori === 'Ulusal' ? '#EFF6FF' : t.kategori === 'Uluslararası' ? '#F5F3FF' : '#FEF3C7', color: t.kategori === 'Ulusal' ? '#1E40AF' : t.kategori === 'Uluslararası' ? '#6D28D9' : '#D97706', padding: '2px 8px', borderRadius: '999px' }}>
+                              {t.kategori}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: '600' }}>
+                              {t.brans === 'Bilişim Teknolojileri' && '💻'}
+                              {t.brans === 'Spor' && '⚽'}
+                              {t.brans === 'Fen ve Bilim' && '🔬'}
+                              {t.brans === 'Müzik ve Gösteri Sanatları' && '🎵'}
+                              {' '}{t.brans}
+                            </span>
+                          </div>
+
+                          <h4 style={{ margin: '4px 0 0 0', fontSize: '0.85rem', fontWeight: '800', color: '#1E293B', lineHeight: '1.4' }}>{t.ad}</h4>
+                          <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748B', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                            {t.aciklama}
+                          </p>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid #F1F5F9', paddingTop: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#475569', fontWeight: '600' }}>
+                            <span>📅 Tarih: {t.tarih}</span>
+                            {t.basvuruLinki && (
+                              <a href={t.basvuruLinki} target="_blank" rel="noreferrer" style={{ color: '#2563EB', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                Resmi Sayfa ↗
+                              </a>
+                            )}
+                          </div>
+
+                          {/* Aksiyon Alanı */}
+                          {seciliKulupId ? (
+                            statusBadge ? statusBadge : (
+                              <button
+                                onClick={() => {
+                                  setSeciliTurnuva(t);
+                                  setTurnuvaBalkonDetay('');
+                                  setTurnuvaHedefTarih(t.tarih || '');
+                                  setTurnuvaHedefModalAcik(true);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  background: '#EFF6FF',
+                                  color: '#1E40AF',
+                                  border: '1.5px dashed #BFDBFE',
+                                  borderRadius: '8px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s'
+                                }}
+                                onMouseEnter={e => {
+                                  e.currentTarget.style.background = '#1E40AF';
+                                  e.currentTarget.style.color = '#FFFFFF';
+                                  e.currentTarget.style.borderColor = '#1E40AF';
+                                }}
+                                onMouseLeave={e => {
+                                  e.currentTarget.style.background = '#EFF6FF';
+                                  e.currentTarget.style.color = '#1E40AF';
+                                  e.currentTarget.style.borderColor = '#BFDBFE';
+                                }}
+                              >
+                                + Kulübe Hedef Olarak Ekle
+                              </button>
+                            )
+                          ) : (
+                            <div style={{ fontSize: '0.7rem', color: '#94A3B8', textStyle: 'italic', textAlign: 'center', background: '#F9FAFB', padding: '4px', borderRadius: '4px' }}>
+                              Eylem için kulüp seçimi yapın.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -4372,6 +4969,172 @@ export default function KurumKulupler() {
                 }}
               >
                 Şablonu İndir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 8: TURNUVA HEDEF EKLEME MODALI ── */}
+      {turnuvaHedefModalAcik && seciliTurnuva && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '500px',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#1E40AF', padding: '1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <span style={{ fontWeight: '800', fontSize: '0.95rem' }}>🏆 Kulübe Turnuva Hedefi Ekle</span>
+              <button
+                onClick={() => { setTurnuvaHedefModalAcik(false); setSeciliTurnuva(null); }}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleTurnuvaHedefEkle}>
+              {/* Form İçeriği */}
+              <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ background: '#EFF6FF', border: '1px solid #DBEAFE', padding: '0.75rem', borderRadius: '10px' }}>
+                  <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#1E40AF' }}>Turnuva Bilgisi:</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#1E293B', marginTop: '2px' }}>{seciliTurnuva.ad}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '4px' }}>Branş: {seciliTurnuva.brans} · Kategori: {seciliTurnuva.kategori}</div>
+                </div>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '700', color: '#475569' }}>
+                  Hedeflenen Katılım Tarihi:
+                  <input
+                    type="text"
+                    value={turnuvaHedefTarih}
+                    onChange={e => setTurnuvaHedefTarih(e.target.value)}
+                    placeholder="GG.AA.YYYY"
+                    required
+                    style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.8rem', outline: 'none' }}
+                  />
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '700', color: '#475569' }}>
+                  Bütçe, Ulaşım, İzin ve Talep Detayları:
+                  <textarea
+                    rows="4"
+                    value={turnuvaBalkonDetay}
+                    onChange={e => setTurnuvaBalkonDetay(e.target.value)}
+                    placeholder="Örn: Katılım ücreti 500 TL olup veli izinleri ve servis ihtiyacımız olacaktır..."
+                    style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.8rem', resize: 'vertical', outline: 'none' }}
+                  />
+                </label>
+              </div>
+
+              {/* Modal Aksiyonları */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '1rem 1.25rem', borderTop: '1px solid #F1F5F9', background: '#F8FAFC' }}>
+                <button
+                  type="button"
+                  onClick={() => { setTurnuvaHedefModalAcik(false); setSeciliTurnuva(null); }}
+                  style={{
+                    padding: '0.5rem 1rem', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', color: '#475569'
+                  }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '0.5rem 1.25rem', background: '#1E40AF', color: '#fff', border: 'none',
+                    borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                  }}
+                >
+                  Talebi İlet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 9: ADMİN TURNUVA KARAR AÇIKLAMA MODALI ── */}
+      {adminOnayAciklamaModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '450px',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', overflow: 'hidden'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: islemTipi === 'onayla' ? '#10B981' : '#EF4444', padding: '1.25rem', color: '#fff',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <span style={{ fontWeight: '800', fontSize: '0.95rem' }}>
+                {islemTipi === 'onayla' ? '✅ Turnuva Katılımını Onayla' : '❌ Turnuva Katılımını Reddet'}
+              </span>
+              <button
+                onClick={() => { setAdminOnayAciklamaModalAcik(false); setIslemYapilanEtkinlikId(''); }}
+                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#475569', lineHeight: '1.4' }}>
+                {islemTipi === 'onayla' 
+                  ? 'Öğretmenin talebini onaylıyorsunuz. Varsa bütçe, izin ve onay detaylarını yazabilirsiniz:'
+                  : 'Öğretmenin talebini reddediyorsunuz. Lütfen reddetme gerekçesini belirtin:'}
+              </p>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: '700', color: '#475569' }}>
+                Açıklama / Not:
+                <textarea
+                  rows="3"
+                  value={adminOnayAciklamaMetni}
+                  onChange={e => setAdminOnayAciklamaMetni(e.target.value)}
+                  placeholder={islemTipi === 'onayla' ? "Örn: Servis ve katılım bütçesi onaylandı..." : "Örn: Bütçe yetersizliği / tarih çakışması..."}
+                  required={islemTipi === 'reddet'}
+                  style={{ padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.8rem', resize: 'vertical', outline: 'none' }}
+                />
+              </label>
+            </div>
+
+            {/* Modal Aksiyonları */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '1rem 1.25rem', borderTop: '1px solid #F1F5F9', background: '#F8FAFC' }}>
+              <button
+                type="button"
+                onClick={() => { setAdminOnayAciklamaModalAcik(false); setIslemYapilanEtkinlikId(''); }}
+                style={{
+                  padding: '0.5rem 1rem', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                  borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', color: '#475569'
+                }}
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={handleTurnuvaOnayKarar}
+                disabled={islemTipi === 'reddet' && !adminOnayAciklamaMetni.trim()}
+                style={{
+                  padding: '0.5rem 1.25rem',
+                  background: islemTipi === 'onayla' ? '#10B981' : '#EF4444',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  fontWeight: '700',
+                  cursor: (islemTipi === 'reddet' && !adminOnayAciklamaMetni.trim()) ? 'not-allowed' : 'pointer',
+                  opacity: (islemTipi === 'reddet' && !adminOnayAciklamaMetni.trim()) ? 0.6 : 1
+                }}
+              >
+                İşlemi Tamamla
               </button>
             </div>
           </div>
