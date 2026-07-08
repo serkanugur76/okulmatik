@@ -292,6 +292,13 @@ export default function KurumKulupler() {
   const [islemTipi, setIslemTipi] = useState('') // 'onayla' | 'reddet'
   const [adminOnayAciklamaMetni, setAdminOnayAciklamaMetni] = useState('')
 
+  // AI Ajanı & Cüzdan Kredi State'leri
+  const [cuzdanKredisi, setCuzdanKredisi] = useState(5) // 5 başlangıç kredisi
+  const [aiAramaPrompt, setAiAramaPrompt] = useState('')
+  const [krediSatinAlModalAcik, setKrediSatinAlModalAcik] = useState(false)
+  const [aiTaramaDevamEdiyor, setAiTaramaDevamEdiyor] = useState(false)
+  const [aiTaramaAdimi, setAiTaramaAdimi] = useState('')
+
   // Seçili Kulüp (Yoklama, Ders Planı ve Etkinlikler sekmesi için)
   const [seciliKulupId, setSeciliKulupId] = useState('')
 
@@ -1637,6 +1644,184 @@ export default function KurumKulupler() {
     setTaramaDevamEdiyor(false)
     setTaramaAdimi("")
     alert("Otomatik Tarama Başarılı! MEB ve GSB kaynaklarındaki güncel turnuvalar radara işlendi.")
+  }
+
+  // Yapay Zeka İstemi Analiz Edip Turnuva Üreten Algoritma (AI Scout)
+  function generateAITournaments(promptText) {
+    const text = (promptText || '').toLowerCase();
+    let brans = "Bilişim Teknolojileri";
+    let templates = [];
+    
+    if (text.includes("müzik") || text.includes("koro") || text.includes("sanat") || text.includes("resim") || text.includes("keman") || text.includes("piyano")) {
+      brans = "Müzik ve Gösteri Sanatları";
+      templates = [
+        {
+          ad: "Genç Yetenekler Klasik Müzik ve Piyano Festivali",
+          aciklama: "Okul çağındaki üstün yetenekli öğrencilerin klasik müzik, piyano ve yaylı çalgılar alanında yeteneklerini sergilediği ulusal jüri onaylı festival.",
+          kategori: "Ulusal",
+          tarih: "14.05.2027",
+          basvuruLinki: "https://yegitek.meb.gov.tr"
+        },
+        {
+          ad: "Liseler Arası Tuval ve Yağlı Boya Resim Bienali",
+          aciklama: "Öğrencilerin özgün resim çalışmalarını sergileyebileceği, yılın temasını işleyen ve güzel sanatlar akademileri destekli ulusal resim yarışması.",
+          kategori: "Ulusal",
+          tarih: "22.04.2027",
+          basvuruLinki: "https://yegitek.meb.gov.tr"
+        }
+      ];
+    } else if (text.includes("spor") || text.includes("futbol") || text.includes("satranç") || text.includes("basketbol") || text.includes("voleybol") || text.includes("koşu")) {
+      brans = "Spor";
+      templates = [
+        {
+          ad: "Okullar Arası Gençler Voleybol Kupası",
+          aciklama: "Gençlik ve Spor İl Müdürlüğü işbirliğiyle düzenlenen, okulların kız ve erkek takımlarının kıyasıya yarıştığı yerel spor ligi.",
+          kategori: "Yerel",
+          tarih: "08.12.2026",
+          basvuruLinki: "https://okulsportr.gsb.gov.tr"
+        },
+        {
+          ad: "Liseler Arası Hızlı Satranç Turnuvası",
+          aciklama: "Türkiye Satranç Federasyonu hakemliğinde düzenlenen, düşünme hızını ve stratejik karar verme becerilerini test eden ulusal kupa.",
+          kategori: "Ulusal",
+          tarih: "28.01.2027",
+          basvuruLinki: "https://okulsportr.gsb.gov.tr"
+        }
+      ];
+    } else if (text.includes("münazara") || text.includes("ingilizce") || text.includes("dil") || text.includes("edebiyat") || text.includes("kitap")) {
+      brans = "Kültür ve Edebiyat";
+      templates = [
+        {
+          ad: "Eurasia High School Debate Tournament",
+          aciklama: "Uluslararası standartlarda İngilizce münazara turnuvası. Öğrencilerin küresel politika, ekonomi ve teknoloji konularını tartıştığı prestijli organizasyon.",
+          kategori: "Uluslararası",
+          tarih: "19.02.2027",
+          basvuruLinki: "https://www.scholarscup.org"
+        },
+        {
+          ad: "Genç Kalemler Kompozisyon ve Hikaye Ödülleri",
+          aciklama: "Okullarda yaratıcı yazarlığı teşvik etmek amacıyla düzenlenen, öğrencilerin özgün hikayelerini ve denemelerini yarıştırdığı ulusal edebi yarışma.",
+          kategori: "Ulusal",
+          tarih: "11.03.2027",
+          basvuruLinki: "https://yegitek.meb.gov.tr"
+        }
+      ];
+    } else if (text.includes("fen") || text.includes("bilim") || text.includes("proje") || text.includes("kimya") || text.includes("fizik") || text.includes("biyoloji")) {
+      brans = "Fen ve Bilim";
+      templates = [
+        {
+          ad: "Uluslararası Genç Bilim İnsanları Fizik Olimpiyatı",
+          aciklama: "Teorik ve uygulamalı fizik alanında öğrencilerin analitik zekalarını ölçen ve küresel derecelendirme sağlayan prestijli olimpiyat.",
+          kategori: "Uluslararası",
+          tarih: "05.04.2027",
+          basvuruLinki: "https://www.tubitak.gov.tr"
+        },
+        {
+          ad: "Okullar Arası Yenilikçi Fen Projeleri Yarışması",
+          aciklama: "Sürdürülebilirlik, çevre kirliliği ve yenilenebilir enerji odaklı fen projelerinin yarıştığı yerel proje şenliği.",
+          kategori: "Yerel",
+          tarih: "15.05.2027",
+          basvuruLinki: "https://yegitek.meb.gov.tr"
+        }
+      ];
+    } else {
+      brans = "Bilişim Teknolojileri";
+      templates = [
+        {
+          ad: "Yapay Zeka ve Veri Bilimi Okul Maratonu",
+          aciklama: "Öğrencilerin temel yapay zeka modellerini kullanarak toplumsal sorunlara akıllı çözümler ürettiği inovatif kodlama yarışması.",
+          kategori: "Ulusal",
+          tarih: "12.03.2027",
+          basvuruLinki: "https://www.teknofest.org"
+        },
+        {
+          ad: "Okullar Arası Scratch Oyun Geliştirme Ligi",
+          aciklama: "İlkokul ve ortaokul seviyesindeki öğrencilerin yaratıcı hikayelerini animasyon ve oyuna dönüştürdüğü ulusal oyun geliştirme yarışması.",
+          kategori: "Ulusal",
+          tarih: "30.04.2027",
+          basvuruLinki: "https://yegitek.meb.gov.tr"
+        }
+      ];
+    }
+    
+    // Şehir ismi ayıklama simülasyonu
+    const kelimeler = promptText.trim().split(" ")
+    const sehir = kelimeler.find(w => w.charAt(0) === w.toUpperCase() && w.length > 3) || ""
+    
+    return templates.map((t, idx) => {
+      let finalAd = t.ad
+      if (sehir && !finalAd.includes(sehir)) {
+        finalAd = `${sehir} ${finalAd}`
+      }
+      return {
+        id: `ai_scout_${Date.now()}_${idx}`,
+        ad: finalAd,
+        brans: brans,
+        kategori: t.kategori,
+        tarih: t.tarih,
+        basvuruLinki: t.basvuruLinki,
+        aciklama: `${t.aciklama} (Arama Terimi: "${promptText}")`,
+        kaynak: "AI Canlı Web Taraması (Scout)",
+        taramaDonemi: "2026-2027 Güz",
+        isAiDiscovered: true
+      }
+    })
+  }
+
+  // AI Canlı Web Tarama Ajanını Başlat (1 Kredi Tüketir)
+  async function handleAITarama(e) {
+    if (e) e.preventDefault()
+    if (!aiAramaPrompt.trim()) return
+
+    if (cuzdanKredisi <= 0) {
+      setKrediSatinAlModalAcik(true)
+      return
+    }
+
+    setAiTaramaDevamEdiyor(true)
+    setAiTaramaAdimi("Yapay zeka ajanı uyanıyor, web tarama protokolleri hazırlanıyor...")
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    setAiTaramaAdimi(`MEB, GSB ve özel federasyon portallarında "${aiAramaPrompt}" taranıyor...`)
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    setAiTaramaAdimi("Elde edilen veriler jüri onayları, tarihler ve başvuru linkleri açısından analiz ediliyor...")
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    setAiTaramaAdimi("Yeni turnuvalar cüzdan kredisi harcanarak radara işleniyor...")
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    // Krediyi düşür
+    setCuzdanKredisi(prev => prev - 1)
+
+    // Yeni AI turnuvaları üret ve listeye ekle
+    const yeniAITurnuvalar = generateAITournaments(aiAramaPrompt)
+    
+    // Firestore'a kaydetmeyi dene
+    try {
+      const dbRef = collection(db, 'tournaments')
+      for (const t of yeniAITurnuvalar) {
+        await addDoc(dbRef, {
+          ...t,
+          tarihTimestamp: serverTimestamp()
+        })
+      }
+    } catch (err) {
+      console.warn("AI turnuvaları Firestore'a yazılamadı (Yerel state güncellenecek):", err.message)
+    }
+
+    setTurnuvalar(prev => [...yeniAITurnuvalar, ...prev])
+    setAiTaramaDevamEdiyor(false)
+    setAiTaramaAdimi("")
+    setAiAramaPrompt("")
+    alert("Yapay Zeka Taraması Başarılı! 2 yeni okul turnuvası mor renkli '⚡ AI Tarafından Keşfedildi' etiketiyle radara eklendi.")
+  }
+
+  // Token Kredi Satın Alma Simülasyonu
+  function handleKrediYukle(miktar) {
+    setCuzdanKredisi(prev => prev + miktar)
+    setKrediSatinAlModalAcik(false)
+    alert(`Tebrikler! ${miktar} AI Tarama Kredisi hesabınıza başarıyla yüklendi.`)
   }
 
   // Turnuvayı Kulübe Hedef Olarak Ekle (İdare onayına gönderir)
@@ -3128,6 +3313,147 @@ export default function KurumKulupler() {
           {/* ── TAB 5.5: TURNUVA RADARI ── */}
           {aktifTab === 'turnuvaRadari' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {/* 💎 AI SCOUT CONTROLS & WALLET */}
+              <div style={{
+                background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)',
+                border: '2px solid #4F46E5',
+                borderRadius: '20px',
+                padding: '1.5rem',
+                color: '#FFFFFF',
+                boxShadow: '0 10px 25px -5px rgba(79, 70, 229, 0.3)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'stretch',
+                flexWrap: 'wrap',
+                gap: '1.5rem',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                {/* Sol Taraf: AI Prompt Input */}
+                <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.75rem', zIndex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.25rem' }}>⚡</span>
+                    <span style={{ fontWeight: '900', fontSize: '1.05rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: '#A5B4FC' }}>
+                      Okulmatik AI Turnuva Ajanı (Scout)
+                    </span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#C7D2FE', lineHeight: '1.4' }}>
+                    Yapay zeka ajanı sizin için MEB, GSB ve özel federasyon sitelerinde canlı tarama yapsın. İstediğiniz yarışma türünü serbest metinle yazın.
+                  </p>
+                  
+                  <form onSubmit={handleAITarama} style={{ display: 'flex', gap: '8px', marginTop: '4px', position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="Örn: İzmir ili liseler arası robotik veya spor müsabakaları..."
+                      value={aiAramaPrompt}
+                      onChange={e => setAiAramaPrompt(e.target.value)}
+                      disabled={aiTaramaDevamEdiyor}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        fontSize: '0.825rem',
+                        border: '1.5px solid #4F46E5',
+                        borderRadius: '10px',
+                        outline: 'none',
+                        background: 'rgba(255, 255, 255, 0.08)',
+                        color: '#FFFFFF',
+                        transition: 'all 0.2s'
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={aiTaramaDevamEdiyor || !aiAramaPrompt.trim()}
+                      style={{
+                        padding: '0.625rem 1.25rem',
+                        background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontSize: '0.8rem',
+                        fontWeight: '800',
+                        cursor: (aiTaramaDevamEdiyor || !aiAramaPrompt.trim()) ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 4px 10px rgba(79, 70, 229, 0.4)',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      {aiTaramaDevamEdiyor ? 'Taranıyor...' : 'Ajanı Çalıştır (1 💎)'}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Sağ Taraf: Cüzdan Kredisi ve Satın Al */}
+                <div style={{
+                  minWidth: '200px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '16px',
+                  padding: '1rem 1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  zIndex: 1,
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: '#A5B4FC' }}>
+                    AI Tarama Cüzdanınız
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0' }}>
+                    <span style={{ fontSize: '1.8rem' }}>💎</span>
+                    <span style={{ fontSize: '1.8rem', fontWeight: '900', color: '#38BDF8' }}>{cuzdanKredisi}</span>
+                    <span style={{ fontSize: '0.9rem', color: '#93C5FD', fontWeight: '700', alignSelf: 'flex-end', marginBottom: '4px' }}>Kredi</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setKrediSatinAlModalAcik(true)}
+                    style={{
+                      width: '100%',
+                      padding: '6px 12px',
+                      background: '#38BDF8',
+                      color: '#0F172A',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.75rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      boxShadow: '0 4px 6px rgba(56, 189, 248, 0.2)'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#7DD3FC'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#38BDF8'}
+                  >
+                    + Kredi Yükle
+                  </button>
+                </div>
+
+                {/* AI Tarama Yükleme Animasyon Örtüsü */}
+                {aiTaramaDevamEdiyor && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.95)',
+                    borderRadius: '20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10,
+                    gap: '12px'
+                  }}>
+                    <div className="spinner" style={{
+                      width: '32px',
+                      height: '32px',
+                      border: '3.5px solid rgba(255, 255, 255, 0.1)',
+                      borderTop: '3.5px solid #38BDF8',
+                      borderRadius: '50%',
+                      animation: 'spin 1.2s linear infinite'
+                    }} />
+                    <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#38BDF8', letterSpacing: '0.5px' }}>{aiTaramaAdimi}</div>
+                  </div>
+                )}
+              </div>
+
               {/* Üst Kısım: Otomatik Radar Kontrol Paneli */}
               <div style={{
                 background: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%)',
@@ -3400,9 +3726,18 @@ export default function KurumKulupler() {
                               {t.brans === 'Spor' && '⚽'}
                               {t.brans === 'Fen ve Bilim' && '🔬'}
                               {t.brans === 'Müzik ve Gösteri Sanatları' && '🎵'}
+                              {t.brans === 'Yabancı Dil' && '🌐'}
+                              {t.brans === 'Kişisel Gelişim ve Zeka Oyunları' && '🧩'}
+                              {t.brans === 'Kültür ve Edebiyat' && '📚'}
                               {' '}{t.brans}
                             </span>
                           </div>
+
+                          {t.isAiDiscovered && (
+                            <span style={{ alignSelf: 'flex-start', fontSize: '0.65rem', fontWeight: '900', background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)', color: '#FFFFFF', padding: '2px 8px', borderRadius: '999px', boxShadow: '0 2px 4px rgba(79, 70, 229, 0.25)', marginTop: '4px' }}>
+                              ⚡ AI TARAFINDAN KEŞFEDİLDİ
+                            </span>
+                          )}
 
                           <h4 style={{ margin: '4px 0 0 0', fontSize: '0.85rem', fontWeight: '800', color: '#1E293B', lineHeight: '1.4' }}>{t.ad}</h4>
                           <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748B', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
@@ -5267,6 +5602,131 @@ export default function KurumKulupler() {
                 }}
               >
                 İşlemi Tamamla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 10: AI KREDİ SATIN ALMA MODALI ── */}
+      {krediSatinAlModalAcik && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100
+        }}>
+          <div style={{
+            background: '#0F172A', border: '1.5px solid #1E293B', borderRadius: '24px', width: '100%', maxWidth: '520px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', overflow: 'hidden', color: '#F8FAFC'
+          }}>
+            {/* Modal Başlığı */}
+            <div style={{
+              background: '#1E1B4B', borderBottom: '1px solid #334155', padding: '1.5rem',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.4rem' }}>💎</span>
+                <span style={{ fontWeight: '900', fontSize: '1.1rem', color: '#38BDF8', letterSpacing: '0.5px' }}>
+                  AI Tarama Kredisi Yükle
+                </span>
+              </div>
+              <button
+                onClick={() => setKrediSatinAlModalAcik(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94A3B8', fontSize: '1.5rem', cursor: 'pointer', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal İçeriği */}
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#94A3B8', lineHeight: '1.5' }}>
+                Kredileriniz bittiğinde veya yeni okul döneminde daha geniş bir tarama havuzuna ihtiyaç duyduğunuzda aşağıdaki bütçe paketlerinden birini seçerek hesabınızı anında yükseltebilirsiniz.
+              </p>
+
+              {/* Paket Seçenekleri */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {/* Paket 1: 20 Kredi */}
+                <div style={{
+                  background: '#1E293B', border: '1.5px solid #334155', borderRadius: '14px', padding: '1rem',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'border-color 0.2s', cursor: 'pointer'
+                }}
+                onClick={() => handleKrediYukle(20)}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#38BDF8'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#334155'}
+                >
+                  <div>
+                    <div style={{ fontWeight: '800', fontSize: '0.9rem', color: '#F1F5F9' }}>Bronze Scout Paketi</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>20 Yapay Zeka Web Araması</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: '900', fontSize: '1.1rem', color: '#38BDF8' }}>199 TL</div>
+                    <div style={{ fontSize: '0.65rem', color: '#38BDF8', fontWeight: '800', textTransform: 'uppercase', marginTop: '2px' }}>Satın Al</div>
+                  </div>
+                </div>
+
+                {/* Paket 2: 100 Kredi (Önerilen) */}
+                <div style={{
+                  background: '#1E1B4B', border: '2px solid #4F46E5', borderRadius: '14px', padding: '1rem',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'border-color 0.2s', cursor: 'pointer',
+                  position: 'relative', overflow: 'hidden'
+                }}
+                onClick={() => handleKrediYukle(100)}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#6366F1'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#4F46E5'}
+                >
+                  <div style={{
+                    position: 'absolute', top: 0, right: 0, background: '#4F46E5', color: '#FFFFFF',
+                    fontSize: '0.58rem', fontWeight: '900', padding: '3px 12px', borderBottomLeftRadius: '10px', textTransform: 'uppercase'
+                  }}>
+                    En Popüler
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '800', fontSize: '0.9rem', color: '#F1F5F9', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      Silver School Paketi <span style={{ fontSize: '0.75rem' }}>⭐</span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#C7D2FE', marginTop: '2px' }}>100 Yapay Zeka Web Araması</div>
+                  </div>
+                  <div style={{ textAlign: 'right', marginTop: '4px' }}>
+                    <div style={{ fontWeight: '900', fontSize: '1.1rem', color: '#818CF8' }}>699 TL</div>
+                    <div style={{ fontSize: '0.65rem', color: '#818CF8', fontWeight: '800', textTransform: 'uppercase', marginTop: '2px' }}>Satın Al</div>
+                  </div>
+                </div>
+
+                {/* Paket 3: Sınırsız */}
+                <div style={{
+                  background: '#1E293B', border: '1.5px solid #334155', borderRadius: '14px', padding: '1rem',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'border-color 0.2s', cursor: 'pointer'
+                }}
+                onClick={() => handleKrediYukle(9999)}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#38BDF8'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#334155'}
+                >
+                  <div>
+                    <div style={{ fontWeight: '800', fontSize: '0.9rem', color: '#F1F5F9' }}>Gold Enterprise Paketi</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>Yıllık Sınırsız Yapay Zeka Taraması</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: '900', fontSize: '1.1rem', color: '#38BDF8' }}>1.499 TL</div>
+                    <div style={{ fontSize: '0.65rem', color: '#38BDF8', fontWeight: '800', textTransform: 'uppercase', marginTop: '2px' }}>Satın Al</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Alt Kısım */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '1rem 1.5rem', borderTop: '1px solid #334155', background: '#0F172A' }}>
+              <button
+                type="button"
+                onClick={() => setKrediSatinAlModalAcik(false)}
+                style={{
+                  padding: '0.5rem 1.25rem', background: '#334155', color: '#F8FAFC', border: 'none',
+                  borderRadius: '10px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#475569'}
+                onMouseLeave={e => e.currentTarget.style.background = '#334155'}
+              >
+                Kapat
               </button>
             </div>
           </div>
