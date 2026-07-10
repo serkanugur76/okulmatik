@@ -291,8 +291,8 @@ export default function KurumDashboard() {
         {!ogretmenModu && <IstatKart baslik="Kullanıcı" deger={sayilar.kullanicilar} ikon="👥" renk="#065F46" />}
       </div>
 
-      {/* 🛠️ MODÜL YÖNETİMİ PANELİ (Sadece Kurum Yöneticileri Görür) */}
-      {!ogretmenModu && profil?.rol === 'kurum_admin' && (
+      {/* 🛠️ MODÜL YÖNETİMİ PANELİ (Sadece Kurum Yöneticileri ve Super Admin Görür) */}
+      {!ogretmenModu && (profil?.rol === 'kurum_admin' || profil?.rol === 'platform_admin') && (
         <div style={{
           marginTop: '2rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '1.5rem',
           boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'

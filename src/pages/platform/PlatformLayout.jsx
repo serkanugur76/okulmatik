@@ -95,30 +95,7 @@ function PlatformSidebar() {
   })
 
   const isModulAktif = (menu) => {
-    if (!secilenKurumId) return true
-    
-    let key = ''
-    if (menu.yol) {
-      if (menu.yol.includes('siniflar')) key = 'siniflar'
-      else if (menu.yol.includes('ogrenciler')) key = 'ogrenciler'
-      else if (menu.yol.includes('mentor')) key = 'mentor'
-      else if (menu.yol.includes('nobet')) key = 'nobet'
-      else if (menu.yol.includes('kulupler')) key = 'kulupler'
-      else if (menu.yol.includes('kutuphane')) key = 'kutuphane'
-      else if (menu.yol.includes('arge')) key = 'arge'
-    } else {
-      if (menu.etiket === 'Kullanıcılar') key = 'kullanicilar'
-      else if (menu.etiket === 'Rubrik Yönetimi') key = 'rubrikler'
-      else if (menu.etiket === 'Resmi İşlemler') key = 'resmiIslemler'
-    }
-
-    if (!key) return true
-
-    const ayarlar = secilenKurum?.aktifModuller || {}
-    if (ayarlar[key] !== undefined) {
-      return ayarlar[key]
-    }
-    if (key === 'arge') return false // Default premium to false
+    // Platform admin (Super Admin) can always see all modules to manage and test them
     return true
   }
 
