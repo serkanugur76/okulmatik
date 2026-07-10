@@ -51,6 +51,7 @@ const KURUM_MENULER = [
   { yol: '/platform/kurum/nobet',           etiket: 'Nöbet Yönetimi',   ikon: '🛡️' },
   { yol: '/platform/kurum/kulupler',        etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
   { yol: '/platform/kurum/kutuphane',       etiket: 'Kütüphane',        ikon: '📚' },
+  { yol: '/platform/kurum/arge',            etiket: 'Ar-Ge & Bilim Projeleri', ikon: '🔬' },
 ]
 
 const SIDEBAR_BG   = '#1E1B4B'   // indigo koyu — platform admin rengi
@@ -92,6 +93,34 @@ function PlatformSidebar() {
       'Resmi İşlemler': location.pathname.startsWith('/platform/kurum/resmi-islemler')
     }
   })
+
+  const isModulAktif = (menu) => {
+    if (!secilenKurumId) return true
+    
+    let key = ''
+    if (menu.yol) {
+      if (menu.yol.includes('siniflar')) key = 'siniflar'
+      else if (menu.yol.includes('ogrenciler')) key = 'ogrenciler'
+      else if (menu.yol.includes('mentor')) key = 'mentor'
+      else if (menu.yol.includes('nobet')) key = 'nobet'
+      else if (menu.yol.includes('kulupler')) key = 'kulupler'
+      else if (menu.yol.includes('kutuphane')) key = 'kutuphane'
+      else if (menu.yol.includes('arge')) key = 'arge'
+    } else {
+      if (menu.etiket === 'Kullanıcılar') key = 'kullanicilar'
+      else if (menu.etiket === 'Rubrik Yönetimi') key = 'rubrikler'
+      else if (menu.etiket === 'Resmi İşlemler') key = 'resmiIslemler'
+    }
+
+    if (!key) return true
+
+    const ayarlar = secilenKurum?.aktifModuller || {}
+    if (ayarlar[key] !== undefined) {
+      return ayarlar[key]
+    }
+    if (key === 'arge') return false // Default premium to false
+    return true
+  }
 
   useEffect(() => {
     const isKullaniciActive = location.pathname.startsWith('/platform/kurum/kullanicilar') || location.pathname.startsWith('/platform/kurum/ogretmenler')
@@ -248,7 +277,7 @@ function PlatformSidebar() {
           </div>
         </div>
 
-        {KURUM_MENULER.map(m => {
+        {KURUM_MENULER.filter(isModulAktif).map(m => {
           if (m.altMenuler) {
             const isAnyChildActive = m.altMenuler.some(sub => location.pathname.startsWith(sub.yol))
             const isMenuOpen = !!acikSubMenuler[m.etiket]

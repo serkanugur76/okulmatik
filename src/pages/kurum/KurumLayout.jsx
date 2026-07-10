@@ -38,6 +38,7 @@ const ADMIN_MENULER = [
   { yol: '/kurum/kulupler',          etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
   { yol: '/kurum/belirli-gunler',    etiket: 'Belirli Gün & Tatiller', ikon: '📅' },
   { yol: '/kurum/kutuphane',         etiket: 'Kütüphane',        ikon: '📚' },
+  { yol: '/kurum/arge',              etiket: 'Ar-Ge & Bilim Projeleri', ikon: '🔬' },
   { yol: '/kurum/hakkinda',          etiket: 'Hakkında',         ikon: 'ℹ️' },
 ]
 
@@ -66,6 +67,7 @@ const OGRETMEN_MENULER = [
   { yol: '/kurum/kulupler',          etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
   { yol: '/kurum/belirli-gunler',    etiket: 'Belirli Gün & Tatiller', ikon: '📅' },
   { yol: '/kurum/kutuphane',         etiket: 'Kütüphane',        ikon: '📚' },
+  { yol: '/kurum/arge',              etiket: 'Ar-Ge & Bilim Projeleri', ikon: '🔬' },
   { yol: '/kurum/hakkinda',          etiket: 'Hakkında',         ikon: 'ℹ️' },
 ]
 
@@ -536,6 +538,35 @@ function KurumLayoutInner() {
   const navigate = useNavigate()
   const location = useLocation()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+
+  const isModulAktif = (menu) => {
+    if (!secilenKurumId) return true
+    
+    let key = ''
+    if (menu.yol) {
+      if (menu.yol.includes('siniflar')) key = 'siniflar'
+      else if (menu.yol.includes('ogrenciler')) key = 'ogrenciler'
+      else if (menu.yol.includes('mentor')) key = 'mentor'
+      else if (menu.yol.includes('nobet')) key = 'nobet'
+      else if (menu.yol.includes('kulupler')) key = 'kulupler'
+      else if (menu.yol.includes('kutuphane')) key = 'kutuphane'
+      else if (menu.yol.includes('arge')) key = 'arge'
+    } else {
+      if (menu.etiket === 'Kullanıcılar') key = 'kullanicilar'
+      else if (menu.etiket === 'Rubrik Yönetimi') key = 'rubrikler'
+      else if (menu.etiket === 'Resmi İşlemler') key = 'resmiIslemler'
+    }
+
+    if (!key) return true
+
+    const ayarlar = secilenKurum?.aktifModuller || {}
+    if (ayarlar[key] !== undefined) {
+      return ayarlar[key]
+    }
+    if (key === 'arge') return false // Default premium to false
+    return true
+  }
+
   const getSayfaEtiketi = () => {
     const flatMenus = aktifMenuler.reduce((acc, m) => {
       if (m.altMenuler) acc.push(...m.altMenuler)
@@ -1005,7 +1036,7 @@ function KurumLayoutInner() {
 
         {/* Menü */}
         <nav style={{ flex: 1, overflowY: 'auto', padding: '1rem 0' }}>
-          {aktifMenuler.map(m => {
+          {aktifMenuler.filter(isModulAktif).map(m => {
             if (m.altMenuler) {
               const isAnyChildActive = m.altMenuler.some(sub => location.pathname.startsWith(sub.yol))
               const isMenuOpen = !!acikSubMenuler[m.etiket]
@@ -1622,7 +1653,7 @@ function KurumLayoutInner() {
         <div className="drawer-grid">
           {(() => {
             const drawerLinks = []
-            aktifMenuler.forEach(m => {
+            aktifMenuler.filter(isModulAktif).forEach(m => {
               if (m.altMenuler) {
                 m.altMenuler.forEach(sub => {
                   drawerLinks.push({ yol: sub.yol, etiket: sub.etiket, ikon: sub.ikon })

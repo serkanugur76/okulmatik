@@ -27,6 +27,7 @@ import KurumResmiIslemler     from './pages/kurum/KurumResmiIslemler'
 import KurumResmiEvraklar     from './pages/kurum/KurumResmiEvraklar'
 import PlatformTopluMail      from './pages/platform/PlatformTopluMail'
 import PlatformVersiyonlar    from './pages/platform/PlatformVersiyonlar'
+import KurumArge              from './pages/kurum/KurumArge'
 
 function KorunanRoute({ izinliRoller, children }) {
   const { kullanici, profil, yukleniyor, platformAdmin } = useAuth()
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="kurum/kulupler"         element={<KurumKulupler />} />
             <Route path="belirli-gunler"         element={<KurumBelirliGunler />} />
             <Route path="kurum/kutuphane"        element={<KurumKutuphane />} />
+            <Route path="kurum/arge"             element={<KurumArge />} />
             <Route path="kurum/resmi-islemler/is-plani" element={<KurumResmiIslemler />} />
             <Route path="kurum/resmi-islemler/evraklar" element={<KurumResmiEvraklar />} />
             <Route path="hakkinda"               element={<Hakkinda />} />
@@ -115,6 +117,7 @@ export default function App() {
             <Route path="kulupler"         element={<KurumKulupler />} />
             <Route path="belirli-gunler"   element={<KurumBelirliGunler />} />
             <Route path="kutuphane"        element={<KurumKutuphane />} />
+            <Route path="arge"             element={<KurumArge />} />
             <Route path="resmi-islemler/is-plani" element={<KurumResmiIslemler />} />
             <Route path="resmi-islemler/evraklar" element={<KurumResmiEvraklar />} />
             <Route path="hakkinda"         element={<Hakkinda />} />
