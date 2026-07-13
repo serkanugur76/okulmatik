@@ -49,6 +49,31 @@ export default function KurumArge() {
   const [aiAnalizTamamlandi, setAiAnalizTamamlandi] = useState(false)
   const [aiBulgular, setAiBulgular] = useState([])
 
+  // Öğretmen Aidiyet & Performans Takip Sistemi State'leri
+  const [testRolu, setTestRolu] = useState(() => {
+    if (profil?.rol === 'platform_admin' || profil?.rol === 'kurum_admin') return 'idare'
+    return 'ogretmen'
+  })
+  const [selectedProjeId, setSelectedProjeId] = useState(null)
+  const [showTaahhutForm, setShowTaahhutForm] = useState(false)
+  const [taahhutFormVeri, setTaahhutFormVeri] = useState({
+    turnuvaAdi: '',
+    ogrenciListesiText: '',
+    ortakOgretmen: '',
+    ortakProje: '',
+    prTipi: 'veli_lansmani',
+    kanitUrl: '',
+    butceTalebi: ''
+  })
+  const [seciliDetayProje, setSeciliDetayProje] = useState(null)
+
+  const MOCK_OGRETMENLER = [
+    { id: 'mock_teacher_hasan', ad: 'Hasan Yılmaz' },
+    { id: 'mock_teacher_melis', ad: 'Melis Aksoy' },
+    { id: 'mock_teacher_ayse', ad: 'Ayşe Kaya (Bilişim)' },
+    { id: 'mock_teacher_serkan', ad: 'Serkan Uğur' }
+  ]
+
   // Mock Projeler Fallback
   const MOCK_PROJELER = [
     {
@@ -57,10 +82,41 @@ export default function KurumArge() {
       alan: 'Yazılım & Bilişim',
       tema: 'Akıllı Tarım ve Gıda Güvenliği',
       danisman: 'Hasan Yılmaz (Bilişim Öğretmeni)',
-      ogrenciler: 'Efe Y. , Zeynep K.',
+      sorumluOgretmenId: 'mock_teacher_hasan',
+      ogrenciler: 'Efe Y., Zeynep K., Melih A., Elif B., Mert G., Ada K., Can S.',
       durum: 'Yazım Aşamasında',
       ilerleme: 65,
-      tarih: '12.01.2027'
+      tarih: '12.01.2027',
+      overallProgress: 33,
+      pozisyonDurumu: 'in_progress',
+      hedefler: {
+        temelHedef: {
+          tanim: "En az 7 kişilik resmi bir turnuva/proje takımı kurmak",
+          turnuvaAdi: "TÜBİTAK 2204-B Bilim Projesi",
+          ogrenciListesi: ['Efe Y.', 'Zeynep K.', 'Melih A.', 'Elif B.', 'Mert G.', 'Ada K.', 'Can S.'],
+          tamamlandi: true,
+          zumreOnayi: true
+        },
+        ortaHedef: {
+          tanim: "Okulda kurulmuş başka bir takım ile ortak proje yapmak",
+          ortakOgretmenId: 'mock_teacher_melis',
+          ortakProjeId: 'mock_2',
+          istekDurumu: 'pending',
+          tamamlandi: false,
+          zumreOnayi: false
+        },
+        ustHedef: {
+          tanim: "Projenin veli lansmanı, turnuva katılımı veya dış PR çıktısı üretmesi",
+          prTipi: 'veli_lansmani',
+          kanitUrl: 'https://okulmatik.com.tr/kanitlar/akilli-sulama.pdf',
+          bütçeTalebi: '2500 TL',
+          idareOnayi: false,
+          tamamlandi: false
+        }
+      },
+      logs: [
+        { tarih: "2026-09-15T10:00:00Z", islem: "Hedefler taahhüt edildi.", rol: "ogretmen" }
+      ]
     },
     {
       id: 'mock_2',
@@ -68,10 +124,14 @@ export default function KurumArge() {
       alan: 'Fen Bilimleri',
       tema: 'Ekoloji ve Çevre Yönetimi',
       danisman: 'Melis Aksoy (Fen Bilgisi Öğretmeni)',
+      sorumluOgretmenId: 'mock_teacher_melis',
       ogrenciler: 'Ali V. , Celin D.',
       durum: 'Veri Toplama Aşamasında',
       ilerleme: 45,
-      tarih: '10.01.2027'
+      tarih: '10.01.2027',
+      overallProgress: 0,
+      pozisyonDurumu: 'in_progress',
+      logs: []
     }
   ]
 
@@ -257,10 +317,167 @@ export default function KurumArge() {
         kaynaklar: []
       })
       setSihirbazAdim(1)
-    } catch (e) {
-      console.error(e)
-      alert("Kaydedilirken bir hata oluştu. Lütfen bağlantınızı kontrol edin.")
+  const calculateProgress = (hedefler) => {
+    if (!hedefler) return 0
+    let score = 0
+    if (hedefler.temelHedef?.tamamlandi) score += 33
+    if (hedefler.ortaHedef?.tamamlandi && hedefler.ortaHedef?.istekDurumu === 'approved') score += 33
+    if (hedefler.ustHedef?.tamamlandi && hedefler.ustHedef?.idareOnayi) score += 34
+    return score
+  }
+
+  const handleUpdateProject = async (projectId, fieldsToUpdate) => {
+    if (projectId.startsWith('mock_')) {
+      setProjeler(prev => prev.map(p => {
+        if (p.id === projectId) {
+          const updated = { ...p, ...fieldsToUpdate }
+          if (fieldsToUpdate.hedefler) {
+            updated.overallProgress = calculateProgress(fieldsToUpdate.hedefler)
+          }
+          return updated
+        }
+        return p
+      }))
+      // If we are currently showing details of this project, update the details modal state
+      setSeciliDetayProje(prev => {
+        if (prev && prev.id === projectId) {
+          const updated = { ...prev, ...fieldsToUpdate }
+          if (fieldsToUpdate.hedefler) {
+            updated.overallProgress = calculateProgress(fieldsToUpdate.hedefler)
+          }
+          return updated
+        }
+        return prev
+      })
+    } else {
+      try {
+        const ref = doc(db, 'kurumlar', secilenKurumId, 'argeProjeleri', projectId)
+        let data = { ...fieldsToUpdate }
+        if (fieldsToUpdate.hedefler) {
+          data.overallProgress = calculateProgress(fieldsToUpdate.hedefler)
+        }
+        await updateDoc(ref, data)
+      } catch (err) {
+        console.error("Firestore güncelleme hatası:", err)
+        alert("Firestore güncellenirken bir hata oluştu.")
+      }
     }
+  }
+
+  const handleCommitmentSave = async (e) => {
+    e.preventDefault()
+    if (!selectedProjeId) return
+
+    // Validate student names list (comma separated, min 7)
+    const ogrList = taahhutFormVeri.ogrenciListesiText
+      .split(',')
+      .map(name => name.trim())
+      .filter(Boolean)
+
+    if (ogrList.length < 7) {
+      alert("TÜBİTAK ve FLL kuralları gereği temel hedef için en az 7 öğrenci eklenmelidir! Girilen: " + ogrList.length)
+      return
+    }
+
+    const targetProject = projeler.find(p => p.id === selectedProjeId)
+    const currentLogs = targetProject?.logs || []
+
+    const yeniHedefler = {
+      temelHedef: {
+        tanim: "En az 7 kişilik resmi bir turnuva/proje takımı kurmak",
+        turnuvaAdi: taahhutFormVeri.turnuvaAdi || "TÜBİTAK 2204-B Projesi",
+        ogrenciListesi: ogrList,
+        tamamlandi: true,
+        zumreOnayi: true
+      },
+      ortaHedef: {
+        tanim: "Okulda kurulmuş başka bir takım ile ortak proje yapmak",
+        ortakOgretmenId: taahhutFormVeri.ortakOgretmen || "Belirlenmedi",
+        ortakProjeId: taahhutFormVeri.ortakProje || "Belirlenmedi",
+        istekDurumu: taahhutFormVeri.ortakOgretmen ? 'pending' : 'approved',
+        tamamlandi: taahhutFormVeri.ortakOgretmen ? false : true,
+        zumreOnayi: taahhutFormVeri.ortakOgretmen ? false : true
+      },
+      ustHedef: {
+        tanim: "Projenin veli lansmanı, turnuva katılımı veya dış PR çıktısı üretmesi",
+        prTipi: taahhutFormVeri.prTipi,
+        kanitUrl: taahhutFormVeri.kanitUrl || '',
+        bütçeTalebi: taahhutFormVeri.butceTalebi || '0 TL',
+        idareOnayi: false,
+        tamamlandi: false
+      }
+    }
+
+    const yeniLogs = [
+      ...currentLogs,
+      { tarih: new Date().toISOString(), islem: "Hedefler taahhüt edildi.", rol: "ogretmen" }
+    ]
+
+    await handleUpdateProject(selectedProjeId, {
+      hedefler: yeniHedefler,
+      logs: yeniLogs,
+      ogrenciler: ogrList.join(', '),
+      pozisyonDurumu: 'in_progress'
+    })
+
+    alert("Taahhütler başarıyla kaydedildi!")
+    setShowTaahhutForm(false)
+    setSelectedProjeId(null)
+  }
+
+  const handleZumreApprove = async (proje, status) => {
+    if (!proje.hedefler) return
+    const isApprove = status === 'approved'
+    const updatedHedefler = {
+      ...proje.hedefler,
+      ortaHedef: {
+        ...proje.hedefler.ortaHedef,
+        istekDurumu: status,
+        tamamlandi: isApprove,
+        zumreOnayi: isApprove
+      }
+    }
+
+    const yeniLogs = [
+      ...(proje.logs || []),
+      {
+        tarih: new Date().toISOString(),
+        islem: isApprove ? "Zümre başkanı ortaklık talebini onayladı." : "Zümre başkanı ortaklık talebini reddetti.",
+        rol: "zumre_head"
+      }
+    ]
+
+    await handleUpdateProject(proje.id, {
+      hedefler: updatedHedefler,
+      logs: yeniLogs
+    })
+  }
+
+  const handleIdareApprove = async (proje, approve) => {
+    if (!proje.hedefler) return
+    const updatedHedefler = {
+      ...proje.hedefler,
+      ustHedef: {
+        ...proje.hedefler.ustHedef,
+        idareOnayi: approve,
+        tamamlandi: approve
+      }
+    }
+
+    const yeniLogs = [
+      ...(proje.logs || []),
+      {
+        tarih: new Date().toISOString(),
+        islem: approve ? "İdare bütçe ve PR hedefini onayladı." : "İdare projeyi riskli olarak işaretledi.",
+        rol: "idare"
+      }
+    ]
+
+    await handleUpdateProject(proje.id, {
+      hedefler: updatedHedefler,
+      logs: yeniLogs,
+      pozisyonDurumu: approve ? 'approved' : 'at_risk'
+    })
   }
 
   return (
@@ -309,6 +526,52 @@ export default function KurumArge() {
           >
             📅 8 Haftalık Yol Haritası
           </button>
+          <button
+            onClick={() => setAktifSekme('performans')}
+            style={{
+              padding: '6px 14px', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700',
+              cursor: 'pointer', background: aktifSekme === 'performans' ? '#FFF' : 'transparent',
+              color: aktifSekme === 'performans' ? '#1E40AF' : '#64748B', boxShadow: aktifSekme === 'performans' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
+            }}
+          >
+            🎯 Aidiyet & Performans
+          </button>
+        </div>
+      </div>
+
+      {/* 🛠️ ROL SİMÜLASYONU SEÇİCİ (Demo / Test İçin) */}
+      <div style={{
+        background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)',
+        borderRadius: '12px', padding: '10px 16px', display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', border: '1px solid #4F46E5'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '1.1rem' }}>⚙️</span>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#FFF' }}>Sistem Simülasyon Ajanı</div>
+            <div style={{ fontSize: '0.65rem', color: '#C7D2FE' }}>Farklı RBAC (Öğretmen, Zümre Başkanı, İdare) ekranlarını anında test edin.</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {[
+            { id: 'ogretmen', etiket: '🧑‍🏫 Öğretmen', aciklama: 'Taahhüt verir, ortaklık ister' },
+            { id: 'zumre_baskani', etiket: '👥 Zümre Başkanı', aciklama: 'Ortaklık onaylar' },
+            { id: 'idare', etiket: '🏛️ Okul Müdürü (İdare)', aciklama: 'Bütçe & PR onaylar' }
+          ].map(rolItem => (
+            <button
+              key={rolItem.id}
+              onClick={() => setTestRolu(rolItem.id)}
+              style={{
+                padding: '6px 12px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800',
+                border: 'none', cursor: 'pointer',
+                background: testRolu === rolItem.id ? '#4F46E5' : 'rgba(255,255,255,0.08)',
+                color: '#FFF', transition: 'all 0.15s'
+              }}
+              title={rolItem.aciklama}
+            >
+              {rolItem.etiket}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -1121,6 +1384,528 @@ export default function KurumArge() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* 4. ÖĞRETMEN AİDİYET & PERFORMANS TAKİP SİSTEMİ SEKMESİ */}
+      {aktifSekme === 'performans' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          
+          {/* İstatistik Özet Kartları */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+            <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ fontSize: '2rem', padding: '10px', background: '#EFF6FF', borderRadius: '12px' }}>🎯</div>
+              <div>
+                <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: '700', textTransform: 'uppercase' }}>Taahhüt Oranı</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#1E293B', marginTop: '4px' }}>
+                  {projeler.filter(p => p.hedefler).length} / {projeler.length} Proje
+                </div>
+              </div>
+            </div>
+            <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ fontSize: '2rem', padding: '10px', background: '#ECFDF5', borderRadius: '12px' }}>📈</div>
+              <div>
+                <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: '700', textTransform: 'uppercase' }}>Ortalama İlerleme</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#10B981', marginTop: '4px' }}>
+                  %{Math.round(projeler.reduce((acc, p) => acc + (p.overallProgress || 0), 0) / (projeler.length || 1)) || 0}
+                </div>
+              </div>
+            </div>
+            <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ fontSize: '2rem', padding: '10px', background: '#EEF2F6', borderRadius: '12px' }}>💰</div>
+              <div>
+                <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: '700', textTransform: 'uppercase' }}>Onaylanan Toplam Bütçe</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#6366F1', marginTop: '4px' }}>
+                  {projeler.reduce((acc, p) => {
+                    if (p.hedefler?.ustHedef?.idareOnayi && p.hedefler?.ustHedef?.bütçeTalebi) {
+                      const num = parseInt(p.hedefler.ustHedef.bütçeTalebi.replace(/\D/g, '')) || 0
+                      return acc + num
+                    }
+                    return acc
+                  }, 0)} TL
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Ana Gövde İki Kolon Layout */}
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+            
+            {/* Sol Kolon: Projeler ve Taahhüt Kartları */}
+            <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.01)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#1E293B', fontWeight: '800' }}>
+                📂 Proje Taahhüt ve Hedef Durumları
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {projeler.map(p => {
+                  const hasHedef = !!p.hedefler
+                  const overallStatusColor = p.pozisyonDurumu === 'approved' ? '#10B981' : p.pozisyonDurumu === 'at_risk' ? '#EF4444' : '#3B82F6'
+                  const overallStatusBg = p.pozisyonDurumu === 'approved' ? '#ECFDF5' : p.pozisyonDurumu === 'at_risk' ? '#FEF2F2' : '#EFF6FF'
+                  const overallStatusLabel = p.pozisyonDurumu === 'approved' ? 'Tamamlandı' : p.pozisyonDurumu === 'at_risk' ? 'Risk Altında' : 'İlerliyor'
+
+                  return (
+                    <div key={p.id} style={{
+                      border: '1.5px solid #F1F5F9', borderRadius: '14px', padding: '1.25rem', background: '#FAFAFA',
+                      display: 'flex', flexDirection: 'column', gap: '10px'
+                    }}>
+                      
+                      {/* Kart Üst Başlık */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#1E293B' }}>{p.baslik}</h4>
+                          <span style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: '500' }}>Sorumlu: <strong>{p.danisman}</strong></span>
+                        </div>
+                        <span style={{
+                          fontSize: '0.7rem', fontWeight: '800', padding: '3px 10px', borderRadius: '20px',
+                          color: overallStatusColor, background: overallStatusBg
+                        }}>
+                          {overallStatusLabel}
+                        </span>
+                      </div>
+
+                      {/* Hedef Rozetleri */}
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', margin: '4px 0' }}>
+                        <div style={{
+                          fontSize: '0.75rem', fontWeight: '700', padding: '6px 12px', borderRadius: '10px',
+                          background: hasHedef && p.hedefler.temelHedef?.tamamlandi ? '#ECFDF5' : '#F1F5F9',
+                          color: hasHedef && p.hedefler.temelHedef?.tamamlandi ? '#047857' : '#64748B',
+                          border: hasHedef && p.hedefler.temelHedef?.tamamlandi ? '1px solid #A7F3D0' : '1px solid #E2E8F0',
+                          display: 'flex', alignItems: 'center', gap: '6px'
+                        }}>
+                          <span>🏫</span> Temel Katılım {hasHedef && p.hedefler.temelHedef?.tamamlandi ? '✓' : ''}
+                        </div>
+                        <div style={{
+                          fontSize: '0.75rem', fontWeight: '700', padding: '6px 12px', borderRadius: '10px',
+                          background: hasHedef && p.hedefler.ortaHedef?.tamamlandi ? '#ECFDF5' : hasHedef && p.hedefler.ortaHedef?.istekDurumu === 'pending' ? '#FFFBEB' : '#F1F5F9',
+                          color: hasHedef && p.hedefler.ortaHedef?.tamamlandi ? '#047857' : hasHedef && p.hedefler.ortaHedef?.istekDurumu === 'pending' ? '#B45309' : '#64748B',
+                          border: hasHedef && p.hedefler.ortaHedef?.tamamlandi ? '1px solid #A7F3D0' : hasHedef && p.hedefler.ortaHedef?.istekDurumu === 'pending' ? '1px solid #FDE68A' : '1px solid #E2E8F0',
+                          display: 'flex', alignItems: 'center', gap: '6px'
+                        }}>
+                          <span>👥</span> Sinerji {hasHedef && p.hedefler.ortaHedef?.tamamlandi ? '✓' : hasHedef && p.hedefler.ortaHedef?.istekDurumu === 'pending' ? '⌛' : ''}
+                        </div>
+                        <div style={{
+                          fontSize: '0.75rem', fontWeight: '700', padding: '6px 12px', borderRadius: '10px',
+                          background: hasHedef && p.hedefler.ustHedef?.tamamlandi ? '#ECFDF5' : '#F1F5F9',
+                          color: hasHedef && p.hedefler.ustHedef?.tamamlandi ? '#047857' : '#64748B',
+                          border: hasHedef && p.hedefler.ustHedef?.tamamlandi ? '1px solid #A7F3D0' : '1px solid #E2E8F0',
+                          display: 'flex', alignItems: 'center', gap: '6px'
+                        }}>
+                          <span>📢</span> Vitrin & PR {hasHedef && p.hedefler.ustHedef?.tamamlandi ? '✓' : ''}
+                        </div>
+                      </div>
+
+                      {/* İlerleme Barı */}
+                      <div style={{ marginTop: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#475569', marginBottom: '4px', fontWeight: '800' }}>
+                          <span>Taahhüt Gerçekleşme İlerlemesi</span>
+                          <span>%{p.overallProgress || 0}</span>
+                        </div>
+                        <div style={{ width: '100%', height: '8px', background: '#E2E8F0', borderRadius: '999px', overflow: 'hidden' }}>
+                          <div style={{ width: `${p.overallProgress || 0}%`, height: '100%', background: '#6366F1', borderRadius: '999px', transition: 'width 0.3s ease' }} />
+                        </div>
+                      </div>
+
+                      {/* İşlem Butonları */}
+                      <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '10px', marginTop: '6px', justifyContent: 'flex-end' }}>
+                        {testRolu === 'ogretmen' && (!p.sorumluOgretmenId || p.sorumluOgretmenId === 'mock_teacher_hasan') && (
+                          <button
+                            onClick={() => {
+                              setSelectedProjeId(p.id)
+                              setTaahhutFormVeri({
+                                turnuvaAdi: p.hedefler?.temelHedef?.turnuvaAdi || '',
+                                ogrenciListesiText: p.hedefler?.temelHedef?.ogrenciListesi?.join(', ') || '',
+                                ortakOgretmen: p.hedefler?.ortaHedef?.ortakOgretmenId || '',
+                                ortakProje: p.hedefler?.ortaHedef?.ortakProjeId || '',
+                                prTipi: p.hedefler?.ustHedef?.prTipi || 'veli_lansmani',
+                                kanitUrl: p.hedefler?.ustHedef?.kanitUrl || '',
+                                butceTalebi: p.hedefler?.ustHedef?.bütçeTalebi || ''
+                              })
+                              setShowTaahhutForm(true)
+                            }}
+                            style={{
+                              padding: '6px 12px', background: '#1E40AF', color: '#FFF', border: 'none',
+                              borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer'
+                            }}
+                          >
+                            🎯 {hasHedef ? 'Taahhütleri Düzenle' : 'Hedefleri Taahhüt Et'}
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={() => setSeciliDetayProje(p)}
+                          style={{
+                            padding: '6px 12px', background: 'transparent', border: '1.5px solid #CBD5E1', color: '#475569',
+                            borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer'
+                          }}
+                        >
+                          🔍 Detay & Geçmiş Zaman Tüneli
+                        </button>
+                      </div>
+
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Sağ Kolon: Rol Bazlı İşlemler Paneli */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              
+              {/* ZÜMRE BAŞKANI EYLEMLERİ */}
+              {testRolu === 'zumre_baskani' && (
+                <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '20px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#B45309', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>👥</span> <span>Zümre Onayı Bekleyen İstekler</span>
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: '#64748B', lineHeight: '1.4' }}>
+                    Zümre üyelerinizin diğer takımlarla ortak yürüteceği "Sinerji" hedeflerini inceleyip onaylayın.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
+                    {projeler.filter(p => p.hedefler?.ortaHedef?.istekDurumu === 'pending').length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px dashed #E2E8F0', borderRadius: '12px', color: '#94A3B8', fontSize: '0.72rem' }}>
+                        Onay bekleyen sinerji isteği bulunmuyor.
+                      </div>
+                    ) : (
+                      projeler.filter(p => p.hedefler?.ortaHedef?.istekDurumu === 'pending').map(p => (
+                        <div key={p.id} style={{ background: '#FFF8F1', border: '1px solid #FDE68A', borderRadius: '12px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#78350F' }}>{p.baslik}</div>
+                          <div style={{ fontSize: '0.68rem', color: '#451A03' }}>
+                            Talep: <strong>{p.danisman}</strong>, okulun diğer projelerinden ortaklık talep ediyor.
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              onClick={() => handleZumreApprove(p, 'approved')}
+                              style={{ flex: 1, padding: '5px', background: '#10B981', color: '#FFF', border: 'none', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '700', cursor: 'pointer' }}
+                            >
+                              ✅ Sinerjiyi Onayla
+                            </button>
+                            <button
+                              onClick={() => handleZumreApprove(p, 'rejected')}
+                              style={{ padding: '5px 10px', background: '#EF4444', color: '#FFF', border: 'none', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '700', cursor: 'pointer' }}
+                            >
+                              Reddet
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* İDARE (OKUL MÜDÜRÜ) EYLEMLERİ */}
+              {testRolu === 'idare' && (
+                <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '20px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#6366F1', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🏛️</span> <span>İdare Onayı & Bütçe Yönetimi</span>
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: '#64748B', lineHeight: '1.4' }}>
+                    Öğretmenlerin turnuva katılımı ve dış PR lansmanları için talep ettikleri bütçe ve vitrin onay süreçleri.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
+                    {projeler.filter(p => p.hedefler && !p.hedefler.ustHedef?.idareOnayi).length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px dashed #E2E8F0', borderRadius: '12px', color: '#94A3B8', fontSize: '0.72rem' }}>
+                        Onay bekleyen bütçe veya lansman talebi bulunmuyor.
+                      </div>
+                    ) : (
+                      projeler.filter(p => p.hedefler && !p.hedefler.ustHedef?.idareOnayi).map(p => (
+                        <div key={p.id} style={{ background: '#EEF2F6', border: '1px solid #CBD5E1', borderRadius: '12px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#1E293B' }}>{p.baslik}</div>
+                          <div style={{ fontSize: '0.68rem', color: '#475569' }}>
+                            Bütçe Talebi: <strong style={{ color: '#4F46E5', fontSize: '0.8rem' }}>{p.hedefler.ustHedef.bütçeTalebi}</strong>
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: '#475569' }}>
+                            PR Tipi: <strong>{p.hedefler.ustHedef.prTipi === 'veli_lansmani' ? 'Veli Lansmanı' : p.hedefler.ustHedef.prTipi === 'turnuva_katilimi' ? 'Turnuva Katılımı' : 'Kalite Etiketi / PR'}</strong>
+                          </div>
+                          {p.hedefler.ustHedef.kanitUrl && (
+                            <a href={p.hedefler.ustHedef.kanitUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.65rem', color: '#4F46E5', textDecoration: 'underline' }}>
+                              🔗 Dosya / Kanıt Önizle
+                            </a>
+                          )}
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                            <button
+                              onClick={() => handleIdareApprove(p, true)}
+                              style={{ flex: 1, padding: '5px', background: '#10B981', color: '#FFF', border: 'none', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '700', cursor: 'pointer' }}
+                            >
+                              ✅ Bütçe ve PR Onayla
+                            </button>
+                            <button
+                              onClick={() => handleIdareApprove(p, false)}
+                              style={{ padding: '5px 10px', background: '#EF4444', color: '#FFF', border: 'none', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '700', cursor: 'pointer' }}
+                              title="Risk altında olarak işaretle"
+                            >
+                              ⚠️ Riskli
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAAHHÜT REHBERİ KARTI (Öğretmenler için) */}
+              {testRolu === 'ogretmen' && (
+                <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '20px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontWeight: '800', fontSize: '0.85rem', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>💡</span> <span>Taahhüt Kılavuzu & Koşullar</span>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#475569', lineHeight: '1.5', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <p style={{ margin: 0 }}><strong>1. Temel Hedef:</strong> FLL veya TÜBİTAK kapsamında en az 7 öğrenciden oluşan aktif bir takım kurulmalıdır. Sistem öğrenci sayısı 7'den az olursa hata verir.</p>
+                    <p style={{ margin: 0 }}><strong>2. Orta Hedef (Sinerji):</strong> Okul içindeki başka bir zümre ile ortak proje veya takım çalışması başlatıp, Zümre Başkanı onayına göndermelisiniz.</p>
+                    <p style={{ margin: 0 }}><strong>3. Üst Hedef (PR):</strong> Projeyi dışa tanıtacak bir PR çıktısı (veli sunumu, lansman veya basında yer alma) hazırlayıp bütçe talebini İdare onayına sunmalısınız.</p>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* ── 5. HEDEFLERİ TAAHHÜT ETME FORMU MODALI (ÖĞRETMEN) ── */}
+      {showTaahhutForm && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem'
+        }} onClick={e => e.target === e.currentTarget && setShowTaahhutForm(false)}>
+          
+          <div style={{
+            background: '#FFF', borderRadius: '20px', border: '1px solid #E2E8F0', padding: '1.5rem',
+            width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+            display: 'flex', flexDirection: 'column', gap: '1.25rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#1B3A6B', fontWeight: '800' }}>🎯 Performans ve Aidiyet Taahhüt Girişi</h3>
+              <button onClick={() => setShowTaahhutForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: '#94A3B8' }}>✕</button>
+            </div>
+
+            <form onSubmit={handleCommitmentSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              
+              {/* Temel Hedef */}
+              <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#1E293B', display: 'block', marginBottom: '6px' }}>🏫 1. Temel Hedef: Resmi Takım & Turnuva Katılımı</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <input
+                    type="text"
+                    placeholder="Turnuva / Proje Adı (Örn: FIRST LEGO League)"
+                    value={taahhutFormVeri.turnuvaAdi}
+                    onChange={e => setTaahhutFormVeri({ ...taahhutFormVeri, turnuvaAdi: e.target.value })}
+                    required
+                    style={{ width: '100%', padding: '8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none' }}
+                  />
+                  <textarea
+                    rows={2}
+                    placeholder="Öğrenci İsimleri (En az 7 öğrenciyi virgülle ayırarak yazın. Örn: Ahmet Y., Mehmet K., Ayşe L...)"
+                    value={taahhutFormVeri.ogrenciListesiText}
+                    onChange={e => setTaahhutFormVeri({ ...taahhutFormVeri, ogrenciListesiText: e.target.value })}
+                    required
+                    style={{ width: '100%', padding: '8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none', resize: 'vertical' }}
+                  />
+                  <span style={{ fontSize: '0.625rem', color: '#64748B' }}>
+                    * Sistem girilen isimlerin virgüllerle ayrılmış en az 7 kişi olup olmadığını kontrol eder.
+                  </span>
+                </div>
+              </div>
+
+              {/* Orta Hedef */}
+              <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#1E293B', display: 'block', marginBottom: '6px' }}>👥 2. Orta Hedef: Kurum İçi Sinerji ve Ortak Proje</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.65rem', color: '#64748B', display: 'block', marginBottom: '3px' }}>Ortak Çalışılacak Öğretmen</label>
+                    <select
+                      value={taahhutFormVeri.ortakOgretmen}
+                      onChange={e => setTaahhutFormVeri({ ...taahhutFormVeri, ortakOgretmen: e.target.value })}
+                      style={{ width: '100%', padding: '8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none' }}
+                    >
+                      <option value="">Seçiniz (isteğe bağlı)</option>
+                      {MOCK_OGRETMENLER.map(t => (
+                        <option key={t.id} value={t.id}>{t.ad}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.65rem', color: '#64748B', display: 'block', marginBottom: '3px' }}>Ortak Çalışılacak Proje</label>
+                    <select
+                      value={taahhutFormVeri.ortakProje}
+                      onChange={e => setTaahhutFormVeri({ ...taahhutFormVeri, ortakProje: e.target.value })}
+                      style={{ width: '100%', padding: '8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none' }}
+                    >
+                      <option value="">Seçiniz (isteğe bağlı)</option>
+                      {projeler.filter(p => p.id !== selectedProjeId).map(p => (
+                        <option key={p.id} value={p.id}>{p.baslik.substring(0, 30)}...</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Üst Hedef */}
+              <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#1E293B', display: 'block', marginBottom: '6px' }}>📢 3. Üst Hedef: Vitrin, Dış Lansman ve Bütçe Talebi</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.65rem', color: '#64748B', display: 'block', marginBottom: '3px' }}>PR / Çıktı Tipi</label>
+                      <select
+                        value={taahhutFormVeri.prTipi}
+                        onChange={e => setTaahhutFormVeri({ ...taahhutFormVeri, prTipi: e.target.value })}
+                        style={{ width: '100%', padding: '8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none' }}
+                      >
+                        <option value="veli_lansmani">Veli Lansmanı</option>
+                        <option value="turnuva_katilimi">Resmi Turnuva Katılımı</option>
+                        <option value="kalite_etiketi">Kalite Etiketi / PR Haberi</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.65rem', color: '#64748B', display: 'block', marginBottom: '3px' }}>Bütçe Talebi (TL)</label>
+                      <input
+                        type="text"
+                        placeholder="Örn: 2500 TL"
+                        value={taahhutFormVeri.butceTalebi}
+                        onChange={e => setTaahhutFormVeri({ ...taahhutFormVeri, butceTalebi: e.target.value })}
+                        style={{ width: '100%', padding: '8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+                  <input
+                    type="url"
+                    placeholder="Kanıt PDF / Döküman URL'i (Örn: drive.google.com/...)"
+                    value={taahhutFormVeri.kanitUrl}
+                    onChange={e => setTaahhutFormVeri({ ...taahhutFormVeri, kanitUrl: e.target.value })}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none' }}
+                  />
+                </div>
+              </div>
+
+              {/* Form Butonları */}
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <button type="button" onClick={() => setShowTaahhutForm(false)} style={{ padding: '8px 16px', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.78rem', cursor: 'pointer', color: '#475569' }}>İptal</button>
+                <button type="submit" style={{ padding: '8px 20px', background: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer' }}>Taahhütleri Kaydet</button>
+              </div>
+
+            </form>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* ── 6. DETAY VE GEÇMİŞ ZAMAN TÜNELİ MODALI ── */}
+      {seciliDetayProje && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem'
+        }} onClick={e => e.target === e.currentTarget && setSeciliDetayProje(null)}>
+          
+          <div style={{
+            background: '#FFF', borderRadius: '20px', border: '1px solid #E2E8F0', padding: '1.5rem',
+            width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+            display: 'flex', flexDirection: 'column', gap: '1.25rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#1B3A6B', fontWeight: '800' }}>🔬 Hedef ve Zaman Tüneli Detayları</h3>
+              <button onClick={() => setSeciliDetayProje(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: '#94A3B8' }}>✕</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1E293B', fontWeight: '800' }}>{seciliDetayProje.baslik}</h4>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: '#64748B' }}>Danışman: <strong>{seciliDetayProje.danisman}</strong> | İlerleme: <strong>%{seciliDetayProje.overallProgress || 0}</strong></p>
+              </div>
+
+              {/* Hedef Detayları */}
+              {seciliDetayProje.hedefler ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#1B3A6B' }}>🎯 Taahhüt Edilen Hedefler</span>
+                  
+                  {/* Temel */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '0.75rem', borderBottom: '1px solid #E2E8F0', paddingBottom: '8px' }}>
+                    <span style={{ fontSize: '1rem' }}>{seciliDetayProje.hedefler.temelHedef?.tamamlandi ? '✅' : '⬜'}</span>
+                    <div>
+                      <strong>Temel Katılım:</strong> {seciliDetayProje.hedefler.temelHedef?.tanim} ({seciliDetayProje.hedefler.temelHedef?.turnuvaAdi})
+                      <div style={{ fontSize: '0.68rem', color: '#64748B', marginTop: '2px' }}>
+                        Öğrenciler: {seciliDetayProje.hedefler.temelHedef?.ogrenciListesi?.join(', ')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sinerji */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '0.75rem', borderBottom: '1px solid #E2E8F0', paddingBottom: '8px' }}>
+                    <span style={{ fontSize: '1rem' }}>{seciliDetayProje.hedefler.ortaHedef?.tamamlandi ? '✅' : seciliDetayProje.hedefler.ortaHedef?.istekDurumu === 'pending' ? '⌛' : '⬜'}</span>
+                    <div>
+                      <strong>Orta Sinerji:</strong> {seciliDetayProje.hedefler.ortaHedef?.tanim}
+                      <div style={{ fontSize: '0.68rem', color: '#64748B', marginTop: '2px' }}>
+                        Ortak Öğretmen ID: {seciliDetayProje.hedefler.ortaHedef?.ortakOgretmenId} | Durum: <strong style={{ color: seciliDetayProje.hedefler.ortaHedef?.istekDurumu === 'approved' ? '#10B981' : '#B45309' }}>{seciliDetayProje.hedefler.ortaHedef?.istekDurumu === 'approved' ? 'Zümre Onaylı' : seciliDetayProje.hedefler.ortaHedef?.istekDurumu === 'pending' ? 'Zümre Onayı Bekliyor' : 'Beklemede'}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* PR */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '0.75rem' }}>
+                    <span style={{ fontSize: '1rem' }}>{seciliDetayProje.hedefler.ustHedef?.tamamlandi ? '✅' : '⬜'}</span>
+                    <div>
+                      <strong>Üst Vitrin & PR:</strong> {seciliDetayProje.hedefler.ustHedef?.tanim}
+                      <div style={{ fontSize: '0.68rem', color: '#64748B', marginTop: '2px' }}>
+                        PR Tipi: {seciliDetayProje.hedefler.ustHedef?.prTipi} | Bütçe Talebi: <strong style={{ color: '#4F46E5' }}>{seciliDetayProje.hedefler.ustHedef?.bütçeTalebi}</strong>
+                      </div>
+                      {seciliDetayProje.hedefler.ustHedef?.kanitUrl && (
+                        <a href={seciliDetayProje.hedefler.ustHedef.kanitUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.65rem', color: '#4F46E5', textDecoration: 'underline', display: 'block', marginTop: '2px' }}>
+                          🔗 Kanıt URL Önizle
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: '1.5rem', background: '#FEF3C7', color: '#D97706', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '600', border: '1px solid #FDE68A' }}>
+                  ⚠️ Bu proje için henüz aidiyet hedefleri taahhüt edilmemiştir.
+                </div>
+              )}
+
+              {/* Logs Timeline */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#475569' }}>📜 Onay ve Değişiklik Zaman Tüneli (Loglar)</span>
+                
+                {(!seciliDetayProje.logs || seciliDetayProje.logs.length === 0) ? (
+                  <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontStyle: 'italic', padding: '10px', textAlign: 'center' }}>
+                    Kayıtlı herhangi bir geçmiş log kaydı bulunmamaktadır.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: '#F8FAFC', padding: '10px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                    {seciliDetayProje.logs.map((log, index) => (
+                      <div key={index} style={{ display: 'flex', justifyBetween: 'space-between', fontSize: '0.7rem', color: '#475569', borderBottom: index < seciliDetayProje.logs.length - 1 ? '1px solid #E2E8F0' : 'none', paddingBottom: '4px', paddingTop: '4px' }}>
+                        <span style={{ flex: 1 }}>
+                          🕒 {new Date(log.tarih).toLocaleDateString('tr-TR')} {new Date(log.tarih).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} - <strong>{log.islem}</strong>
+                        </span>
+                        <span style={{
+                          fontSize: '0.6rem', padding: '2px 6px', borderRadius: '4px', background: log.rol === 'idare' ? '#FEE2E2' : log.rol === 'zumre_head' ? '#FEF3C7' : '#EFF6FF',
+                          color: log.rol === 'idare' ? '#991B1B' : log.rol === 'zumre_head' ? '#B45309' : '#1E40AF',
+                          fontWeight: '800', height: 'fit-content'
+                        }}>
+                          {log.rol === 'idare' ? 'İdare' : log.rol === 'zumre_head' ? 'Zümre Head' : 'Öğretmen'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #F1F5F9', paddingTop: '10px', marginTop: '10px' }}>
+              <button onClick={() => setSeciliDetayProje(null)} style={{ padding: '8px 20px', background: '#1E40AF', color: '#FFF', border: 'none', borderRadius: '8px', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer' }}>Kapat</button>
+            </div>
+
+          </div>
+
         </div>
       )}
 
