@@ -317,6 +317,12 @@ export default function KurumArge() {
         kaynaklar: []
       })
       setSihirbazAdim(1)
+    } catch (e) {
+      console.error(e)
+      alert("Kaydedilirken bir hata oluştu. Lütfen bağlantınızı kontrol edin.")
+    }
+  }
+
   const calculateProgress = (hedefler) => {
     if (!hedefler) return 0
     let score = 0
