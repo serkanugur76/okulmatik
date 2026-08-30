@@ -294,6 +294,16 @@ service cloud.firestore {
       allow write:  if kurumAdmin(kurumId) || platformAdmin()
                     || ogretmenKurumErisimi(kurumId);
     }
+    match /kurumlar/{kurumId}/isEmirleri/{isEmriId} {
+      allow read:  if platformAdmin()
+                   || (kurumUyesi(kurumId) 
+                       && (kullaniciBilgisi().rol == 'kurum_admin' 
+                           || kullaniciBilgisi().get('modulIzinler', {}).get('is_emri', false) == true));
+      allow write: if platformAdmin()
+                   || (kurumUyesi(kurumId) 
+                       && (kullaniciBilgisi().rol == 'kurum_admin' 
+                           || kullaniciBilgisi().get('modulIzinler', {}).get('is_emri', false) == true));
+    }
     match /belirliGunler/{belirliGunId} {
       allow read:   if request.auth != null;
       allow write:  if platformAdmin();

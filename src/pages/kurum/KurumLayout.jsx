@@ -38,6 +38,7 @@ const ADMIN_MENULER = [
   { yol: '/kurum/kulupler',          etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
   { yol: '/kurum/belirli-gunler',    etiket: 'Belirli Gün & Tatiller', ikon: '📅' },
   { yol: '/kurum/kutuphane',         etiket: 'Kütüphane',        ikon: '📚' },
+  { yol: '/kurum/is-emirleri',       etiket: 'İş Emri Takip',    ikon: '🛠️' },
   { yol: '/kurum/arge',              etiket: 'Ar-Ge & Bilim Projeleri', ikon: '🔬' },
   { yol: '/kurum/hakkinda',          etiket: 'Hakkında',         ikon: 'ℹ️' },
 ]
@@ -67,6 +68,7 @@ const OGRETMEN_MENULER = [
   { yol: '/kurum/kulupler',          etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
   { yol: '/kurum/belirli-gunler',    etiket: 'Belirli Gün & Tatiller', ikon: '📅' },
   { yol: '/kurum/kutuphane',         etiket: 'Kütüphane',        ikon: '📚' },
+  { yol: '/kurum/is-emirleri',       etiket: 'İş Emri Takip',    ikon: '🛠️' },
   { yol: '/kurum/arge',              etiket: 'Ar-Ge & Bilim Projeleri', ikon: '🔬' },
   { yol: '/kurum/hakkinda',          etiket: 'Hakkında',         ikon: 'ℹ️' },
 ]
@@ -550,6 +552,7 @@ function KurumLayoutInner() {
       else if (menu.yol.includes('nobet')) key = 'nobet'
       else if (menu.yol.includes('kulupler')) key = 'kulupler'
       else if (menu.yol.includes('kutuphane')) key = 'kutuphane'
+      else if (menu.yol.includes('is-emirleri')) key = 'isEmirleri'
       else if (menu.yol.includes('arge')) key = 'arge'
     } else {
       if (menu.etiket === 'Kullanıcılar') key = 'kullanicilar'
@@ -558,6 +561,10 @@ function KurumLayoutInner() {
     }
 
     if (!key) return true
+
+    if (key === 'isEmirleri') {
+      return !!(profil?.rol === 'kurum_admin' || platformAdmin || profil?.modulIzinler?.is_emri);
+    }
 
     const ayarlar = secilenKurum?.aktifModuller || {}
     if (ayarlar[key] !== undefined) {

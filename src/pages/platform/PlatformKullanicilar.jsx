@@ -32,7 +32,7 @@ function rolEtiketi(k, kurumlar) {
 
 const BOŞ_FORM = {
   email: '', ad: '', rol: 'kurum_admin', kurumId: '',
-  rubrikOlustur: false, branslar: [], sinifAtamalari: [],
+  rubrikOlustur: false, isEmri: false, branslar: [], sinifAtamalari: [],
 }
 
 export default function PlatformKullanicilar() {
@@ -202,6 +202,7 @@ export default function PlatformKullanicilar() {
       ad: k.ad || '', email: k.email, rol: k.rol || 'ogretmen',
       kurumId: k.kurumId || '',
       rubrikOlustur: k.modulIzinler?.rubrik_olustur || false,
+      isEmri: k.modulIzinler?.is_emri || false,
       branslar: k.branslar || [],
       sinifAtamalari: ilkAtamalar,
     })
@@ -214,7 +215,8 @@ export default function PlatformKullanicilar() {
       setForm(f => ({
         ...f,
         rubrikOlustur: tam.modulIzinler?.rubrik_olustur || false,
-        branslar: tam.branslar || [],
+        isEmri:        tam.modulIzinler?.is_emri || false,
+        branslar:      tam.branslar      || [],
         sinifAtamalari: atamalar,
       }))
       atamalar.forEach(a => sinifYukle(a.kurumId))
@@ -243,16 +245,31 @@ export default function PlatformKullanicilar() {
           return k?.parentId
         }).filter(Boolean))]
       : []
+
+    const modulIzinler = {
+      ...(duzenlenen?.modulIzinler || {}),
+      is_emri: form.isEmri || false,
+    }
+    if (form.rol === 'ogretmen') {
+      modulIzinler.rubrik_olustur = form.rubrikOlustur || false
+    } else {
+      delete modulIzinler.rubrik_olustur
+    }
+
     const ogretmenEkstra = form.rol === 'ogretmen' ? {
-      modulIzinler:     { ...(duzenlenen?.modulIzinler || {}), rubrik_olustur: form.rubrikOlustur || false },
+      modulIzinler,
       sinifAtamalari:   atamalari,
       sinifIdler:       [...new Set(atamalari.flatMap(a => a.siniflar || []))],
       erisimKurumIdler: [...new Set(atamalari.map(a => a.kurumId).filter(Boolean))],
       parentKurumIdler,
       branslar:         form.branslar || [],
     } : {
-      modulIzinler: {}, sinifAtamalari: [], sinifIdler: [],
-      erisimKurumIdler: [], parentKurumIdler: [], branslar: [],
+      modulIzinler,
+      sinifAtamalari:   [],
+      sinifIdler:       [],
+      erisimKurumIdler: [],
+      parentKurumIdler: [],
+      branslar:         [],
     }
 
     try {
@@ -262,7 +279,11 @@ export default function PlatformKullanicilar() {
         const yeniKurumId = form.kurumId || eskiKurumId
 
         const globalGuncelleme = { ad: form.ad, rol: form.rol, kurumId: yeniKurumId }
-        if (form.rol === 'ogretmen') Object.assign(globalGuncelleme, ogretmenEkstra)
+        if (form.rol === 'ogretmen') {
+          Object.assign(globalGuncelleme, ogretmenEkstra)
+        } else {
+          globalGuncelleme.modulIzinler = modulIzinler
+        }
         await updateDoc(doc(db, 'kullanicilar', uid), globalGuncelleme)
 
         // Subcollection güncelle (kurum değiştiyse taşı)
@@ -271,12 +292,20 @@ export default function PlatformKullanicilar() {
             const batch = writeBatch(db)
             batch.delete(doc(db, 'kurumlar', eskiKurumId, 'kullanicilar', uid))
             const subDoc = { ad: form.ad, email: duzenlenen.email, rol: form.rol, kurumId: yeniKurumId, durum: 'aktif' }
-            if (form.rol === 'ogretmen') Object.assign(subDoc, ogretmenEkstra)
+            if (form.rol === 'ogretmen') {
+              Object.assign(subDoc, ogretmenEkstra)
+            } else {
+              subDoc.modulIzinler = modulIzinler
+            }
             batch.set(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), subDoc)
             await batch.commit()
           } else {
             const subGuncelleme = { ad: form.ad, rol: form.rol }
-            if (form.rol === 'ogretmen') Object.assign(subGuncelleme, ogretmenEkstra)
+            if (form.rol === 'ogretmen') {
+              Object.assign(subGuncelleme, ogretmenEkstra)
+            } else {
+              subGuncelleme.modulIzinler = modulIzinler
+            }
             await setDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), subGuncelleme, { merge: true })
           }
         }
@@ -1027,6 +1056,16 @@ export default function PlatformKullanicilar() {
                   <option value="kurum_admin">Kurum Admin</option>
                   <option value="ogretmen">Öğretmen</option>
                 </select>
+              </div>
+
+              {/* İş Emri Yetkisi Checkbox */}
+              <div style={{ ...s.alan, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', marginTop: '0.5rem' }}>
+                <input type="checkbox" id="isEmri" checked={form.isEmri || false}
+                  onChange={e => setForm(f => ({ ...f, isEmri: e.target.checked }))}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                <label htmlFor="isEmri" style={{ ...s.etiket, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem' }}>
+                  🛠️ İş Emri Takip Yetkisi (İşletme / Teknik / Temizlik Personeli için)
+                </label>
               </div>
               {(form.rol === 'kurum_admin' || form.rol === 'ogretmen') && (
                 <div className="modal-field" style={s.alan}>

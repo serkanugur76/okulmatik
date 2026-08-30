@@ -57,6 +57,7 @@ const ROL_SEÇENEKLERİ = {
 const BOŞ_FORM = {
   email: '', ad: '', rol: 'ogretmen', hedefKurumId: '',
   rubrikOlustur: false,
+  isEmri: false,
   branslar: [],
   sinifAtamalari: [], // [{ kurumId, siniflar: [id, ...] }]
 }
@@ -224,6 +225,7 @@ export default function KurumKullanicilar() {
         ad: k.ad || '', email: k.email || '', rol: k.rol,
         hedefKurumId: k.kurumId || kurumId || '',
         rubrikOlustur: k.modulIzinler?.rubrik_olustur || false,
+        isEmri: k.modulIzinler?.is_emri || false,
         branslar: k.branslar || [],
         sinifAtamalari: ilkAtamalar,
       })
@@ -237,6 +239,7 @@ export default function KurumKullanicilar() {
           ...f,
           ad:            tam.ad            ?? f.ad,
           rubrikOlustur: tam.modulIzinler?.rubrik_olustur || false,
+          isEmri:        tam.modulIzinler?.is_emri || false,
           branslar:      tam.branslar      || [],
           sinifAtamalari: atamalar,
         }))
@@ -295,15 +298,25 @@ export default function KurumKullanicilar() {
         }).filter(Boolean))]
       : []
 
+    const modulIzinler = {
+      ...(duzenlenen?.modulIzinler || {}),
+      is_emri: form.isEmri || false,
+    }
+    if (form.rol === 'ogretmen') {
+      modulIzinler.rubrik_olustur = form.rubrikOlustur || false
+    } else {
+      delete modulIzinler.rubrik_olustur
+    }
+
     const ogretmenEkstra = form.rol === 'ogretmen' ? {
-      modulIzinler:     { ...(duzenlenen?.modulIzinler || {}), rubrik_olustur: form.rubrikOlustur || false },
+      modulIzinler,
       sinifAtamalari:   atamalari,
       sinifIdler:       [...new Set(atamalari.flatMap(a => a.siniflar || []))],
       erisimKurumIdler: [...new Set(atamalari.map(a => a.kurumId).filter(Boolean))],
       parentKurumIdler,
       branslar:         form.branslar || [],
     } : {
-      modulIzinler:     {},
+      modulIzinler,
       sinifAtamalari:   [],
       sinifIdler:       [],
       erisimKurumIdler: [],
@@ -319,22 +332,33 @@ export default function KurumKullanicilar() {
         if (!yeniKurumId) { setHata('Lütfen bir kurum seçin.'); setKaydediyor(false); return }
 
         // Global kullanicilar kaydını güncelle
-        // ogretmenEkstra sadece öğretmen rolüne uygulanır (kurum_admin profilini bozmasın)
         const globalGuncelleme = { ad: form.ad, rol: form.rol, kurumId: yeniKurumId }
-        if (form.rol === 'ogretmen') Object.assign(globalGuncelleme, ogretmenEkstra)
+        if (form.rol === 'ogretmen') {
+          Object.assign(globalGuncelleme, ogretmenEkstra)
+        } else {
+          globalGuncelleme.modulIzinler = modulIzinler
+        }
         await updateDoc(doc(db, 'kullanicilar', uid), globalGuncelleme)
 
         if (yeniKurumId !== eskiKurumId) {
           const batch = writeBatch(db)
           batch.delete(doc(db, 'kurumlar', eskiKurumId, 'kullanicilar', uid))
           const subDoc = { ad: form.ad, email: duzenlenen.email, rol: form.rol, kurumId: yeniKurumId, durum: 'aktif' }
-          if (form.rol === 'ogretmen') Object.assign(subDoc, ogretmenEkstra)
+          if (form.rol === 'ogretmen') {
+            Object.assign(subDoc, ogretmenEkstra)
+          } else {
+            subDoc.modulIzinler = modulIzinler
+          }
           batch.set(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), subDoc)
           await batch.commit()
         } else {
           // setDoc+merge: subcollection doc yoksa oluşturur, varsa günceller
           const subGuncelleme = { ad: form.ad, rol: form.rol }
-          if (form.rol === 'ogretmen') Object.assign(subGuncelleme, ogretmenEkstra)
+          if (form.rol === 'ogretmen') {
+            Object.assign(subGuncelleme, ogretmenEkstra)
+          } else {
+            subGuncelleme.modulIzinler = modulIzinler
+          }
           await setDoc(doc(db, 'kurumlar', yeniKurumId, 'kullanicilar', uid), subGuncelleme, { merge: true })
         }
 
@@ -886,6 +910,16 @@ export default function KurumKullanicilar() {
                     ℹ Alt kurum admini yalnızca öğretmen ekleyebilir
                   </span>
                 )}
+              </div>
+
+              {/* İş Emri Yetkisi Checkbox */}
+              <div style={{ ...s.alan, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', marginTop: '0.5rem' }}>
+                <input type="checkbox" id="isEmri" checked={form.isEmri || false}
+                  onChange={e => setForm(f => ({ ...f, isEmri: e.target.checked }))}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                <label htmlFor="isEmri" style={{ ...s.etiket, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem' }}>
+                  🛠️ İş Emri Takip Yetkisi (İşletme / Teknik / Temizlik Personeli için)
+                </label>
               </div>
 
               {/* ── Öğretmen Alanları ── */}
