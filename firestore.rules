@@ -111,7 +111,7 @@ service cloud.firestore {
 
       match /sistemBildirimleri/{bildirimId} {
         allow read:  if platformAdmin() || kurumUyesi(kurumId) || ogretmenKurumErisimi(kurumId);
-        allow write: if platformAdmin();
+        allow write: if platformAdmin() || kurumAdmin(kurumId);
       }
     }
 
