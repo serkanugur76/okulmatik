@@ -7,6 +7,11 @@ import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { logKaydet } from '../../services/logService'
 
+function parseSinif(ad) {
+  const m = (ad || '').match(/^(\d+)(.*)$/)
+  return m ? { n: parseInt(m[1]), h: m[2].trim() } : { n: 999, h: ad || '' }
+}
+
 export default function KurumDonemIslemleri() {
   const { secilenKurumId: kurumId, secilenKurum } = useKurumYonetim()
   const { profil, kullanici } = useAuth()
@@ -189,12 +194,39 @@ export default function KurumDonemIslemleri() {
     }
   }
 
-  // 5. Tablo Filtreleme
+  // 5. Öğrencileri sınıf düzeylerine (sayısal), şubelerine (alfabetik) ve isimlerine göre sıralama
+  const siraliOgrenciler = useMemo(() => {
+    return [...ogrenciler].sort((a, b) => {
+      // Sınıfsız öğrencileri listenin en sonuna atıyoruz
+      if (!a.sinifAd && b.sinifAd) return 1
+      if (a.sinifAd && !b.sinifAd) return -1
+      if (!a.sinifAd && !b.sinifAd) {
+        const nameComp = (a.ad || '').localeCompare(b.ad || '', 'tr')
+        if (nameComp !== 0) return nameComp
+        return (a.soyad || '').localeCompare(b.soyad || '', 'tr')
+      }
+
+      // Sınıf adına göre sırala (numerik düzey + şube harfi)
+      const pA = parseSinif(a.sinifAd)
+      const pB = parseSinif(b.sinifAd)
+
+      if (pA.n !== pB.n) return pA.n - pB.n
+      const branchComp = pA.h.localeCompare(pB.h, 'tr')
+      if (branchComp !== 0) return branchComp
+
+      // İsim ve soyisme göre alfabetik sıralama
+      const nameComp = (a.ad || '').localeCompare(b.ad || '', 'tr')
+      if (nameComp !== 0) return nameComp
+      return (a.soyad || '').localeCompare(b.soyad || '', 'tr')
+    })
+  }, [ogrenciler])
+
+  // 6. Tablo Filtreleme
   const filtrelenmisOgrenciler = useMemo(() => {
-    if (seciliSinifId === 'hepsi') return ogrenciler
-    if (seciliSinifId === 'sinifsiz') return ogrenciler.filter(o => !o.sinifId)
-    return ogrenciler.filter(o => o.sinifId === seciliSinifId)
-  }, [ogrenciler, seciliSinifId])
+    if (seciliSinifId === 'hepsi') return siraliOgrenciler
+    if (seciliSinifId === 'sinifsiz') return siraliOgrenciler.filter(o => !o.sinifId)
+    return siraliOgrenciler.filter(o => o.sinifId === seciliSinifId)
+  }, [siraliOgrenciler, seciliSinifId])
 
   // Styles
   const s = {
