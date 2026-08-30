@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  collection, getDocs, addDoc, onSnapshot, query, orderBy, doc, getDoc, setDoc, serverTimestamp
+  collection, getDocs, addDoc, onSnapshot, query, orderBy, doc, getDoc, setDoc, updateDoc, serverTimestamp
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
@@ -407,11 +407,71 @@ export default function PlatformSistemIslemleri() {
         aktifEgitimYili: yeniDonemForm.egitimYili
       }, { merge: true })
 
-      // Sınıf atlatma simülasyonu logu ekle
+      // Sınıf atlatma işlemi (Gerçek veri güncellemesi)
       let atlatDetay = ''
       if (yeniDonemForm.sinifAtlat) {
         atlatDetay = ' & Öğrenciler bir üst sınıf düzeyine aktarıldı'
-        // Burada gerçekte öğrencilerin sınıf düzeylerini 1 artırma simülasyonunu veritabanı loguna işliyoruz.
+        const altKurumlar = erisimKurumlar.filter(k => k.tip === 'altKurum')
+        
+        for (const k of altKurumlar) {
+          // 1. O okuldaki sınıfları çek
+          const sinifSnap = await getDocs(collection(db, 'kurumlar', k.id, 'siniflar'))
+          const okulSiniflar = sinifSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+          
+          // Sınıfları seviye_sube key'ine göre haritala
+          const sinifMap = {}
+          okulSiniflar.forEach(s => {
+            if (s.seviye && s.sube) {
+              const key = `${s.seviye}_${s.sube.toUpperCase().trim()}`
+              sinifMap[key] = s
+            }
+          })
+
+          // 2. O okuldaki öğrencileri çek
+          const ogrenciSnap = await getDocs(collection(db, 'kurumlar', k.id, 'ogrenciler'))
+          const okulOgrenciler = ogrenciSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+          // 3. Her öğrenci için sınıf atlatma uygula
+          for (const ogr of okulOgrenciler) {
+            if (!ogr.sinifId) continue // Sınıfı yoksa atla
+            
+            const gecerliSinif = okulSiniflar.find(s => s.id === ogr.sinifId)
+            if (!gecerliSinif) continue
+
+            const currentSeviye = parseInt(gecerliSinif.seviye, 10)
+            const sube = (gecerliSinif.sube || '').toUpperCase().trim()
+
+            if (!isNaN(currentSeviye)) {
+              const yeniSeviye = currentSeviye + 1
+              const hedefSinifKey = `${yeniSeviye}_${sube}`
+              const hedefSinif = sinifMap[hedefSinifKey]
+
+              const docRef = doc(db, 'kurumlar', k.id, 'ogrenciler', ogr.id)
+
+              // Mezuniyet limit kontrolü (İlkokul: 4, Ortaokul: 8, Lise: 12)
+              let maxSeviye = 12
+              if (k.okulTuru === 'ilkokul') maxSeviye = 4
+              else if (k.okulTuru === 'ortaokul') maxSeviye = 8
+
+              if (yeniSeviye > maxSeviye || !hedefSinif) {
+                // Sınıfsız bırak ve mezun et
+                await updateDoc(docRef, {
+                  sinifId: '',
+                  sinifAd: '',
+                  durum: 'mezun',
+                  guncellenmeTarihi: serverTimestamp()
+                })
+              } else {
+                // Bir üst sınıfa geçir
+                await updateDoc(docRef, {
+                  sinifId: hedefSinif.id,
+                  sinifAd: hedefSinif.ad,
+                  guncellenmeTarihi: serverTimestamp()
+                })
+              }
+            }
+          }
+        }
       }
 
       // 2. Log kaydet
