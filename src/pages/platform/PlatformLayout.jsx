@@ -51,6 +51,7 @@ const KURUM_MENULER = [
   { yol: '/platform/kurum/nobet',           etiket: 'Nöbet Yönetimi',   ikon: '🛡️' },
   { yol: '/platform/kurum/kulupler',        etiket: 'Kulüp Yönetimi',   ikon: '🏆' },
   { yol: '/platform/kurum/kutuphane',       etiket: 'Kütüphane',        ikon: '📚' },
+  { yol: '/platform/kurum/is-emirleri',     etiket: 'İş Emri Takip',    ikon: '🛠️' },
   { yol: '/platform/kurum/arge',            etiket: 'Ar-Ge & Bilim Projeleri', ikon: '🔬' },
 ]
 
