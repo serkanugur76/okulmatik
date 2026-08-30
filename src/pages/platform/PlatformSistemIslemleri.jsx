@@ -413,6 +413,58 @@ export default function PlatformSistemIslemleri() {
             else if (k.okulTuru === 'ortaokul') maxSeviye = 8
 
             if (yeniSeviye > maxSeviye || !hedefSinif) {
+              // 4. sınıf İlkokul öğrencisi mi? Sibling Ortaokul'a aktar (sınıfsız aktif durumuna çek)
+              if (k.okulTuru === 'ilkokul' && yeniSeviye === 5) {
+                const siblingOrtaokul = erisimKurumlar.find(
+                  x => x.parentId === k.parentId && x.okulTuru === 'ortaokul' && x.id !== k.id
+                )
+                if (siblingOrtaokul) {
+                  const targetOgrRef = doc(db, 'kurumlar', siblingOrtaokul.id, 'ogrenciler', ogr.id)
+                  await setDoc(targetOgrRef, {
+                    ad: ogr.ad || '',
+                    soyad: ogr.soyad || '',
+                    ogrenciNo: ogr.ogrenciNo || '',
+                    cinsiyet: ogr.cinsiyet || '',
+                    dogumTarihi: ogr.dogumTarihi || '',
+                    anneAdSoyad: ogr.anneAdSoyad || '',
+                    anneTelefon: ogr.anneTelefon || '',
+                    babaAdSoyad: ogr.babaAdSoyad || '',
+                    babaTelefon: ogr.babaTelefon || '',
+                    email: ogr.email || '',
+                    sinifId: '',
+                    sinifAd: '',
+                    durum: 'aktif',
+                    olusturmaTarihi: serverTimestamp()
+                  })
+                }
+              }
+
+              // Ortaokul 8. sınıf öğrencisi mi? Sibling Lise'ye aktar (sınıfsız aktif durumuna çek)
+              if (k.okulTuru === 'ortaokul' && yeniSeviye === 9) {
+                const siblingLise = erisimKurumlar.find(
+                  x => x.parentId === k.parentId && x.okulTuru === 'lise' && x.id !== k.id
+                )
+                if (siblingLise) {
+                  const targetOgrRef = doc(db, 'kurumlar', siblingLise.id, 'ogrenciler', ogr.id)
+                  await setDoc(targetOgrRef, {
+                    ad: ogr.ad || '',
+                    soyad: ogr.soyad || '',
+                    ogrenciNo: ogr.ogrenciNo || '',
+                    cinsiyet: ogr.cinsiyet || '',
+                    dogumTarihi: ogr.dogumTarihi || '',
+                    anneAdSoyad: ogr.anneAdSoyad || '',
+                    anneTelefon: ogr.anneTelefon || '',
+                    babaAdSoyad: ogr.babaAdSoyad || '',
+                    babaTelefon: ogr.babaTelefon || '',
+                    email: ogr.email || '',
+                    sinifId: '',
+                    sinifAd: '',
+                    durum: 'aktif',
+                    olusturmaTarihi: serverTimestamp()
+                  })
+                }
+              }
+
               await updateDoc(docRef, {
                 sinifId: '',
                 sinifAd: '',
@@ -693,6 +745,58 @@ export default function PlatformSistemIslemleri() {
               else if (k.okulTuru === 'ortaokul') maxSeviye = 8
 
               if (yeniSeviye > maxSeviye || !hedefSinif) {
+                // 4. sınıf İlkokul öğrencisi mi? Sibling Ortaokul'a aktar (sınıfsız aktif durumuna çek)
+                if (k.okulTuru === 'ilkokul' && yeniSeviye === 5) {
+                  const siblingOrtaokul = altKurumlar.find(
+                    x => x.parentId === k.parentId && x.okulTuru === 'ortaokul' && x.id !== k.id
+                  )
+                  if (siblingOrtaokul) {
+                    const targetOgrRef = doc(db, 'kurumlar', siblingOrtaokul.id, 'ogrenciler', ogr.id)
+                    await setDoc(targetOgrRef, {
+                      ad: ogr.ad || '',
+                      soyad: ogr.soyad || '',
+                      ogrenciNo: ogr.ogrenciNo || '',
+                      cinsiyet: ogr.cinsiyet || '',
+                      dogumTarihi: ogr.dogumTarihi || '',
+                      anneAdSoyad: ogr.anneAdSoyad || '',
+                      anneTelefon: ogr.anneTelefon || '',
+                      babaAdSoyad: ogr.babaAdSoyad || '',
+                      babaTelefon: ogr.babaTelefon || '',
+                      email: ogr.email || '',
+                      sinifId: '',
+                      sinifAd: '',
+                      durum: 'aktif',
+                      olusturmaTarihi: serverTimestamp()
+                    })
+                  }
+                }
+
+                // Ortaokul 8. sınıf öğrencisi mi? Sibling Lise'ye aktar (sınıfsız aktif durumuna çek)
+                if (k.okulTuru === 'ortaokul' && yeniSeviye === 9) {
+                  const siblingLise = altKurumlar.find(
+                    x => x.parentId === k.parentId && x.okulTuru === 'lise' && x.id !== k.id
+                  )
+                  if (siblingLise) {
+                    const targetOgrRef = doc(db, 'kurumlar', siblingLise.id, 'ogrenciler', ogr.id)
+                    await setDoc(targetOgrRef, {
+                      ad: ogr.ad || '',
+                      soyad: ogr.soyad || '',
+                      ogrenciNo: ogr.ogrenciNo || '',
+                      cinsiyet: ogr.cinsiyet || '',
+                      dogumTarihi: ogr.dogumTarihi || '',
+                      anneAdSoyad: ogr.anneAdSoyad || '',
+                      anneTelefon: ogr.anneTelefon || '',
+                      babaAdSoyad: ogr.babaAdSoyad || '',
+                      babaTelefon: ogr.babaTelefon || '',
+                      email: ogr.email || '',
+                      sinifId: '',
+                      sinifAd: '',
+                      durum: 'aktif',
+                      olusturmaTarihi: serverTimestamp()
+                    })
+                  }
+                }
+
                 // Sınıfsız bırak ve mezun et
                 await updateDoc(docRef, {
                   sinifId: '',
