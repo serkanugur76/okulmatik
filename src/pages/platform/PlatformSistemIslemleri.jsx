@@ -31,6 +31,12 @@ export default function PlatformSistemIslemleri() {
   const [yedekMesaj, setYedekMesaj] = useState('')
   const [gecmisYedekler, setGecmisYedekler] = useState([])
 
+  // ── States for Geri Yükleme ────────────────────────────────
+  const [geriYukleDosya, setGeriYukleDosya] = useState(null)
+  const [geriYukleMeta, setGeriYukleMeta] = useState(null)
+  const [geriYukleYukleniyor, setGeriYukleYukleniyor] = useState(false)
+  const [geriYukleMesaj, setGeriYukleMesaj] = useState('')
+
   // ── States for Dönem Sonu ──────────────────────────────────
   const [donemSonuYukleniyor, setDonemSonuYukleniyor] = useState(false)
   const [donemSonuPrecheck, setDonemSonuPrecheck] = useState({
@@ -256,6 +262,98 @@ export default function PlatformSistemIslemleri() {
       alert('Yedekleme sırasında hata oluştu: ' + err.message)
     } finally {
       setYedekYükleniyor(false)
+    }
+  }
+
+  // ── Geri Yükleme Handlers ──────────────────────────────────
+  function handleFileChange(e) {
+    const file = e.target.files[0]
+    if (!file) {
+      setGeriYukleDosya(null)
+      setGeriYukleMeta(null)
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target.result)
+        if (!parsed.yedekBilgisi || !parsed.koleksiyonlar) {
+          alert('Geçersiz yedek dosyası formatı! Yedek bilgisi veya koleksiyonlar bulunamadı.')
+          setGeriYukleDosya(null)
+          setGeriYukleMeta(null)
+          e.target.value = ''
+          return
+        }
+        setGeriYukleDosya(parsed)
+        setGeriYukleMeta(parsed.yedekBilgisi)
+      } catch (err) {
+        alert('Dosya okuma hatası: JSON formatı geçersiz.')
+        setGeriYukleDosya(null)
+        setGeriYukleMeta(null)
+        e.target.value = ''
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  async function handleRestoreCalistir() {
+    if (!geriYukleDosya) return
+    if (!window.confirm('DİKKAT: Seçilen yedek dosyasındaki veriler Firestore veritabanına yazılacaktır. Mevcut verilerin üzerine yazılabilir. Devam etmek istiyor musunuz?')) return
+
+    setGeriYukleYukleniyor(true)
+    setGeriYukleMesaj('Geri yükleme işlemi başlatılıyor...')
+
+    try {
+      const { koleksiyonlar } = geriYukleDosya
+
+      // 1. Global koleksiyonları yükle
+      const globalKoleksiyonlar = ['kurumlar', 'kullanicilar', 'yetkiliKullanicilar', 'islemLoglari']
+      for (const col of globalKoleksiyonlar) {
+        if (koleksiyonlar[col] && Array.isArray(koleksiyonlar[col])) {
+          setGeriYukleMesaj(`Global koleksiyon geri yükleniyor: ${col}...`)
+          for (const item of koleksiyonlar[col]) {
+            const { id, ...data } = item
+            await setDoc(doc(db, col, id), data)
+          }
+        }
+      }
+
+      // 2. Okul bazlı alt koleksiyonları yükle
+      const subNames = ['siniflar', 'ogrenciler', 'rubrikler', 'degerlendirmeler', 'kitaplar', 'oduncKayitlari']
+      for (const sub of subNames) {
+        if (koleksiyonlar[sub] && Array.isArray(koleksiyonlar[sub])) {
+          setGeriYukleMesaj(`Alt koleksiyon geri yükleniyor: ${sub}...`)
+          for (const item of koleksiyonlar[sub]) {
+            const { id, _kurumId, _kurumAd, ...data } = item
+            if (_kurumId) {
+              await setDoc(doc(db, 'kurumlar', _kurumId, sub, id), data)
+            }
+          }
+        }
+      }
+
+      // Log kaydet
+      await logKaydet({
+        profil,
+        kullanici,
+        islem: 'guncelle',
+        modul: 'kullanicilar',
+        hedefAd: `Yedek Geri Yükleme - ${geriYukleMeta.tarih}`,
+        kurumId: '',
+        detay: `Veri yedek geri yüklemesi yapıldı. Yapan: ${profil?.email}`
+      })
+
+      setGeriYukleMesaj('')
+      setGeriYukleDosya(null)
+      setGeriYukleMeta(null)
+      alert('Geri yükleme işlemi başarıyla tamamlandı! Sayfayı yenileyerek verileri kontrol edebilirsiniz.')
+      window.location.reload()
+    } catch (err) {
+      console.error(err)
+      alert('Geri yükleme sırasında hata oluştu: ' + err.message)
+    } finally {
+      setGeriYukleYukleniyor(false)
     }
   }
 
@@ -556,6 +654,72 @@ export default function PlatformSistemIslemleri() {
                 {yedekYükleniyor ? '⏳ Lütfen Bekleyin...' : '💾 Seçili Verileri Yedekle ve İndir'}
               </button>
               {yedekYükleniyor && <span style={{ fontSize: '0.85rem', color: '#4F46E5', fontWeight: '600' }}>{yedekMesaj}</span>}
+            </div>
+          </div>
+
+          {/* Geri Yükleme Aracı */}
+          <div style={styles.card}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem' }}>
+              Veri Geri Yükleme (Restore)
+            </h2>
+            <p style={{ color: '#64748B', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+              Daha önce indirmiş olduğunuz JSON yedek dosyasını yükleyerek veritabanını geri yükleyebilirsiniz.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '500px' }}>
+              <div style={{ border: '2px dashed #CBD5E1', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', background: '#F8FAFC' }}>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                  id="backup-upload-input"
+                  disabled={geriYukleYukleniyor}
+                />
+                <label htmlFor="backup-upload-input" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '2rem' }}>📁</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#4F46E5' }}>
+                    {geriYukleMeta ? 'Başka Bir Dosya Seç' : 'Yedek Dosyası Seç (.json)'}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                    Yedek dosyasını sürükleyin veya tıklayarak seçin
+                  </span>
+                </label>
+              </div>
+
+              {geriYukleMeta && (
+                <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', padding: '1rem', fontSize: '0.85rem' }}>
+                  <h4 style={{ fontWeight: '800', color: '#1E40AF', marginBottom: '0.5rem' }}>Yedek Dosyası Detayları:</h4>
+                  <div>📅 <strong>Oluşturma Tarihi:</strong> {new Date(geriYukleMeta.tarih).toLocaleString('tr-TR')}</div>
+                  <div>👤 <strong>Oluşturan:</strong> {geriYukleMeta.olusturan}</div>
+                  <div>🏷️ <strong>Yedek Versiyonu:</strong> {geriYukleMeta.versiyon}</div>
+                </div>
+              )}
+
+              {geriYukleMeta && (
+                <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '12px', padding: '1rem', fontSize: '0.82rem', color: '#991B1B' }}>
+                  <strong>⚠️ UYARI:</strong> Geri yükleme işlemi, çakışan tüm veritabanı kayıtlarının üzerine yazacaktır. Bu işlem geri alınamaz! Devam etmeden önce mevcut sistem yedeğini aldığınızdan emin olun.
+                </div>
+              )}
+
+              <div>
+                <button
+                  style={{
+                    ...styles.btnDanger,
+                    opacity: !geriYukleDosya || geriYukleYukleniyor ? 0.6 : 1,
+                    cursor: !geriYukleDosya || geriYukleYukleniyor ? 'not-allowed' : 'pointer'
+                  }}
+                  onClick={handleRestoreCalistir}
+                  disabled={!geriYukleDosya || geriYukleYukleniyor}
+                >
+                  {geriYukleYukleniyor ? '⏳ Geri Yükleniyor...' : '🔄 Yedekten Geri Yüklemeyi Başlat'}
+                </button>
+                {geriYukleYukleniyor && (
+                  <span style={{ fontSize: '0.85rem', color: '#EF4444', fontWeight: '600', marginLeft: '1rem' }}>
+                    {geriYukleMesaj}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
