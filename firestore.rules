@@ -296,11 +296,11 @@ service cloud.firestore {
     }
     match /kurumlar/{kurumId}/isEmirleri/{isEmriId} {
       allow read:  if platformAdmin()
-                   || (kurumUyesi(kurumId) 
+                   || ((kurumUyesi(kurumId) || ogretmenKurumErisimi(kurumId))
                        && (kullaniciBilgisi().rol == 'kurum_admin' 
                            || kullaniciBilgisi().get('modulIzinler', {}).get('is_emri', false) == true));
       allow write: if platformAdmin()
-                   || (kurumUyesi(kurumId) 
+                   || ((kurumUyesi(kurumId) || ogretmenKurumErisimi(kurumId))
                        && (kullaniciBilgisi().rol == 'kurum_admin' 
                            || kullaniciBilgisi().get('modulIzinler', {}).get('is_emri', false) == true));
     }
