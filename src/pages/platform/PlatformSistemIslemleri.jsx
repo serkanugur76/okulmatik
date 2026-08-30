@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  collection, getDocs, addDoc, onSnapshot, query, orderBy, doc, getDoc, setDoc, updateDoc, serverTimestamp
+  collection, getDocs, addDoc, onSnapshot, query, orderBy, doc, getDoc, setDoc, updateDoc, serverTimestamp, deleteDoc
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
@@ -293,6 +293,59 @@ export default function PlatformSistemIslemleri() {
       alert(`"${okul.ad}" için dönem sonu onay uyarısı başarıyla gönderildi!`)
     } catch (err) {
       alert('Uyarı gönderilirken hata: ' + err.message)
+    }
+  }
+
+  // ── Okulu Onaysız Zorunlu Devretme Handleri ──────────────────────────────
+  async function handleForceOnay(okul) {
+    if (!aktifAyarlar) return
+    const activeTermKey = `${aktifAyarlar.aktifEgitimYili}_${aktifAyarlar.aktifDonem}`
+    
+    if (!window.confirm(`"${okul.ad}" okulunu onay almadan devretmek istediğinize emin misiniz?\n\nBu işlem okuldaki tüm aktif öğrencilerin sınıf atamalarını (sınıf adı ve ID) silerek boşa çıkartacaktır.`)) {
+      return
+    }
+
+    try {
+      // 1. Okuldaki öğrencileri çek ve sınıf bilgilerini sıfırla
+      const ogrenciSnap = await getDocs(collection(db, 'kurumlar', okul.id, 'ogrenciler'))
+      for (const d of ogrenciSnap.docs) {
+        const o = d.data()
+        if (o.durum !== 'mezun' && o.durum !== 'ayrildi') {
+          await updateDoc(doc(db, 'kurumlar', okul.id, 'ogrenciler', d.id), {
+            sinifId: '',
+            sinifAd: '',
+            guncellenmeTarihi: serverTimestamp()
+          })
+        }
+      }
+
+      // 2. Okulun donemOnayRef alanını aktif dönem anahtarı ile güncelle (blokajı aşmak için)
+      await updateDoc(doc(db, 'kurumlar', okul.id), {
+        donemOnayRef: activeTermKey
+      })
+
+      // 3. Varsa bu okulun sistem bildirimlerini temizle
+      const warnRef = doc(db, 'kurumlar', okul.id, 'sistemBildirimleri', 'donem_sonu_uyarisi')
+      try {
+        await deleteDoc(warnRef)
+      } catch (e) {
+        // Yoksa hata vermesin
+      }
+
+      // 4. Log kaydet
+      await logKaydet({
+        profil,
+        kullanici,
+        islem: 'guncelle',
+        modul: 'kurumlar',
+        hedefAd: okul.ad,
+        kurumId: okul.id,
+        detay: 'Dönem sonu onayı Süper Admin tarafından zorunlu olarak geçildi ve tüm öğrenciler sınıf dışına çıkarıldı.'
+      })
+
+      alert(`"${okul.ad}" okulu başarıyla devredilebilir duruma getirildi (tüm öğrencilerin sınıfları boşaltıldı).`)
+    } catch (err) {
+      alert('Zorunlu devir sırasında hata oluştu: ' + err.message)
     }
   }
 
@@ -992,21 +1045,38 @@ export default function PlatformSistemIslemleri() {
                         </td>
                         <td style={{ ...styles.tableCell, textAlign: 'right' }}>
                           {!onayli && (
-                            <button
-                              onClick={() => handleSendWarning(okul)}
-                              style={{
-                                padding: '4px 10px',
-                                background: '#FFF1F2',
-                                border: '1px solid #FECDD3',
-                                color: '#991B1B',
-                                borderRadius: '6px',
-                                fontSize: '0.75rem',
-                                fontWeight: '700',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              📢 Uyar (Push)
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                              <button
+                                onClick={() => handleSendWarning(okul)}
+                                style={{
+                                  padding: '4px 10px',
+                                  background: '#FFF1F2',
+                                  border: '1px solid #FECDD3',
+                                  color: '#991B1B',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '700',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                📢 Uyar
+                              </button>
+                              <button
+                                onClick={() => handleForceOnay(okul)}
+                                style={{
+                                  padding: '4px 10px',
+                                  background: '#EFF6FF',
+                                  border: '1px solid #BFDBFE',
+                                  color: '#1D4ED8',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '700',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ⚡ Onaysız Devret (Sınıfları Boşalt)
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
