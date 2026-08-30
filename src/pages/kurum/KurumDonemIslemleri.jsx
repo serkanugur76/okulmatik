@@ -369,26 +369,34 @@ export default function KurumDonemIslemleri() {
                         <td style={{ ...s.tableCell, fontWeight: '700' }}>{o.ad} {o.soyad}</td>
                         <td style={s.tableCell}>{o.sinifAd || 'Sınıfsız'}</td>
                         <td style={s.tableCell}>
-                          <select
-                            value={ogrenciSiniflar[o.id] || ''}
-                            onChange={(e) => setOgrenciSiniflar(prev => ({ ...prev, [o.id]: e.target.value }))}
-                            disabled={onayliMi || kaydediyor || !kayitDurumu[o.id]}
-                            style={{
-                              padding: '5px 10px',
-                              border: '1.5px solid #CBD5E1',
-                              borderRadius: '6px',
-                              fontSize: '0.85rem',
-                              color: '#334155',
-                              background: '#ffffff',
-                              outline: 'none',
-                              cursor: !kayitDurumu[o.id] ? 'not-allowed' : 'pointer'
-                            }}
-                          >
-                            <option value="">Sınıfsız (Boş)</option>
-                            {siniflar.map(sf => (
-                              <option key={sf.id} value={sf.id}>{sf.ad}</option>
-                            ))}
-                          </select>
+                          {(() => {
+                            const ogrenciMevcutSinif = siniflar.find(sf => sf.id === o.sinifId)
+                            const seviye = ogrenciMevcutSinif?.seviye || ''
+                            const uygunSiniflar = seviye ? siniflar.filter(sf => sf.seviye === seviye) : siniflar
+
+                            return (
+                              <select
+                                value={ogrenciSiniflar[o.id] || ''}
+                                onChange={(e) => setOgrenciSiniflar(prev => ({ ...prev, [o.id]: e.target.value }))}
+                                disabled={onayliMi || kaydediyor || !kayitDurumu[o.id]}
+                                style={{
+                                  padding: '5px 10px',
+                                  border: '1.5px solid #CBD5E1',
+                                  borderRadius: '6px',
+                                  fontSize: '0.85rem',
+                                  color: '#334155',
+                                  background: '#ffffff',
+                                  outline: 'none',
+                                  cursor: !kayitDurumu[o.id] ? 'not-allowed' : 'pointer'
+                                }}
+                              >
+                                <option value="">Sınıfsız (Boş)</option>
+                                {uygunSiniflar.map(sf => (
+                                  <option key={sf.id} value={sf.id}>{sf.ad}</option>
+                                ))}
+                              </select>
+                            )
+                          })()}
                         </td>
                         <td style={s.tableCell}>
                           <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: '#D1FAE5', color: '#065F46', fontWeight: '700' }}>
