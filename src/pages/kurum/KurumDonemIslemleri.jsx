@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  collection, getDocs, onSnapshot, query, orderBy, doc, getDoc, updateDoc, serverTimestamp, setDoc, deleteDoc
+  collection, getDocs, onSnapshot, query, orderBy, doc, getDoc, updateDoc, serverTimestamp, setDoc, deleteDoc, where
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useKurumYonetim } from '../../contexts/KurumYonetimContext'
@@ -18,6 +18,8 @@ export default function KurumDonemIslemleri() {
   
   // Öğrencinin yeni dönemde devam edip etmeyeceği state'i: { [ogrenciId]: boolean }
   const [kayitDurumu, setKayitDurumu] = useState({})
+  // Öğrencinin hedef şube/sınıf değişikliği state'i: { [ogrenciId]: sinifId }
+  const [ogrenciSiniflar, setOgrenciSiniflar] = useState({})
   
   const [yukleniyor, setYukleniyor] = useState(true)
   const [kaydediyor, setKaydediyor] = useState(false)
@@ -81,6 +83,17 @@ export default function KurumDonemIslemleri() {
         })
         return next
       })
+
+      // Sınıf durumlarını varsayılan olarak mevcut sınıfId yap
+      setOgrenciSiniflar(prev => {
+        const next = { ...prev }
+        aktifler.forEach(o => {
+          if (next[o.id] === undefined) {
+            next[o.id] = o.sinifId || ''
+          }
+        })
+        return next
+      })
       setYukleniyor(false)
     }, err => {
       setHata('Öğrenci verisi yüklenirken hata: ' + err.message)
@@ -105,13 +118,14 @@ export default function KurumDonemIslemleri() {
   // 4. Dönem Onayını Tamamla
   async function handleOnayla() {
     if (!kurumId || !activeTermKey) return
-    if (!window.confirm('Bu okuldaki öğrencilerin yeni dönem kayıt durumunu onaylamak istediğinize emin misiniz? Bu işlemden sonra kayıt yenilemeyecek olarak işaretlediğiniz öğrenciler sınıflarından çıkartılacak ve durumları "ayrıldı" olarak işaretlenecektir.')) return
+    if (!window.confirm('Bu okuldaki öğrencilerin yeni dönem kayıt durumunu ve şube değişikliklerini onaylamak istediğinize emin misiniz? Bu işlemden sonra kayıt yenilemeyen öğrenciler sistemde "ayrıldı" olarak işaretlenecek ve sınıf değiştirenlerin şubeleri güncellenecektir.')) return
 
     setKaydediyor(true)
     setHata('')
 
     try {
       const ayrilacaklar = ogrenciler.filter(o => !kayitDurumu[o.id])
+      const devamEdenler = ogrenciler.filter(o => kayitDurumu[o.id])
 
       // 1. Kayıt yenilemeyen öğrencileri veritabanında güncelle
       for (const ogr of ayrilacaklar) {
@@ -124,13 +138,29 @@ export default function KurumDonemIslemleri() {
         })
       }
 
-      // 2. Kurum belgesine dönem onayı referansını yaz
+      // 2. Devam edenlerin sınıf/şube değişikliklerini güncelle
+      for (const ogr of devamEdenler) {
+        const yeniSinifId = ogrenciSiniflar[ogr.id] || ''
+        const eskiSinifId = ogr.sinifId || ''
+
+        if (yeniSinifId !== eskiSinifId) {
+          const yeniSinif = siniflar.find(s => s.id === yeniSinifId)
+          const docRef = doc(db, 'kurumlar', kurumId, 'ogrenciler', ogr.id)
+          await updateDoc(docRef, {
+            sinifId: yeniSinifId,
+            sinifAd: yeniSinif ? yeniSinif.ad : '',
+            guncellenmeTarihi: serverTimestamp()
+          })
+        }
+      }
+
+      // 3. Kurum belgesine dönem onayı referansını yaz
       const kurumRef = doc(db, 'kurumlar', kurumId)
       await updateDoc(kurumRef, {
         donemOnayRef: activeTermKey
       })
 
-      // 3. Varsa bu kuruma ait dönem sonu uyarısını sistem bildirimlerinden kaldır
+      // 4. Varsa bu kuruma ait dönem sonu uyarısını sistem bildirimlerinden kaldır
       const uyarilarQ = query(
         collection(db, 'kurumlar', kurumId, 'sistemBildirimleri'),
         where('tip', '==', 'donem_sonu_uyarisi')
@@ -140,7 +170,7 @@ export default function KurumDonemIslemleri() {
         await deleteDoc(doc(db, 'kurumlar', kurumId, 'sistemBildirimleri', d.id))
       }
 
-      // 4. İşlem günlüğü kaydet
+      // 5. İşlem günlüğü kaydet
       await logKaydet({
         profil,
         kullanici,
@@ -148,7 +178,7 @@ export default function KurumDonemIslemleri() {
         modul: 'kurumlar',
         hedefAd: secilenKurum?.ad || 'Kurum',
         kurumId,
-        detay: `Dönem sonu kayıt yenileme onayı verildi. Kayıt yenilemeyen öğrenci sayısı: ${ayrilacaklar.length}`
+        detay: `Dönem sonu kayıt yenileme ve şube değişikliği onayı verildi. Ayrılan: ${ayrilacaklar.length}, Devam Eden: ${devamEdenler.length}`
       })
 
       setTamamlandi(true)
@@ -320,6 +350,7 @@ export default function KurumDonemIslemleri() {
                     <th style={s.tableHeader}>TC / Öğrenci No</th>
                     <th style={s.tableHeader}>Adı Soyadı</th>
                     <th style={s.tableHeader}>Mevcut Sınıfı</th>
+                    <th style={s.tableHeader}>Sınıf / Şube Değiştir</th>
                     <th style={s.tableHeader}>Mevcut Durumu</th>
                     <th style={{ ...s.tableHeader, textAlign: 'center', width: '200px' }}>Yeni Dönemde Devam Ediyor</th>
                   </tr>
@@ -327,7 +358,7 @@ export default function KurumDonemIslemleri() {
                 <tbody>
                   {filtrelenmisOgrenciler.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ padding: '2.5rem', textAlign: 'center', color: '#64748B', fontSize: '0.875rem' }}>
+                      <td colSpan={6} style={{ padding: '2.5rem', textAlign: 'center', color: '#64748B', fontSize: '0.875rem' }}>
                         Bu filtreye uygun öğrenci bulunmamaktadır.
                       </td>
                     </tr>
@@ -337,6 +368,28 @@ export default function KurumDonemIslemleri() {
                         <td style={s.tableCell}>{o.ogrenciNo || '—'}</td>
                         <td style={{ ...s.tableCell, fontWeight: '700' }}>{o.ad} {o.soyad}</td>
                         <td style={s.tableCell}>{o.sinifAd || 'Sınıfsız'}</td>
+                        <td style={s.tableCell}>
+                          <select
+                            value={ogrenciSiniflar[o.id] || ''}
+                            onChange={(e) => setOgrenciSiniflar(prev => ({ ...prev, [o.id]: e.target.value }))}
+                            disabled={onayliMi || kaydediyor || !kayitDurumu[o.id]}
+                            style={{
+                              padding: '5px 10px',
+                              border: '1.5px solid #CBD5E1',
+                              borderRadius: '6px',
+                              fontSize: '0.85rem',
+                              color: '#334155',
+                              background: '#ffffff',
+                              outline: 'none',
+                              cursor: !kayitDurumu[o.id] ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            <option value="">Sınıfsız (Boş)</option>
+                            {siniflar.map(sf => (
+                              <option key={sf.id} value={sf.id}>{sf.ad}</option>
+                            ))}
+                          </select>
+                        </td>
                         <td style={s.tableCell}>
                           <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: '#D1FAE5', color: '#065F46', fontWeight: '700' }}>
                             Aktif
