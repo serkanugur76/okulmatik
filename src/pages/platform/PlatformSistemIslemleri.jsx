@@ -51,6 +51,7 @@ export default function PlatformSistemIslemleri() {
   })
   const [islemAdimi, setIslemAdimi] = useState(0) // 0: hazır, 1..3: aşamalar, 4: tamamlandı
   const [donemSonuHata, setDonemSonuHata] = useState('')
+  const [okullar, setOkullar] = useState([])
 
   // ── States for Dönem Başı ──────────────────────────────────
   const [aktifAyarlar, setAktifAyarlar] = useState({
@@ -60,7 +61,9 @@ export default function PlatformSistemIslemleri() {
   const [yeniDonemForm, setYeniDonemForm] = useState({
     donem: 2,
     egitimYili: '2025-2026',
-    sinifAtlat: false
+    sinifAtlat: false,
+    siniflariBosalt: false,
+    ogretmenleriBosaCikar: false
   })
   const [donemBasiYukleniyor, setDonemBasiYukleniyor] = useState(false)
   const [donemBasiTamamlandi, setDonemBasiTamamlandi] = useState(false)
@@ -73,7 +76,14 @@ export default function PlatformSistemIslemleri() {
       setGecmisYedekler(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     })
 
-    // 2. Sistem ayarlarını yükle
+    // 2. Okulları dinle (alt kurumlar için canlı onay durumu)
+    const qK = query(collection(db, 'kurumlar'))
+    const unsubKurumlar = onSnapshot(qK, snap => {
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setOkullar(all.filter(x => x.tip === 'altKurum'))
+    })
+
+    // 3. Sistem ayarlarını yükle
     async function ayarYukle() {
       try {
         const docRef = doc(db, 'sistemAyarlari', 'genel')
@@ -88,7 +98,9 @@ export default function PlatformSistemIslemleri() {
           setYeniDonemForm({
             donem: data.aktifDonem === 1 ? 2 : 1,
             egitimYili: data.aktifDonem === 1 ? data.aktifEgitimYili : yeniYilHesapla(data.aktifEgitimYili),
-            sinifAtlat: data.aktifDonem === 2 // 2. dönemden 1. döneme geçerken sınıf atlatma default açık
+            sinifAtlat: data.aktifDonem === 2, // 2. dönemden 1. döneme geçerken sınıf atlatma default açık
+            siniflariBosalt: false,
+            ogretmenleriBosaCikar: false
           })
         }
       } catch (err) {
@@ -101,6 +113,7 @@ export default function PlatformSistemIslemleri() {
 
     return () => {
       unsubYedek()
+      unsubKurumlar()
     }
   }, [])
 
@@ -262,6 +275,24 @@ export default function PlatformSistemIslemleri() {
       alert('Yedekleme sırasında hata oluştu: ' + err.message)
     } finally {
       setYedekYükleniyor(false)
+    }
+  }
+
+  // ── Uyarı Gönderme Handleri ───────────────────────────────
+  async function handleSendWarning(okul) {
+    if (!aktifAyarlar) return
+    const activeTermKey = `${aktifAyarlar.aktifEgitimYili}_${aktifAyarlar.aktifDonem}`
+    try {
+      const warnRef = doc(db, 'kurumlar', okul.id, 'sistemBildirimleri', 'donem_sonu_uyarisi')
+      await setDoc(warnRef, {
+        tip: 'donem_sonu_uyarisi',
+        mesaj: `Süper Admin Uyarısı: ${aktifAyarlar.aktifEgitimYili} - ${aktifAyarlar.aktifDonem}. Dönem sonu işlemleri için öğrenci kayıt yenileme onayınızı tamamlamalısınız!`,
+        tarih: serverTimestamp(),
+        aktifDonemKey: activeTermKey
+      })
+      alert(`"${okul.ad}" için dönem sonu onay uyarısı başarıyla gönderildi!`)
+    } catch (err) {
+      alert('Uyarı gönderilirken hata: ' + err.message)
     }
   }
 
@@ -470,6 +501,42 @@ export default function PlatformSistemIslemleri() {
                 })
               }
             }
+          }
+        }
+      }
+
+      // Sınıfları boşaltma işlemi (Sınıfsızlar havuzuna aktarma)
+      if (yeniDonemForm.siniflariBosalt) {
+        atlatDetay += ' & Öğrenci sınıf ilişkileri sıfırlandı'
+        const altKurumlar = erisimKurumlar.filter(k => k.tip === 'altKurum')
+        for (const k of altKurumlar) {
+          const ogrenciSnap = await getDocs(collection(db, 'kurumlar', k.id, 'ogrenciler'))
+          for (const d of ogrenciSnap.docs) {
+            const o = d.data()
+            if (o.durum !== 'mezun' && o.durum !== 'ayrildi') {
+              await updateDoc(doc(db, 'kurumlar', k.id, 'ogrenciler', d.id), {
+                sinifId: '',
+                sinifAd: '',
+                guncellenmeTarihi: serverTimestamp()
+              })
+            }
+          }
+        }
+      }
+
+      // Sınıf öğretmenlerini boşa çıkarma işlemi
+      if (yeniDonemForm.ogretmenleriBosaCikar) {
+        atlatDetay += ' & Sınıf öğretmen atamaları temizlendi'
+        const altKurumlar = erisimKurumlar.filter(k => k.tip === 'altKurum')
+        for (const k of altKurumlar) {
+          const sinifSnap = await getDocs(collection(db, 'kurumlar', k.id, 'siniflar'))
+          for (const d of sinifSnap.docs) {
+            await updateDoc(doc(db, 'kurumlar', k.id, 'siniflar', d.id), {
+              ogretmenAd: '',
+              ogretmenMail: '',
+              ogretmenTel: '',
+              guncellenmeTarihi: serverTimestamp()
+            })
           }
         }
       }
@@ -884,6 +951,72 @@ export default function PlatformSistemIslemleri() {
             </div>
           )}
 
+          {/* Okul Kayıt Yenileme Onay Durumları */}
+          <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1E293B', marginTop: '1.5rem', marginBottom: '0.75rem' }}>
+            Okul Kayıt Yenileme Onay Durumları
+          </h3>
+          <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={styles.tableHeader}>Okul / Kampüs Adı</th>
+                  <th style={styles.tableHeader}>Onay Durumu</th>
+                  <th style={{ ...styles.tableHeader, textAlign: 'right' }}>İşlemler</th>
+                </tr>
+              </thead>
+              <tbody>
+                {okullar.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} style={{ ...styles.tableCell, textAlign: 'center', color: '#64748B' }}>
+                      Kayıtlı aktif okul bulunamadı.
+                    </td>
+                  </tr>
+                ) : (
+                  okullar.map(okul => {
+                    const activeTermKey = `${aktifAyarlar.aktifEgitimYili}_${aktifAyarlar.aktifDonem}`
+                    const onayli = okul.donemOnayRef === activeTermKey
+                    return (
+                      <tr key={okul.id}>
+                        <td style={{ ...styles.tableCell, fontWeight: '700' }}>{okul.ad}</td>
+                        <td style={styles.tableCell}>
+                          <span style={{
+                            fontSize: '0.75rem',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontWeight: '700',
+                            background: onayli ? '#D1FAE5' : '#FEF3C7',
+                            color: onayli ? '#065F46' : '#D97706'
+                          }}>
+                            {onayli ? '✓ Onaylandı' : '⌛ Onay Bekliyor'}
+                          </span>
+                        </td>
+                        <td style={{ ...styles.tableCell, textAlign: 'right' }}>
+                          {!onayli && (
+                            <button
+                              onClick={() => handleSendWarning(okul)}
+                              style={{
+                                padding: '4px 10px',
+                                background: '#FFF1F2',
+                                border: '1px solid #FECDD3',
+                                color: '#991B1B',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              📢 Uyar (Push)
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
           {/* İşlem Aşaması Simülasyonu */}
           {islemAdimi > 0 && islemAdimi < 4 && (
             <div style={{ margin: '1.5rem 0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -916,41 +1049,57 @@ export default function PlatformSistemIslemleri() {
             </div>
           )}
 
-          {islemAdimi === 0 && (
-            <>
-              {/* Onay kutuları */}
-              <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={styles.checkboxContainer}>
-                  <input type="checkbox" checked={donemSonuOnaylar.degerlendirme} onChange={e => setDonemSonuOnaylar(p => ({ ...p, degerlendirme: e.target.checked }))} />
-                  Öğretmenlerin bu döneme ait tüm rubrik değerlendirme girişlerini tamamladığını onaylıyorum.
-                </label>
-                <label style={styles.checkboxContainer}>
-                  <input type="checkbox" checked={donemSonuOnaylar.kutuphane} onChange={e => setDonemSonuOnaylar(p => ({ ...p, kutuphane: e.target.checked }))} />
-                  İade edilmeyen kitapların sonraki eğitim dönemine otomatik devredilmesini kabul ediyorum.
-                </label>
-                <label style={styles.checkboxContainer}>
-                  <input type="checkbox" checked={donemSonuOnaylar.yedek} onChange={e => setDonemSonuOnaylar(p => ({ ...p, yedek: e.target.checked }))} />
-                  Yukarıdaki "Veri Yedekleme" aracıyla güncel sistem yedeğini indirdiğimi beyan ediyorum.
-                </label>
-              </div>
+          {islemAdimi === 0 && (() => {
+            const activeTermKey = `${aktifAyarlar.aktifEgitimYili}_${aktifAyarlar.aktifDonem}`
+            const pendingSchools = okullar.filter(k => k.donemOnayRef !== activeTermKey)
+            const canCloseTerm = pendingSchools.length === 0
 
-              {donemSonuHata && (
-                <div style={{ color: '#EF4444', fontSize: '0.85rem', fontWeight: '600', marginTop: '1rem' }}>
-                  ⚠️ {donemSonuHata}
+            return (
+              <>
+                {/* Onay kutuları */}
+                <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={styles.checkboxContainer}>
+                    <input type="checkbox" checked={donemSonuOnaylar.degerlendirme} onChange={e => setDonemSonuOnaylar(p => ({ ...p, degerlendirme: e.target.checked }))} />
+                    Öğretmenlerin bu döneme ait tüm rubrik değerlendirme girişlerini tamamladığını onaylıyorum.
+                  </label>
+                  <label style={styles.checkboxContainer}>
+                    <input type="checkbox" checked={donemSonuOnaylar.kutuphane} onChange={e => setDonemSonuOnaylar(p => ({ ...p, kutuphane: e.target.checked }))} />
+                    İade edilmeyen kitapların sonraki eğitim dönemine otomatik devredilmesini kabul ediyorum.
+                  </label>
+                  <label style={styles.checkboxContainer}>
+                    <input type="checkbox" checked={donemSonuOnaylar.yedek} onChange={e => setDonemSonuOnaylar(p => ({ ...p, yedek: e.target.checked }))} />
+                    Yukarıdaki "Veri Yedekleme" aracıyla güncel sistem yedeğini indirdiğimi beyan ediyorum.
+                  </label>
                 </div>
-              )}
 
-              <div style={{ marginTop: '1.75rem' }}>
-                <button
-                  style={styles.btnDanger}
-                  onClick={handleTermClose}
-                  disabled={donemSonuYukleniyor}
-                >
-                  {donemSonuYukleniyor ? '⏳ İşlem Yapılıyor...' : '🏁 Aktif Dönemi Arşive Al ve Kapat'}
-                </button>
-              </div>
-            </>
-          )}
+                {donemSonuHata && (
+                  <div style={{ color: '#EF4444', fontSize: '0.85rem', fontWeight: '600', marginTop: '1rem' }}>
+                    ⚠️ {donemSonuHata}
+                  </div>
+                )}
+
+                {!canCloseTerm && (
+                  <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '12px', padding: '1rem', color: '#991B1B', fontSize: '0.875rem', marginTop: '1rem', fontWeight: '600' }}>
+                    ⚠️ DIKKAT: Dönem sonlandırma işleminin tamamlanabilmesi için sistemdeki tüm alt okulların öğrenci kayıt yenileme onaylarını vermesi gerekmektedir. ({pendingSchools.length} okul bekliyor)
+                  </div>
+                )}
+
+                <div style={{ marginTop: '1.75rem' }}>
+                  <button
+                    style={{
+                      ...styles.btnDanger,
+                      opacity: !canCloseTerm || donemSonuYukleniyor ? 0.6 : 1,
+                      cursor: !canCloseTerm || donemSonuYukleniyor ? 'not-allowed' : 'pointer'
+                    }}
+                    onClick={handleTermClose}
+                    disabled={!canCloseTerm || donemSonuYukleniyor}
+                  >
+                    {donemSonuYukleniyor ? '⏳ İşlem Yapılıyor...' : '🏁 Aktif Dönemi Arşive Al ve Kapat'}
+                  </button>
+                </div>
+              </>
+            )
+          })()}
         </div>
       )}
 
@@ -1018,6 +1167,34 @@ export default function PlatformSistemIslemleri() {
                 </label>
                 <p style={{ fontSize: '0.78rem', color: '#1D4ED8', marginTop: '0.25rem', lineHeight: '1.4' }}>
                   Yeni öğretim yılı başlangıcında (Güz dönemi) bu seçeneğin seçilmesi önerilir. Tüm öğrencilerin şube düzeyleri bir basamak artırılır (Örn: 5-A'dan 6-A'ya). Lise son veya ortaokul son mezun seviyesine ulaşan öğrenciler "Mezun" olarak işaretlenir.
+                </p>
+              </div>
+
+              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', padding: '1rem' }}>
+                <label style={styles.checkboxContainer}>
+                  <input
+                    type="checkbox"
+                    checked={yeniDonemForm.siniflariBosalt}
+                    onChange={e => setYeniDonemForm(p => ({ ...p, siniflariBosalt: e.target.checked }))}
+                  />
+                  <strong>Öğrencileri Sınıflardan Çıkar (Sınıfları Boşalt)</strong>
+                </label>
+                <p style={{ fontSize: '0.78rem', color: '#1D4ED8', marginTop: '0.25rem', lineHeight: '1.4' }}>
+                  Yeni öğretim yılında tüm öğrencileri "Sınıfsızlar" havuzuna aktararak, okul müdürlerinin öğrencileri yeni şubelere sıfırdan atamasını sağlar.
+                </p>
+              </div>
+
+              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', padding: '1rem' }}>
+                <label style={styles.checkboxContainer}>
+                  <input
+                    type="checkbox"
+                    checked={yeniDonemForm.ogretmenleriBosaCikar}
+                    onChange={e => setYeniDonemForm(p => ({ ...p, ogretmenleriBosaCikar: e.target.checked }))}
+                  />
+                  <strong>Sınıf Öğretmenlerini Boşa Çıkar (Sıfırla)</strong>
+                </label>
+                <p style={{ fontSize: '0.78rem', color: '#1D4ED8', marginTop: '0.25rem', lineHeight: '1.4' }}>
+                  Sınıf şubelerini korur ancak bu sınıflara atanmış olan sınıf öğretmeni bilgilerini temizler.
                 </p>
               </div>
 

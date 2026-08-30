@@ -29,6 +29,7 @@ import PlatformTopluMail      from './pages/platform/PlatformTopluMail'
 import PlatformVersiyonlar    from './pages/platform/PlatformVersiyonlar'
 import KurumArge              from './pages/kurum/KurumArge'
 import KurumIsEmirleri        from './pages/kurum/KurumIsEmirleri'
+import KurumDonemIslemleri   from './pages/kurum/KurumDonemIslemleri'
 
 function KorunanRoute({ izinliRoller, children }) {
   const { kullanici, profil, yukleniyor, platformAdmin } = useAuth()
@@ -121,6 +122,7 @@ export default function App() {
             <Route path="kutuphane"        element={<KurumKutuphane />} />
             <Route path="arge"             element={<KurumArge />} />
             <Route path="is-emirleri"       element={<KurumIsEmirleri />} />
+            <Route path="donem-islemleri"   element={<KurumDonemIslemleri />} />
             <Route path="resmi-islemler/is-plani" element={<KurumResmiIslemler />} />
             <Route path="resmi-islemler/evraklar" element={<KurumResmiEvraklar />} />
             <Route path="hakkinda"         element={<Hakkinda />} />

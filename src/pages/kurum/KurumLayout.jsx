@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { KurumYonetimProvider, useKurumYonetim } from '../../contexts/KurumYonetimContext'
 import OkulmatikLogo from '../../components/OkulmatikLogo'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { db } from '../../services/firebase'
 
 // Tüm kullanıcılar için menü
 const ADMIN_MENULER = [
@@ -39,6 +41,7 @@ const ADMIN_MENULER = [
   { yol: '/kurum/belirli-gunler',    etiket: 'Belirli Gün & Tatiller', ikon: '📅' },
   { yol: '/kurum/kutuphane',         etiket: 'Kütüphane',        ikon: '📚' },
   { yol: '/kurum/is-emirleri',       etiket: 'İş Emri Takip',    ikon: '🛠️' },
+  { yol: '/kurum/donem-islemleri',   etiket: 'Dönem İşlemleri',   ikon: '🏁' },
   { yol: '/kurum/arge',              etiket: 'Ar-Ge & Bilim Projeleri', ikon: '🔬' },
   { yol: '/kurum/hakkinda',          etiket: 'Hakkında',         ikon: 'ℹ️' },
 ]
@@ -540,6 +543,18 @@ function KurumLayoutInner() {
   const navigate = useNavigate()
   const location = useLocation()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [sistemBildirimleri, setSistemBildirimleri] = useState([])
+
+  useEffect(() => {
+    if (!secilenKurumId) {
+      setSistemBildirimleri([])
+      return
+    }
+    const q = collection(db, 'kurumlar', secilenKurumId, 'sistemBildirimleri')
+    return onSnapshot(q, snap => {
+      setSistemBildirimleri(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    })
+  }, [secilenKurumId])
 
   const isModulAktif = (menu) => {
     if (!secilenKurumId) return true
@@ -1432,7 +1447,52 @@ function KurumLayoutInner() {
         })()}
 
         {secilenKurumId ? (
-          <Outlet />
+          <>
+            {sistemBildirimleri.length > 0 && sistemBildirimleri.map(bildirim => (
+              <div
+                key={bildirim.id}
+                style={{
+                  background: '#FFF1F2',
+                  border: '1px solid #FECDD3',
+                  color: '#991B1B',
+                  padding: '1rem 1.5rem',
+                  borderRadius: '12px',
+                  marginBottom: '1.25rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  boxShadow: '0 4px 6px -1px rgba(220, 38, 38, 0.05)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                  <span>{bildirim.mesaj}</span>
+                </div>
+                {profil?.rol === 'kurum_admin' && (
+                  <button
+                    onClick={() => navigate('/kurum/donem-islemleri')}
+                    style={{
+                      padding: '5px 12px',
+                      background: '#991B1B',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 4px rgba(153, 27, 27, 0.2)'
+                    }}
+                  >
+                    Dönem İşlemlerine Git
+                  </button>
+                )}
+              </div>
+            ))}
+            <Outlet />
+          </>
         ) : (
           <div style={{
             display: 'flex',

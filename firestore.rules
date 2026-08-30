@@ -108,6 +108,11 @@ service cloud.firestore {
             && (kullaniciBilgisi().kurumId == kurumId
                 || kullaniciBilgisi().kurumId == resource.data.rootKurumId
                 || kullaniciBilgisi().kurumId == resource.data.parentId));
+
+      match /sistemBildirimleri/{bildirimId} {
+        allow read:  if platformAdmin() || kurumUyesi(kurumId) || ogretmenKurumErisimi(kurumId);
+        allow write: if platformAdmin();
+      }
     }
 
     match /kurumlar/{kurumId}/siniflar/{sinifId} {
