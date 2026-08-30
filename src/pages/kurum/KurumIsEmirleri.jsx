@@ -27,7 +27,7 @@ const BOŞ_FORM = {
 
 export default function KurumIsEmirleri() {
   const { kullanici, profil, platformAdmin } = useAuth()
-  const { secilenKurumId: kurumId } = useKurumYonetim()
+  const { secilenKurumId: kurumId, secilenKurum } = useKurumYonetim()
 
   const [isEmirleri, setIsEmirleri] = useState([])
   const [personeller, setPersoneller] = useState([])
@@ -42,12 +42,17 @@ export default function KurumIsEmirleri() {
 
   const isYonetici = profil?.rol === 'kurum_admin' || platformAdmin
 
+  // İş emirlerinin saklandığı hedef kurum ID'si (alt kurum ise bağlı olduğu kampüsü kullanırız)
+  const hedefKurumId = secilenKurum?.tip === 'altKurum' && secilenKurum?.parentId 
+    ? secilenKurum.parentId 
+    : kurumId
+
   // 1. İş emirlerini ve Yetkili Personeli Dinle
   useEffect(() => {
     if (!kurumId) return
 
     // İş emirlerini dinle
-    const qEmirler = collection(db, 'kurumlar', kurumId, 'isEmirleri')
+    const qEmirler = collection(db, 'kurumlar', hedefKurumId, 'isEmirleri')
     const unsubEmirler = onSnapshot(qEmirler, snap => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       docs.sort((a, b) => {
@@ -58,20 +63,40 @@ export default function KurumIsEmirleri() {
       setIsEmirleri(docs)
     })
 
-    // Yetkili personelleri dinle (is_emri yetkisi olanlar veya adminler)
-    const qKullanicilar = query(collection(db, 'kurumlar', kurumId, 'kullanicilar'))
-    const unsubKullanicilar = onSnapshot(qKullanicilar, snap => {
-      const liste = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(u => u.rol === 'kurum_admin' || u.modulIzinler?.is_emri === true)
-      setPersoneller(liste)
+    // Yetkili personelleri dinle (aktif okulun ve bağlı olduğu kampüsün kullanıcılarını dinleyip birleştirir)
+    const qKullanicilarAktif = collection(db, 'kurumlar', kurumId, 'kullanicilar')
+    const unsubKullanicilar = onSnapshot(qKullanicilarAktif, snap => {
+      const aktifListe = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      
+      if (hedefKurumId !== kurumId) {
+        const qKullanicilarKampus = collection(db, 'kurumlar', hedefKurumId, 'kullanicilar')
+        getDocs(qKullanicilarKampus).then(kampusSnap => {
+          const kampusListe = kampusSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+          const birlesik = [...aktifListe, ...kampusListe]
+          // id'ye göre tekilleştir
+          const tekil = []
+          const map = new Map()
+          for (const u of birlesik) {
+            if (!map.has(u.id)) {
+              map.set(u.id, true)
+              tekil.push(u)
+            }
+          }
+          setPersoneller(tekil.filter(u => u.rol === 'kurum_admin' || u.modulIzinler?.is_emri === true))
+        }).catch(err => {
+          console.warn("Kampüs personeli yüklenemedi:", err.message)
+          setPersoneller(aktifListe.filter(u => u.rol === 'kurum_admin' || u.modulIzinler?.is_emri === true))
+        })
+      } else {
+        setPersoneller(aktifListe.filter(u => u.rol === 'kurum_admin' || u.modulIzinler?.is_emri === true))
+      }
     })
 
     return () => {
       unsubEmirler()
       unsubKullanicilar()
     }
-  }, [kurumId])
+  }, [kurumId, secilenKurum, hedefKurumId])
 
   // 2. Yeni İş Emri Kaydet (Kurucu/Admin)
   async function handleKaydet(e) {
@@ -96,10 +121,12 @@ export default function KurumIsEmirleri() {
         olusturanAd: profil?.ad || kullanici.email,
         olusturmaTarihi: serverTimestamp(),
         guncellemeTarihi: serverTimestamp(),
-        kapanisNotu: ''
+        kapanisNotu: '',
+        altKurumId: secilenKurum?.tip === 'altKurum' ? secilenKurum.id : null,
+        altKurumAd: secilenKurum?.tip === 'altKurum' ? secilenKurum.ad : null
       }
 
-      await addDoc(collection(db, 'kurumlar', kurumId, 'isEmirleri'), yeniIsEmri)
+      await addDoc(collection(db, 'kurumlar', hedefKurumId, 'isEmirleri'), yeniIsEmri)
       
       logKaydet({
         profil,
@@ -107,7 +134,7 @@ export default function KurumIsEmirleri() {
         islem: 'is_emri_olustur',
         modul: 'isEmirleri',
         hedefAd: form.baslik.trim(),
-        kurumId,
+        kurumId: hedefKurumId,
         detay: `Atanan: ${yeniIsEmri.atananAd}`
       })
 
@@ -123,7 +150,7 @@ export default function KurumIsEmirleri() {
   // 3. İş Emrini Başlat (İşlemde durumuna getir - Personel)
   async function handleBaslat(isEmri) {
     try {
-      const docRef = doc(db, 'kurumlar', kurumId, 'isEmirleri', isEmri.id)
+      const docRef = doc(db, 'kurumlar', hedefKurumId, 'isEmirleri', isEmri.id)
       await updateDoc(docRef, {
         durum: 'surec',
         guncellemeTarihi: serverTimestamp()
@@ -135,7 +162,7 @@ export default function KurumIsEmirleri() {
         islem: 'is_emri_baslat',
         modul: 'isEmirleri',
         hedefAd: isEmri.baslik,
-        kurumId,
+        kurumId: hedefKurumId,
         detay: 'Durum: İşlemde'
       })
     } catch (err) {
@@ -149,7 +176,7 @@ export default function KurumIsEmirleri() {
     if (!kapatModal) return
 
     try {
-      const docRef = doc(db, 'kurumlar', kurumId, 'isEmirleri', kapatModal.id)
+      const docRef = doc(db, 'kurumlar', hedefKurumId, 'isEmirleri', kapatModal.id)
       await updateDoc(docRef, {
         durum: 'tamamlandi',
         kapanisNotu: kapanisNotu.trim(),
@@ -163,7 +190,7 @@ export default function KurumIsEmirleri() {
         islem: 'is_emri_tamamla',
         modul: 'isEmirleri',
         hedefAd: kapatModal.baslik,
-        kurumId,
+        kurumId: hedefKurumId,
         detay: `Kapanış Notu: ${kapanisNotu.trim()}`
       })
 
@@ -178,7 +205,7 @@ export default function KurumIsEmirleri() {
   async function handleSil(isEmri) {
     if (!window.confirm(`"${isEmri.baslik}" isimli iş emrini silmek istediğinize emin misiniz?`)) return
     try {
-      const docRef = doc(db, 'kurumlar', kurumId, 'isEmirleri', isEmri.id)
+      const docRef = doc(db, 'kurumlar', hedefKurumId, 'isEmirleri', isEmri.id)
       await deleteDoc(docRef)
 
       logKaydet({
@@ -187,7 +214,7 @@ export default function KurumIsEmirleri() {
         islem: 'is_emri_sil',
         modul: 'isEmirleri',
         hedefAd: isEmri.baslik,
-        kurumId
+        kurumId: hedefKurumId
       })
     } catch (err) {
       alert('Silme hatası: ' + err.message)
@@ -364,10 +391,17 @@ export default function KurumIsEmirleri() {
             return (
               <div key={item.id} className="is-emri-card" style={s.card}>
                 {/* Üst Bilgi (Kategori & Durum) */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px', background: katInfo.bg, color: katInfo.renk }}>
-                    {katInfo.label}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px', background: katInfo.bg, color: katInfo.renk }}>
+                      {katInfo.label}
+                    </span>
+                    {item.altKurumAd && (
+                      <span style={{ fontSize: '0.72rem', fontWeight: '700', padding: '3px 8px', borderRadius: '6px', background: '#F3E8FF', color: '#6B21A8' }}>
+                        🏫 {item.altKurumAd}
+                      </span>
+                    )}
+                  </div>
                   <span style={{ fontSize: '0.72rem', fontWeight: '700', padding: '3px 8px', borderRadius: '6px', background: durumInfo.bg, color: durumInfo.renk }}>
                     {durumInfo.label}
                   </span>
