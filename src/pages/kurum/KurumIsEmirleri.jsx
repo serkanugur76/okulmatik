@@ -47,9 +47,15 @@ export default function KurumIsEmirleri() {
     if (!kurumId) return
 
     // İş emirlerini dinle
-    const qEmirler = query(collection(db, 'kurumlar', kurumId, 'isEmirleri'), orderBy('olusturmaTarihi', 'desc'))
+    const qEmirler = collection(db, 'kurumlar', kurumId, 'isEmirleri')
     const unsubEmirler = onSnapshot(qEmirler, snap => {
-      setIsEmirleri(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      docs.sort((a, b) => {
+        const tA = a.olusturmaTarihi?.toDate ? a.olusturmaTarihi.toDate() : (a.olusturmaTarihi ? new Date(a.olusturmaTarihi) : new Date())
+        const tB = b.olusturmaTarihi?.toDate ? b.olusturmaTarihi.toDate() : (b.olusturmaTarihi ? new Date(b.olusturmaTarihi) : new Date())
+        return tB - tA
+      })
+      setIsEmirleri(docs)
     })
 
     // Yetkili personelleri dinle (is_emri yetkisi olanlar veya adminler)
