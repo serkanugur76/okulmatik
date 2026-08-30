@@ -36,13 +36,21 @@ export default function KurumDonemIslemleri() {
 
   // 1. Aktif Dönem Bilgisini Yükle
   useEffect(() => {
+    if (secilenKurum?.aktifEgitimYili && secilenKurum?.aktifDonem) {
+      setAktifDonemInfo({
+        aktifEgitimYili: secilenKurum.aktifEgitimYili,
+        aktifDonem: secilenKurum.aktifDonem
+      })
+      return
+    }
+
     const unsub = onSnapshot(doc(db, 'sistemAyarlari', 'genel'), snap => {
       if (snap.exists()) {
         setAktifDonemInfo(snap.data())
       }
     })
     return () => unsub()
-  }, [])
+  }, [secilenKurum])
 
   // 2. Okuldaki Öğrencileri ve Sınıfları Yükle
   useEffect(() => {

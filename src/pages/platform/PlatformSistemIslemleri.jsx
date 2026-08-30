@@ -52,6 +52,15 @@ export default function PlatformSistemIslemleri() {
   const [islemAdimi, setIslemAdimi] = useState(0) // 0: hazır, 1..3: aşamalar, 4: tamamlandı
   const [donemSonuHata, setDonemSonuHata] = useState('')
   const [okullar, setOkullar] = useState([])
+  const [seciliDevirOkul, setSeciliDevirOkul] = useState(null)
+  const [devirForm, setDevirForm] = useState({
+    egitimYili: '',
+    donem: 1,
+    sinifAtlat: false,
+    siniflariBosalt: false,
+    ogretmenleriBosaCikar: false
+  })
+  const [devirYukleniyor, setDevirYukleniyor] = useState(false)
 
   // ── States for Dönem Başı ──────────────────────────────────
   const [aktifAyarlar, setAktifAyarlar] = useState({
@@ -347,6 +356,152 @@ export default function PlatformSistemIslemleri() {
     } catch (err) {
       alert('Zorunlu devir sırasında hata oluştu: ' + err.message)
     }
+  }
+
+  // ── Münferit Okul Yeni Döneme Devretme Handleri ──────────────────────────────
+  async function handleIndividualSchoolDevir(e) {
+    e.preventDefault()
+    if (!seciliDevirOkul) return
+
+    const k = seciliDevirOkul
+    setDevirYukleniyor(true)
+
+    try {
+      const targetTermKey = `${devirForm.egitimYili}_${devirForm.donem}`
+      let logDetay = `Okul yeni döneme devredildi: ${devirForm.egitimYili} - ${devirForm.donem}. Dönem`
+
+      // 1. Sınıf atlatma (Sadece bu okul için)
+      if (devirForm.sinifAtlat) {
+        logDetay += ' & Sınıf düzeyleri yükseltildi'
+        
+        // Okuldaki sınıfları çek
+        const sinifSnap = await getDocs(collection(db, 'kurumlar', k.id, 'siniflar'))
+        const okulSiniflar = sinifSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        
+        // Sınıfları seviye_sube key'ine göre haritala
+        const sinifMap = {}
+        okulSiniflar.forEach(s => {
+          if (s.seviye && s.sube) {
+            const key = `${s.seviye}_${s.sube.toUpperCase().trim()}`
+            sinifMap[key] = s
+          }
+        })
+
+        // Okuldaki öğrencileri çek
+        const ogrenciSnap = await getDocs(collection(db, 'kurumlar', k.id, 'ogrenciler'))
+        const okulOgrenciler = ogrenciSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+        for (const ogr of okulOgrenciler) {
+          if (!ogr.sinifId) continue
+          
+          const gecerliSinif = okulSiniflar.find(s => s.id === ogr.sinifId)
+          if (!gecerliSinif) continue
+
+          const currentSeviye = parseInt(gecerliSinif.seviye, 10)
+          const sube = (gecerliSinif.sube || '').toUpperCase().trim()
+
+          if (!isNaN(currentSeviye)) {
+            const yeniSeviye = currentSeviye + 1
+            const hedefSinifKey = `${yeniSeviye}_${sube}`
+            const hedefSinif = sinifMap[hedefSinifKey]
+
+            const docRef = doc(db, 'kurumlar', k.id, 'ogrenciler', ogr.id)
+
+            // Mezuniyet limit kontrolü (İlkokul: 4, Ortaokul: 8, Lise: 12)
+            let maxSeviye = 12
+            if (k.okulTuru === 'ilkokul') maxSeviye = 4
+            else if (k.okulTuru === 'ortaokul') maxSeviye = 8
+
+            if (yeniSeviye > maxSeviye || !hedefSinif) {
+              await updateDoc(docRef, {
+                sinifId: '',
+                sinifAd: '',
+                durum: 'mezun',
+                guncellenmeTarihi: serverTimestamp()
+              })
+            } else {
+              await updateDoc(docRef, {
+                sinifId: hedefSinif.id,
+                sinifAd: hedefSinif.ad,
+                guncellenmeTarihi: serverTimestamp()
+              })
+            }
+          }
+        }
+      }
+
+      // 2. Sınıfları boşaltma (Sadece bu okul için)
+      if (devirForm.siniflariBosalt) {
+        logDetay += ' & Öğrenci sınıf ilişkileri sıfırlandı'
+        const ogrenciSnap = await getDocs(collection(db, 'kurumlar', k.id, 'ogrenciler'))
+        for (const d of ogrenciSnap.docs) {
+          const o = d.data()
+          if (o.durum !== 'mezun' && o.durum !== 'ayrildi') {
+            await updateDoc(doc(db, 'kurumlar', k.id, 'ogrenciler', d.id), {
+              sinifId: '',
+              sinifAd: '',
+              guncellenmeTarihi: serverTimestamp()
+            })
+          }
+        }
+      }
+
+      // 3. Sınıf öğretmenlerini boşa çıkarma (Sadece bu okul için)
+      if (devirForm.ogretmenleriBosaCikar) {
+        logDetay += ' & Sınıf öğretmen atamaları temizlendi'
+        const sinifSnap = await getDocs(collection(db, 'kurumlar', k.id, 'siniflar'))
+        for (const d of sinifSnap.docs) {
+          await updateDoc(doc(db, 'kurumlar', k.id, 'siniflar', d.id), {
+            ogretmenAd: '',
+            ogretmenMail: '',
+            ogretmenTel: '',
+            guncellenmeTarihi: serverTimestamp()
+          })
+        }
+      }
+
+      // 4. Okulun aktif dönem bilgilerini ve donemOnayRef alanını güncelle
+      await updateDoc(doc(db, 'kurumlar', k.id), {
+        aktifEgitimYili: devirForm.egitimYili,
+        aktifDonem: Number(devirForm.donem),
+        donemOnayRef: '' // Yeni dönem için onay durumunu temizle (onay bekliyora düşsün)
+      })
+
+      // 5. Log kaydet
+      await logKaydet({
+        profil,
+        kullanici,
+        islem: 'guncelle',
+        modul: 'kurumlar',
+        hedefAd: k.ad,
+        kurumId: k.id,
+        detay: logDetay
+      })
+
+      alert(`"${k.ad}" okulu başarıyla yeni döneme devredildi!`)
+      setSeciliDevirOkul(null)
+    } catch (err) {
+      alert('Devir işlemi sırasında hata oluştu: ' + err.message)
+    } finally {
+      setDevirYukleniyor(false)
+    }
+  }
+
+  function openDevirModal(okul) {
+    const okulYili = okul.aktifEgitimYili || aktifAyarlar.aktifEgitimYili
+    const okulDonem = okul.aktifDonem || aktifAyarlar.aktifDonem
+    
+    const targetDonem = okulDonem === 1 ? 2 : 1
+    const targetYil = okulDonem === 1 ? okulYili : yeniYilHesapla(okulYili)
+
+    setSeciliDevirOkul(okul)
+    setDevirForm({
+      egitimYili: targetYil,
+      donem: targetDonem,
+      sinifAtlat: targetDonem === 1,
+      siniflariBosalt: false,
+      ogretmenleriBosaCikar: false
+    })
   }
 
   // ── Geri Yükleme Handlers ──────────────────────────────────
@@ -1026,11 +1181,18 @@ export default function PlatformSistemIslemleri() {
                   </tr>
                 ) : (
                   okullar.map(okul => {
-                    const activeTermKey = `${aktifAyarlar.aktifEgitimYili}_${aktifAyarlar.aktifDonem}`
-                    const onayli = okul.donemOnayRef === activeTermKey
+                    const okulYil = okul.aktifEgitimYili || aktifAyarlar.aktifEgitimYili
+                    const okulDonem = okul.aktifDonem || aktifAyarlar.aktifDonem
+                    const okulTermKey = `${okulYil}_${okulDonem}`
+                    const onayli = okul.donemOnayRef === okulTermKey
                     return (
                       <tr key={okul.id}>
-                        <td style={{ ...styles.tableCell, fontWeight: '700' }}>{okul.ad}</td>
+                        <td style={{ ...styles.tableCell, fontWeight: '700' }}>
+                          {okul.ad}
+                          <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: '500', color: '#64748B', marginTop: '2px' }}>
+                            Mevcut Dönem: {okulYil} - {okulDonem}. Dönem
+                          </span>
+                        </td>
                         <td style={styles.tableCell}>
                           <span style={{
                             fontSize: '0.75rem',
@@ -1044,40 +1206,59 @@ export default function PlatformSistemIslemleri() {
                           </span>
                         </td>
                         <td style={{ ...styles.tableCell, textAlign: 'right' }}>
-                          {!onayli && (
-                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                            {!onayli && (
+                              <>
+                                <button
+                                  onClick={() => handleSendWarning(okul)}
+                                  style={{
+                                    padding: '4px 10px',
+                                    background: '#FFF1F2',
+                                    border: '1px solid #FECDD3',
+                                    color: '#991B1B',
+                                    borderRadius: '6px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  📢 Uyar
+                                </button>
+                                <button
+                                  onClick={() => handleForceOnay(okul)}
+                                  style={{
+                                    padding: '4px 10px',
+                                    background: '#EFF6FF',
+                                    border: '1px solid #BFDBFE',
+                                    color: '#1D4ED8',
+                                    borderRadius: '6px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ⚡ Onaysız Devret
+                                </button>
+                              </>
+                            )}
+                            {onayli && (
                               <button
-                                onClick={() => handleSendWarning(okul)}
-                                style={{
-                                  padding: '4px 10px',
-                                  background: '#FFF1F2',
-                                  border: '1px solid #FECDD3',
-                                  color: '#991B1B',
-                                  borderRadius: '6px',
-                                  fontSize: '0.75rem',
-                                  fontWeight: '700',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                📢 Uyar
-                              </button>
-                              <button
-                                onClick={() => handleForceOnay(okul)}
+                                onClick={() => openDevirModal(okul)}
                                 style={{
                                   padding: '4px 10px',
                                   background: '#EFF6FF',
-                                  border: '1px solid #BFDBFE',
-                                  color: '#1D4ED8',
+                                  border: '1px solid #93C5FD',
+                                  color: '#1E40AF',
                                   borderRadius: '6px',
                                   fontSize: '0.75rem',
                                   fontWeight: '700',
                                   cursor: 'pointer'
                                 }}
                               >
-                                ⚡ Onaysız Devret (Sınıfları Boşalt)
+                                🏁 Yeni Döneme Devret
                               </button>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )
@@ -1149,22 +1330,18 @@ export default function PlatformSistemIslemleri() {
                 )}
 
                 {!canCloseTerm && (
-                  <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '12px', padding: '1rem', color: '#991B1B', fontSize: '0.875rem', marginTop: '1rem', fontWeight: '600' }}>
-                    ⚠️ DIKKAT: Dönem sonlandırma işleminin tamamlanabilmesi için sistemdeki tüm alt okulların öğrenci kayıt yenileme onaylarını vermesi gerekmektedir. ({pendingSchools.length} okul bekliyor)
+                  <div style={{ background: '#FFF9DB', border: '1px solid #FFE066', borderRadius: '12px', padding: '1rem', color: '#856404', fontSize: '0.875rem', marginTop: '1rem', fontWeight: '600' }}>
+                    ⚠️ BİLGİ: Sistemdeki {pendingSchools.length} okul henüz öğrenci kayıt yenileme onayını vermedi. Dönemi topluca kapatmak yerine, onay tamamlayan okulları yanlarındaki "Yeni Döneme Devret" butonu ile tekil olarak da devredebilirsiniz.
                   </div>
                 )}
 
                 <div style={{ marginTop: '1.75rem' }}>
                   <button
-                    style={{
-                      ...styles.btnDanger,
-                      opacity: !canCloseTerm || donemSonuYukleniyor ? 0.6 : 1,
-                      cursor: !canCloseTerm || donemSonuYukleniyor ? 'not-allowed' : 'pointer'
-                    }}
+                    style={styles.btnDanger}
                     onClick={handleTermClose}
-                    disabled={!canCloseTerm || donemSonuYukleniyor}
+                    disabled={donemSonuYukleniyor}
                   >
-                    {donemSonuYukleniyor ? '⏳ İşlem Yapılıyor...' : '🏁 Aktif Dönemi Arşive Al ve Kapat'}
+                    {donemSonuYukleniyor ? '⏳ İşlem Yapılıyor...' : '🏁 Aktif Dönemi Arşive Al ve Kapat (Tüm Sistem)'}
                   </button>
                 </div>
               </>
@@ -1279,6 +1456,107 @@ export default function PlatformSistemIslemleri() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 🏁 OKUL DEVİR MODALI */}
+      {seciliDevirOkul && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: '800', color: '#1B3A6B', marginBottom: '0.5rem' }}>
+              🏁 Okul Yeni Döneme Devir Paneli
+            </h3>
+            <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.4' }}>
+              <strong>{seciliDevirOkul.ad}</strong> okulunu yeni eğitim-öğretim yılına veya dönemine geçirmek için seçenekleri ayarlayın.
+            </p>
+
+            <form onSubmit={handleIndividualSchoolDevir} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#475569', marginBottom: '0.35rem' }}>
+                  Hedef Eğitim / Öğretim Yılı:
+                </label>
+                <input
+                  type="text"
+                  value={devirForm.egitimYili}
+                  onChange={e => setDevirForm(p => ({ ...p, egitimYili: e.target.value }))}
+                  required
+                  style={{ padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', width: '100%', outline: 'none', color: '#1E293B' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#475569', marginBottom: '0.35rem' }}>
+                  Hedef Aktif Dönem:
+                </label>
+                <select
+                  value={devirForm.donem}
+                  onChange={e => setDevirForm(p => ({ ...p, donem: Number(e.target.value) }))}
+                  style={{ padding: '0.6rem 0.875rem', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '0.9rem', width: '100%', color: '#1E293B', background: '#fff', cursor: 'pointer' }}
+                >
+                  <option value={1}>1. Dönem (Güz)</option>
+                  <option value={2}>2. Dönem (Bahar)</option>
+                </select>
+              </div>
+
+              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={styles.checkboxContainer}>
+                  <input
+                    type="checkbox"
+                    checked={devirForm.sinifAtlat}
+                    onChange={e => setDevirForm(p => ({ ...p, sinifAtlat: e.target.checked }))}
+                  />
+                  <strong>Öğrencileri Bir Üst Seviyeye Aktar</strong>
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input
+                    type="checkbox"
+                    checked={devirForm.siniflariBosalt}
+                    onChange={e => setDevirForm(p => ({ ...p, siniflariBosalt: e.target.checked }))}
+                  />
+                  <strong>Sınıfları Boşalt (Öğrencileri Sınıfsız Yap)</strong>
+                </label>
+                <label style={styles.checkboxContainer}>
+                  <input
+                    type="checkbox"
+                    checked={devirForm.ogretmenleriBosaCikar}
+                    onChange={e => setDevirForm(p => ({ ...p, ogretmenleriBosaCikar: e.target.checked }))}
+                  />
+                  <strong>Sınıf Öğretmenlerini Boşa Çıkar</strong>
+                </label>
+              </div>
+
+              <div style={{ color: '#E11D48', fontSize: '0.78rem', fontWeight: '600', lineHeight: '1.4' }}>
+                ⚠️ Not: Bu işlem yalnızca bu okulu etkiler, okuldaki verileri dönüştürür ve geri alınamaz.
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setSeciliDevirOkul(null)}
+                  style={{ padding: '0.5rem 1rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  disabled={devirYukleniyor}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'linear-gradient(135deg, #1B3A6B 0%, #2D5099 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '700',
+                    fontSize: '0.85rem',
+                    opacity: devirYukleniyor ? 0.6 : 1
+                  }}
+                >
+                  {devirYukleniyor ? '⏳ Devrediliyor...' : '✓ Devri Başlat'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

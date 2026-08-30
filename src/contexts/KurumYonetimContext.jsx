@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useMemo } from 'react'
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from './AuthContext'
 
@@ -45,24 +45,20 @@ export function KurumYonetimProvider({ children }) {
 
     // ── Platform Admin: tüm kurumları yükle ─────────────────────────────────
     if (platformAdmin) {
-      async function yukleHepsi() {
-        try {
-          const snap = await getDocs(collection(db, 'kurumlar'))
-          const hepsi = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-          const tipSira = { kurum: 0, kampus: 1, altKurum: 2 }
-          hepsi.sort((a, b) => (tipSira[a.tip] ?? 3) - (tipSira[b.tip] ?? 3))
-          setErisimKurumlar(hepsi)
-          const kayitliId = localStorage.getItem(LS_KEY)
-          const kayitli   = kayitliId && hepsi.find(k => k.id === kayitliId)
-          setSecilenKurumIdRaw(kayitli ? kayitliId : null)
-        } catch (err) {
-          console.error('Platform admin kurum yükleme hatası:', err)
-        } finally {
-          setYukleniyor(false)
-        }
-      }
-      yukleHepsi()
-      return
+      const unsub = onSnapshot(collection(db, 'kurumlar'), snap => {
+        const hepsi = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        const tipSira = { kurum: 0, kampus: 1, altKurum: 2 }
+        hepsi.sort((a, b) => (tipSira[a.tip] ?? 3) - (tipSira[b.tip] ?? 3))
+        setErisimKurumlar(hepsi)
+        const kayitliId = localStorage.getItem(LS_KEY)
+        const kayitli   = kayitliId && hepsi.find(k => k.id === kayitliId)
+        setSecilenKurumIdRaw(kayitli ? kayitliId : null)
+        setYukleniyor(false)
+      }, err => {
+        console.error('Platform admin kurum dinleme hatası:', err)
+        setYukleniyor(false)
+      })
+      return () => unsub()
     }
 
     // ── Öğretmen: sadece atanan kurumlar ────────────────────────────────────

@@ -421,6 +421,17 @@ export default function KurumKulupler() {
 
   // Sistem Ayarları (Aktif Eğitim Yılı) Dinleyicisi
   useEffect(() => {
+    if (secilenKurum?.aktifEgitimYili) {
+      const parts = secilenKurum.aktifEgitimYili.split('-')
+      if (parts.length === 2) {
+        const startYear = parseInt(parts[0], 10)
+        const endYear = parseInt(parts[1], 10)
+        setPlanBaslangicTarihi(`${startYear}-09-15`)
+        setPlanBitisTarihi(`${endYear}-06-19`)
+      }
+      return
+    }
+
     const unsub = onSnapshot(doc(db, 'sistemAyarlari', 'genel'), (snap) => {
       if (snap.exists()) {
         const data = snap.data()
@@ -438,7 +449,7 @@ export default function KurumKulupler() {
       console.warn('Sistem ayarları dinlenemedi:', err.message)
     })
     return () => unsub()
-  }, [])
+  }, [secilenKurum])
 
   // Öğretmenin sorumlu olduğu kulüpler
   const goruntulenenKulupler = useMemo(() => {

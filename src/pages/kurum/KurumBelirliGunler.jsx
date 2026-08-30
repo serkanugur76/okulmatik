@@ -68,6 +68,13 @@ export default function KurumBelirliGunler() {
 
   // Sistem Ayarları (Aktif Eğitim Yılı) Dinleyicisi
   useEffect(() => {
+    if (secilenKurum?.aktifEgitimYili) {
+      setSecilenAkademikYil(secilenKurum.aktifEgitimYili)
+      const startYear = Number(secilenKurum.aktifEgitimYili.split('-')[0])
+      setAkademikYil(startYear)
+      return
+    }
+
     const unsub = onSnapshot(doc(db, 'sistemAyarlari', 'genel'), (snap) => {
       if (snap.exists()) {
         const data = snap.data()
@@ -81,7 +88,7 @@ export default function KurumBelirliGunler() {
       console.warn('Sistem ayarları dinlenemedi:', err.message)
     })
     return () => unsub()
-  }, [])
+  }, [secilenKurum])
 
   // Tatil Çakışma Kontrolü
   const overlapsWithHoliday = (start, end, currentId) => {
