@@ -1,24 +1,60 @@
 import React, { useState, useEffect } from 'react'
 import { db } from '../../../services/firebase'
-import { collection, onSnapshot, setDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, onSnapshot, setDoc, deleteDoc, doc, serverTimestamp, getDocs } from 'firebase/firestore'
 
-export const KADEMELER = ['Okul Öncesi', 'İlkokul', 'Ortaokul', 'Lise']
 export const BRANSLAR = [
-  'Sınıf Öğretmenliği', 'Matematik', 'Türkçe', 'Türk Dili ve Edebiyatı', 'Fen Bilimleri', 
-  'Sosyal Bilgiler', 'Tarih', 'Coğrafya', 'Fizik', 'Kimya', 'Biyoloji', 
-  'İngilizce', 'Almanca', 'Fransızca', 'Din Kültürü ve Ahlak Bilgisi', 
-  'Görsel Sanatlar', 'Müzik', 'Beden Eğitimi', 'Bilişim Teknolojileri', 'Rehberlik', 'Okul Öncesi Öğretmenliği', 'Diğer'
+  'Sınıf Öğretmeni', 'Sınıf Öğretmeni / Türkçe', 'Sınıf Öğretmeni / Matematik', 'Sınıf Öğretmeni / Fen Bilimleri', 'Sınıf Öğretmeni / Sosyal Bilgiler',
+  'Türkçe', 'Matematik', 'Fen Bilimleri', 'Sosyal Bilgiler',
+  'İngilizce', 'Din Kültürü', 'Görsel Sanatlar', 'Müzik', 'Beden Eğitimi',
+  'Teknoloji Tasarım', 'Bilişim Teknolojileri', 'Rehber Öğretmen'
 ]
+export const TIPLER = ['Zorunlu', 'Seçmeli', 'Kurum Dersi']
+
+const MEB_COURSES = [
+  { ad: 'Türkçe', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Türkçe', saatler: { "1": 10, "2": 10, "3": 8, "4": 8, "5": 6, "6": 6, "7": 5, "8": 5 } },
+  { ad: 'Matematik', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Matematik', saatler: { "1": 5, "2": 5, "3": 5, "4": 5, "5": 5, "6": 5, "7": 5, "8": 5 } },
+  { ad: 'Hayat Bilgisi', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni', saatler: { "1": 4, "2": 4, "3": 3 } },
+  { ad: 'Fen Bilimleri', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Fen Bilimleri', saatler: { "3": 3, "4": 3, "5": 4, "6": 4, "7": 4, "8": 4 } },
+  { ad: 'Sosyal Bilgiler', tip: 'Zorunlu', brans: 'Sosyal Bilgiler', saatler: { "4": 3, "5": 3, "6": 3, "7": 3 } },
+  { ad: 'T.C. İnkılap Tarihi ve Atatürkçülük', tip: 'Zorunlu', brans: 'Sosyal Bilgiler', saatler: { "8": 2 } },
+  { ad: 'Yabancı Dil', tip: 'Zorunlu', brans: 'İngilizce', saatler: { "2": 2, "3": 2, "4": 2, "5": 3, "6": 3, "7": 4, "8": 4 } },
+  { ad: 'Din Kültürü ve Ahlak Bilgisi', tip: 'Zorunlu', brans: 'Din Kültürü', saatler: { "4": 2, "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Görsel Sanatlar', tip: 'Zorunlu', brans: 'Görsel Sanatlar', saatler: { "1": 1, "2": 1, "3": 1, "4": 1, "5": 1, "6": 1, "7": 1, "8": 1 } },
+  { ad: 'Müzik', tip: 'Zorunlu', brans: 'Müzik', saatler: { "1": 1, "2": 1, "3": 1, "4": 1, "5": 1, "6": 1, "7": 1, "8": 1 } },
+  { ad: 'Beden Eğitimi ve Oyun', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni', saatler: { "1": 5, "2": 5, "3": 5, "4": 2 } },
+  { ad: 'Beden Eğitimi ve Spor', tip: 'Zorunlu', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Teknoloji ve Tasarım', tip: 'Zorunlu', brans: 'Teknoloji Tasarım', saatler: { "7": 2, "8": 2 } },
+  { ad: 'Trafik Güvenliği', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni', saatler: { "4": 1 } },
+  { ad: 'İnsan Hakları, Vatandaşlık ve Demokrasi', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Sosyal Bilgiler', saatler: { "4": 2 } },
+  { ad: 'Bilişim Teknolojileri ve Yazılım', tip: 'Zorunlu', brans: 'Bilişim Teknolojileri', saatler: { "5": 2, "6": 2 } },
+  { ad: 'Rehberlik ve Yönlendirme', tip: 'Zorunlu', brans: 'Rehber Öğretmen', saatler: { "5": 1, "6": 1, "7": 1, "8": 1 } },
+  { ad: 'Matematik ve Bilim Uygulamaları', tip: 'Seçmeli', brans: 'Matematik', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Okuma Becerileri', tip: 'Seçmeli', brans: 'Türkçe', saatler: { "5": 2, "6": 2 } },
+  { ad: 'Yabancı Dil (Seçmeli)', tip: 'Seçmeli', brans: 'İngilizce', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Robotik Kodlama', tip: 'Seçmeli', brans: 'Bilişim Teknolojileri', saatler: { "5": 2, "6": 2 } },
+  { ad: 'Kur\'an-ı Kerim', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Peygamberimizin Hayatı', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Görgü Kuralları ve Nezaket', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Spor ve Fizikî Etkinlikler', tip: 'Seçmeli', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+]
+
+const createSlug = (text) => {
+  const charMap = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'Ç': 'c', 'Ğ': 'g', 'İ': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u' };
+  let slug = text.trim().toLowerCase().replace(/[çğıöşüÇĞİÖŞÜ]/g, m => charMap[m]);
+  slug = slug.replace(/[^a-z0-9\s-]/g, '').replace(/[\s-]+/g, '_');
+  return slug;
+}
 
 export default function DersTanimlari() {
   const [dersler, setDersler] = useState([])
   const [yukleniyor, setYukleniyor] = useState(true)
 
-  // Form State
-  const [kademe, setKademe] = useState('Ortaokul')
+  // Form States
   const [ad, setAd] = useState('')
-  const [brans, setBrans] = useState('Matematik')
-  const [haftalikSaat, setHaftalikSaat] = useState(5)
+  const [brans, setBrans] = useState(BRANSLAR[0])
+  const [tip, setTip] = useState(TIPLER[0])
+  const [saatler, setSaatler] = useState({ 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '' })
+  
   const [islemYapiliyor, setIslemYapiliyor] = useState(false)
   const [hata, setHata] = useState(null)
 
@@ -27,8 +63,8 @@ export default function DersTanimlari() {
     const unsub = onSnapshot(q, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       data.sort((a, b) => {
-        if (a.kademe < b.kademe) return -1;
-        if (a.kademe > b.kademe) return 1;
+        if (a.tip < b.tip) return 1;
+        if (a.tip > b.tip) return -1;
         if (a.ad < b.ad) return -1;
         if (a.ad > b.ad) return 1;
         return 0;
@@ -50,22 +86,24 @@ export default function DersTanimlari() {
     setIslemYapiliyor(true)
     setHata(null)
     
-    // TR karakterleri ingilizceye çevir, boşlukları alt çizgi yap
-    const charMap = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'Ç': 'c', 'Ğ': 'g', 'İ': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u' };
-    let slug = ad.trim().toLowerCase().replace(/[çğıöşü]/g, m => charMap[m]);
-    slug = slug.replace(/[^a-z0-9\s-]/g, '').replace(/[\s-]+/g, '_');
-    const docId = `${kademe.toLowerCase()}_${slug}`;
+    const docId = `ders_${createSlug(ad)}`;
+    const temizSaatler = {}
+    Object.keys(saatler).forEach(lvl => {
+      if (saatler[lvl] && Number(saatler[lvl]) > 0) {
+        temizSaatler[lvl] = Number(saatler[lvl])
+      }
+    })
 
     try {
       await setDoc(doc(db, 'sistemDersleri', docId), {
-        kademe,
         ad: ad.trim(),
+        tip,
         brans,
-        haftalikSaat: Number(haftalikSaat),
+        saatler: temizSaatler,
         eklenmeTarihi: serverTimestamp()
       })
       setAd('')
-      setHaftalikSaat(5)
+      setSaatler({ 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '' })
     } catch (error) {
       console.error(error)
       setHata('Hata: ' + error.message)
@@ -74,47 +112,54 @@ export default function DersTanimlari() {
     }
   }
 
-  const handleDelete = async (id) => {
+  const handleSil = async (id) => {
     if (!window.confirm('Bu dersi silmek istediğinize emin misiniz?')) return
-    try {
-      await deleteDoc(doc(db, 'sistemDersleri', id))
-    } catch (error) {
-      console.error(error)
-      alert('Silme işlemi başarısız oldu.')
-    }
+    await deleteDoc(doc(db, 'sistemDersleri', id))
   }
 
-  if (yukleniyor) return <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Yükleniyor...</div>
+  const loadMEBCourses = async () => {
+    if (!window.confirm('Eski derslerin tümü SİLİNİP yerine güncel MEB İlkokul/Ortaokul müfredatı (Zorunlu + Seçmeli) eklenecektir. Onaylıyor musunuz?')) return
+    setIslemYapiliyor(true)
+    setHata(null)
+    try {
+      // 1. Delete all existing
+      const snap = await getDocs(collection(db, 'sistemDersleri'))
+      for (const d of snap.docs) {
+        await deleteDoc(d.ref)
+      }
+      
+      // 2. Insert new
+      for (const c of MEB_COURSES) {
+        const docId = `meb_${createSlug(c.ad)}`
+        await setDoc(doc(db, 'sistemDersleri', docId), {
+          ad: c.ad,
+          tip: c.tip,
+          brans: c.brans,
+          saatler: c.saatler,
+          eklenmeTarihi: serverTimestamp()
+        })
+      }
+      alert('Tüm MEB dersleri başarıyla sisteme yüklendi!')
+    } catch (error) {
+      console.error(error)
+      setHata('Hata (Yükleme): ' + error.message)
+    } finally {
+      setIslemYapiliyor(false)
+    }
+  }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '2rem', alignItems: 'start' }}>
       
-      {/* Sol Form Alanı */}
       <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #E2E8F0' }}>
-        <h3 style={{ margin: '0 0 1.25rem', fontSize: '1.1rem', color: '#1E293B' }}>Yeni Ders Ekle</h3>
-        {hata && <div style={{ padding: '0.75rem', background: '#FEE2E2', color: '#991B1B', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem' }}>{hata}</div>}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1E293B' }}>Yeni Ders Ekle</h3>
+        </div>
         
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Kademe</label>
-            <select 
-              value={kademe} onChange={e => setKademe(e.target.value)} required
-              style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none' }}
-            >
-              {KADEMELER.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
-          </div>
-          
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Branş</label>
-            <select 
-              value={brans} onChange={e => setBrans(e.target.value)} required
-              style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none' }}
-            >
-              {BRANSLAR.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-          </div>
+        {hata && <div style={{ padding: '0.75rem', background: '#FEE2E2', color: '#B91C1C', borderRadius: '8px', fontSize: '0.9rem', marginBottom: '1rem' }}>{hata}</div>}
 
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Ders Adı</label>
             <input 
@@ -124,60 +169,97 @@ export default function DersTanimlari() {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Standart Haftalık Saat</label>
-            <input 
-              type="number" value={haftalikSaat} onChange={e => setHaftalikSaat(e.target.value)} required min="1" max="40"
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Branş</label>
+            <select 
+              value={brans} onChange={e => setBrans(e.target.value)}
               style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none' }}
-            />
+            >
+              {BRANSLAR.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Ders Tipi</label>
+            <select 
+              value={tip} onChange={e => setTip(e.target.value)}
+              style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none' }}
+            >
+              {TIPLER.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Haftalık Saatler (Sınıf Seviyesine Göre)</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+              {[1,2,3,4,5,6,7,8].map(lvl => (
+                <div key={lvl}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748B', textAlign: 'center', marginBottom: '2px' }}>{lvl}. Snf</div>
+                  <input 
+                    type="number" value={saatler[lvl]} onChange={e => setSaatler({...saatler, [lvl]: e.target.value})} min="0" max="20" placeholder="-"
+                    style={{ width: '100%', padding: '0.4rem', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', textAlign: 'center' }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           <button 
             type="submit" disabled={islemYapiliyor}
-            style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#4338CA', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: islemYapiliyor ? 'not-allowed' : 'pointer' }}
+            style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#4F46E5', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: islemYapiliyor ? 'not-allowed' : 'pointer' }}
           >
             {islemYapiliyor ? 'Ekleniyor...' : 'Dersi Ekle'}
           </button>
         </form>
+
+        <hr style={{ border: 0, borderBottom: '1px dashed #E2E8F0', margin: '1.5rem 0' }} />
+        
+        <button 
+          onClick={loadMEBCourses} disabled={islemYapiliyor}
+          style={{ width: '100%', padding: '0.75rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: islemYapiliyor ? 'not-allowed' : 'pointer' }}
+        >
+          MEB Standart Derslerini Yükle
+        </button>
+        <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.5rem', textAlign: 'center' }}>
+          * Seçtiğiniz PDF tablosundaki tüm İlkokul/Ortaokul derslerini saatleriyle birlikte sisteme basar.
+        </div>
       </div>
 
-      {/* Sağ Tablo Alanı */}
       <div style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-            <tr>
-              <th style={{ padding: '1rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569' }}>Kademe</th>
-              <th style={{ padding: '1rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569' }}>Ders Adı</th>
-              <th style={{ padding: '1rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569' }}>Branş</th>
-              <th style={{ padding: '1rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', textAlign: 'center' }}>Haftalık Saat</th>
-              <th style={{ padding: '1rem', width: '60px' }}></th>
+          <thead>
+            <tr style={{ background: '#F8FAFC' }}>
+              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0' }}>Ders Adı</th>
+              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0' }}>Tip</th>
+              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0' }}>Branş</th>
+              <th style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', width: '60px' }}></th>
             </tr>
           </thead>
           <tbody>
-            {dersler.length === 0 ? (
-              <tr>
-                <td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Henüz ders tanımlanmamış.</td>
-              </tr>
+            {yukleniyor ? (
+              <tr><td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Yükleniyor...</td></tr>
+            ) : dersler.length === 0 ? (
+              <tr><td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Henüz ders tanımlanmamış.</td></tr>
             ) : (
-              dersler.map(ders => (
-                <tr key={ders.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                  <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#1E293B' }}>
-                    <span style={{ background: '#F1F5F9', padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '500' }}>
-                      {ders.kademe}
+              dersler.map(d => (
+                <tr key={d.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', fontWeight: '600', color: '#0F172A' }}>
+                    {d.ad}
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      {d.saatler && Object.keys(d.saatler).map(lvl => (
+                        <span key={lvl} style={{ background: '#E2E8F0', color: '#475569', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px' }}>
+                          {lvl}.S: {d.saatler[lvl]}s
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#334155' }}>
+                    <span style={{ background: d.tip === 'Zorunlu' ? '#DBEAFE' : d.tip === 'Seçmeli' ? '#FEF9C3' : '#F3E8FF', color: d.tip === 'Zorunlu' ? '#1D4ED8' : d.tip === 'Seçmeli' ? '#854D0E' : '#7E22CE', padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '600' }}>
+                      {d.tip || 'Zorunlu'}
                     </span>
                   </td>
-                  <td style={{ padding: '1rem', fontSize: '0.9rem', fontWeight: '600', color: '#0F172A' }}>{ders.ad}</td>
-                  <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#475569' }}>{ders.brans}</td>
-                  <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#1E293B', textAlign: 'center', fontWeight: '600' }}>
-                    {ders.haftalikSaat}
-                  </td>
-                  <td style={{ padding: '1rem', textAlign: 'center' }}>
-                    <button 
-                      onClick={() => handleDelete(ders.id)}
-                      style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px' }}
-                      title="Sil"
-                    >
-                      🗑️
-                    </button>
+                  <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#475569' }}>{d.brans}</td>
+                  <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
+                    <button onClick={() => handleSil(d.id)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '0.5rem' }}>🗑️</button>
                   </td>
                 </tr>
               ))
