@@ -11,6 +11,7 @@ export const BRANSLAR = [
 export const TIPLER = ['Zorunlu', 'Seçmeli', 'Kurum Dersi']
 
 const MEB_COURSES = [
+  // Zorunlu Dersler
   { ad: 'Türkçe', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Türkçe', saatler: { "1": 10, "2": 10, "3": 8, "4": 8, "5": 6, "6": 6, "7": 5, "8": 5 } },
   { ad: 'Matematik', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Matematik', saatler: { "1": 5, "2": 5, "3": 5, "4": 5, "5": 5, "6": 5, "7": 5, "8": 5 } },
   { ad: 'Hayat Bilgisi', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni', saatler: { "1": 4, "2": 4, "3": 3 } },
@@ -28,14 +29,42 @@ const MEB_COURSES = [
   { ad: 'İnsan Hakları, Vatandaşlık ve Demokrasi', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Sosyal Bilgiler', saatler: { "4": 2 } },
   { ad: 'Bilişim Teknolojileri ve Yazılım', tip: 'Zorunlu', brans: 'Bilişim Teknolojileri', saatler: { "5": 2, "6": 2 } },
   { ad: 'Rehberlik ve Yönlendirme', tip: 'Zorunlu', brans: 'Rehber Öğretmen', saatler: { "5": 1, "6": 1, "7": 1, "8": 1 } },
+  
+  // İnsan, Toplum ve Bilim (Seçmeli)
   { ad: 'Matematik ve Bilim Uygulamaları', tip: 'Seçmeli', brans: 'Matematik', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
   { ad: 'Okuma Becerileri', tip: 'Seçmeli', brans: 'Türkçe', saatler: { "5": 2, "6": 2 } },
+  { ad: 'Yazarlık ve Yazma Becerileri', tip: 'Seçmeli', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Yaşayan Diller ve Lehçeler', tip: 'Seçmeli', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
   { ad: 'Yabancı Dil (Seçmeli)', tip: 'Seçmeli', brans: 'İngilizce', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Çevre Eğitimi ve İklim Değişikliği', tip: 'Seçmeli', brans: 'Fen Bilimleri', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Şehrimiz', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Hukuk ve Adalet', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Düşünme Eğitimi', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "7": 2, "8": 2 } },
   { ad: 'Robotik Kodlama', tip: 'Seçmeli', brans: 'Bilişim Teknolojileri', saatler: { "5": 2, "6": 2 } },
+  { ad: 'Yapay Zeka Uygulamaları', tip: 'Seçmeli', brans: 'Bilişim Teknolojileri', saatler: { "7": 2, "8": 2 } },
+  { ad: 'Proje Tasarımı ve Uygulamaları', tip: 'Seçmeli', brans: 'Teknoloji Tasarım', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Okul Temelli Sosyal Sorumluluk Çalışmaları', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Medya Okuryazarlığı', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "7": 2, "8": 2 } },
+  { ad: 'Afet Bilinci', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Temel Yaşam Becerileri', tip: 'Seçmeli', brans: 'Sınıf Öğretmeni', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Türk Sosyal Hayatında Aile', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  
+  // Din, Ahlak ve Değer (Seçmeli)
   { ad: 'Kur\'an-ı Kerim', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
   { ad: 'Peygamberimizin Hayatı', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Temel Dinî Bilgiler', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Kültür ve Medeniyetimize Yön Verenler', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Ahlak ve Vatandaşlık Eğitimi', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  
+  // Kültür, Sanat ve Spor (Seçmeli)
   { ad: 'Görgü Kuralları ve Nezaket', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Müzik (Seçmeli)', tip: 'Seçmeli', brans: 'Müzik', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
   { ad: 'Spor ve Fizikî Etkinlikler', tip: 'Seçmeli', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Oyun ve Oyun Etkinlikleri', tip: 'Seçmeli', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Dijital Sanatlar', tip: 'Seçmeli', brans: 'Görsel Sanatlar', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Masal ve Destanlarımız', tip: 'Seçmeli', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Geleneksel Sanatlar', tip: 'Seçmeli', brans: 'Görsel Sanatlar', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Halk Oyunları', tip: 'Seçmeli', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } }
 ]
 
 const createSlug = (text) => {
@@ -119,7 +148,7 @@ export default function DersTanimlari() {
   }
 
   const loadMEBCourses = async () => {
-    if (!window.confirm('Eski derslerin tümü SİLİNİP yerine güncel MEB İlkokul/Ortaokul müfredatı (Zorunlu + Seçmeli) eklenecektir. Onaylıyor musunuz?')) return
+    if (!window.confirm('Eski derslerin tümü SİLİNİP yerine güncel MEB İlkokul/Ortaokul müfredatı (Tüm Zorunlu + Seçmeli Dersler) eklenecektir. Onaylıyor musunuz?')) return
     setIslemYapiliyor(true)
     setHata(null)
     try {
@@ -138,7 +167,7 @@ export default function DersTanimlari() {
           eklenmeTarihi: serverTimestamp()
         })
       }
-      alert('Tüm MEB dersleri başarıyla sisteme yüklendi!')
+      alert('Tüm MEB dersleri (Zorunlu ve Seçmeli) başarıyla sisteme yüklendi!')
     } catch (error) {
       console.error(error)
       setHata('Hata (Yükleme): ' + error.message)
@@ -246,6 +275,9 @@ export default function DersTanimlari() {
             const liste = grupluDersler[kademeAd]
             if (!liste || liste.length === 0) return null
 
+            // İçeride tipe göre grupla (Zorunlu, Seçmeli, Kurum Dersi)
+            const tipler = ['Zorunlu', 'Seçmeli', 'Kurum Dersi']
+
             return (
               <div key={kademeAd} style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
                 <div style={{ background: '#F1F5F9', padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0' }}>
@@ -255,35 +287,48 @@ export default function DersTanimlari() {
                   <thead>
                     <tr>
                       <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0' }}>Ders Adı & Saatler</th>
-                      <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0', width: '150px' }}>Tip</th>
                       <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0', width: '200px' }}>Branş</th>
                       <th style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', width: '80px', textAlign: 'center' }}>İşlem</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {liste.map(d => (
-                      <tr key={d.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                        <td style={{ padding: '1rem 1.5rem' }}>
-                          <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#0F172A' }}>{d.ad}</div>
-                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                            {d.saatler && Object.keys(d.saatler).sort().map(lvl => (
-                              <span key={lvl} style={{ background: '#E2E8F0', color: '#475569', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', fontWeight: '500' }}>
-                                {lvl}.S: {d.saatler[lvl]}s
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td style={{ padding: '1rem 1.5rem' }}>
-                          <span style={{ background: d.tip === 'Zorunlu' ? '#DBEAFE' : d.tip === 'Seçmeli' ? '#FEF9C3' : '#F3E8FF', color: d.tip === 'Zorunlu' ? '#1D4ED8' : d.tip === 'Seçmeli' ? '#854D0E' : '#7E22CE', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '600' }}>
-                            {d.tip || 'Zorunlu'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#475569' }}>{d.brans}</td>
-                        <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
-                          <button onClick={() => handleSil(d.id)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '0.5rem', fontSize: '1.2rem' }} title="Sil">🗑️</button>
-                        </td>
-                      </tr>
-                    ))}
+                    {tipler.map(tipAdi => {
+                      const tipDersleri = liste.filter(d => d.tip === tipAdi)
+                      if (tipDersleri.length === 0) return null
+                      return (
+                        <React.Fragment key={tipAdi}>
+                          <tr>
+                            <td colSpan={3} style={{ padding: '0.75rem 1.5rem', background: '#F8FAFC', color: '#475569', fontWeight: '700', fontSize: '0.85rem', borderBottom: '1px solid #E2E8F0' }}>
+                              {tipAdi.toUpperCase()} DERSLER
+                            </td>
+                          </tr>
+                          {tipDersleri.map(d => (
+                            <tr key={d.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                              <td style={{ padding: '1rem 1.5rem' }}>
+                                <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#0F172A' }}>{d.ad}</div>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                  {d.saatler && Object.keys(d.saatler).sort().map(lvl => {
+                                    // Sadece bu kademeye ait olan saatleri göster
+                                    const l = Number(lvl)
+                                    if (kademeAd === 'İlkokul' && (l < 1 || l > 4)) return null;
+                                    if (kademeAd === 'Ortaokul' && (l < 5 || l > 8)) return null;
+                                    return (
+                                      <span key={lvl} style={{ background: '#E2E8F0', color: '#475569', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', fontWeight: '500' }}>
+                                        {lvl}.S: {d.saatler[lvl]}s
+                                      </span>
+                                    )
+                                  })}
+                                </div>
+                              </td>
+                              <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#475569' }}>{d.brans}</td>
+                              <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
+                                <button onClick={() => handleSil(d.id)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '0.5rem', fontSize: '1.2rem' }} title="Sil">🗑️</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
