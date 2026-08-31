@@ -23,14 +23,21 @@ export default function DersTanimlari() {
   const [hata, setHata] = useState(null)
 
   useEffect(() => {
-    const q = query(collection(db, 'sistemDersleri'), orderBy('kademe'), orderBy('ad'))
+    const q = collection(db, 'sistemDersleri')
     const unsub = onSnapshot(q, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      data.sort((a, b) => {
+        if (a.kademe < b.kademe) return -1;
+        if (a.kademe > b.kademe) return 1;
+        if (a.ad < b.ad) return -1;
+        if (a.ad > b.ad) return 1;
+        return 0;
+      })
       setDersler(data)
       setYukleniyor(false)
     }, (err) => {
       console.error(err)
-      setHata('Dersler yüklenirken bir hata oluştu.')
+      setHata('Hata (Yükleme): ' + err.message)
       setYukleniyor(false)
     })
     return () => unsub()
