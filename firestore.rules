@@ -313,6 +313,18 @@ service cloud.firestore {
       allow read:   if request.auth != null;
       allow write:  if platformAdmin();
     }
+    match /sistemDersleri/{dersId} {
+      allow read:   if request.auth != null;
+      allow write:  if platformAdmin();
+    }
+    match /ogretmenSartlari/{ogrId} {
+      allow read:   if request.auth != null;
+      allow write:  if platformAdmin();
+    }
+    match /dersAtamalari/{atamaId} {
+      allow read:   if request.auth != null;
+      allow write:  if platformAdmin();
+    }
     match /sistemAyarlari/{docId} {
       allow read:   if request.auth != null;
       allow write:  if platformAdmin();
