@@ -54,7 +54,7 @@ export default function DersTanimlari() {
       setHaftalikSaat(5)
     } catch (error) {
       console.error(error)
-      setHata('Ders eklenirken bir hata oluştu.')
+      setHata('Hata: ' + error.message)
     } finally {
       setIslemYapiliyor(false)
     }
