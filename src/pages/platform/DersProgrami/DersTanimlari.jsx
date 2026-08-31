@@ -148,25 +148,19 @@ export default function DersTanimlari() {
   }
 
   // Gruplama Mantığı
-  const getDersKademe = (ders) => {
+  const grupluDersler = { 'İlkokul': [], 'Ortaokul': [], 'Tanımsız Kademe': [] }
+  dersler.forEach(ders => {
     const s = Object.keys(ders.saatler || {}).map(Number)
     const varIlk = s.some(k => k >= 1 && k <= 4)
     const varOrta = s.some(k => k >= 5 && k <= 8)
-    if (varIlk && varOrta) return 'İlkokul ve Ortaokul (Ortak)'
-    if (varIlk) return 'İlkokul'
-    if (varOrta) return 'Ortaokul'
-    return 'Tanımsız Kademe'
-  }
-
-  const grupluDersler = dersler.reduce((acc, ders) => {
-    const kademe = getDersKademe(ders)
-    if (!acc[kademe]) acc[kademe] = []
-    acc[kademe].push(ders)
-    return acc
-  }, {})
+    
+    if (varIlk) grupluDersler['İlkokul'].push(ders)
+    if (varOrta) grupluDersler['Ortaokul'].push(ders)
+    if (!varIlk && !varOrta) grupluDersler['Tanımsız Kademe'].push(ders)
+  })
 
   // Gösterim sırası
-  const KADEME_SIRASI = ['İlkokul', 'Ortaokul', 'İlkokul ve Ortaokul (Ortak)', 'Tanımsız Kademe']
+  const KADEME_SIRASI = ['İlkokul', 'Ortaokul', 'Tanımsız Kademe']
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
