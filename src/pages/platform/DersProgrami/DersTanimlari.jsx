@@ -10,6 +10,7 @@ export const BRANSLAR = [
 ]
 export const TIPLER = [
   'Zorunlu', 
+  'Seçmeli',
   'Seçmeli (İnsan, Toplum ve Bilim)', 
   'Seçmeli (Din, Ahlak ve Değer)', 
   'Seçmeli (Kültür, Sanat ve Spor)', 
