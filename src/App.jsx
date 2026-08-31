@@ -68,7 +68,7 @@ function AnaYonlendirici() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <BrowserRouter>
         <Routes>
           <Route path="/giris"    element={<GirisPage />} />
           <Route path="/yetkisiz" element={<YetkisizPage />} />
