@@ -62,6 +62,7 @@ export default function DersTanimlari() {
     const q = collection(db, 'sistemDersleri')
     const unsub = onSnapshot(q, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      // Sıralama
       data.sort((a, b) => {
         if (a.tip < b.tip) return 1;
         if (a.tip > b.tip) return -1;
@@ -122,13 +123,11 @@ export default function DersTanimlari() {
     setIslemYapiliyor(true)
     setHata(null)
     try {
-      // 1. Delete all existing
       const snap = await getDocs(collection(db, 'sistemDersleri'))
       for (const d of snap.docs) {
         await deleteDoc(d.ref)
       }
       
-      // 2. Insert new
       for (const c of MEB_COURSES) {
         const docId = `meb_${createSlug(c.ad)}`
         await setDoc(doc(db, 'sistemDersleri', docId), {
@@ -148,124 +147,155 @@ export default function DersTanimlari() {
     }
   }
 
+  // Gruplama Mantığı
+  const getDersKademe = (ders) => {
+    const s = Object.keys(ders.saatler || {}).map(Number)
+    const varIlk = s.some(k => k >= 1 && k <= 4)
+    const varOrta = s.some(k => k >= 5 && k <= 8)
+    if (varIlk && varOrta) return 'İlkokul ve Ortaokul (Ortak)'
+    if (varIlk) return 'İlkokul'
+    if (varOrta) return 'Ortaokul'
+    return 'Tanımsız Kademe'
+  }
+
+  const grupluDersler = dersler.reduce((acc, ders) => {
+    const kademe = getDersKademe(ders)
+    if (!acc[kademe]) acc[kademe] = []
+    acc[kademe].push(ders)
+    return acc
+  }, {})
+
+  // Gösterim sırası
+  const KADEME_SIRASI = ['İlkokul', 'Ortaokul', 'İlkokul ve Ortaokul (Ortak)', 'Tanımsız Kademe']
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '2rem', alignItems: 'start' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       
+      {/* Yatay Form Alanı */}
       <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #E2E8F0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1E293B' }}>Yeni Ders Ekle</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1E293B' }}>Yeni Ders Ekle</h3>
+          <button 
+            onClick={loadMEBCourses} disabled={islemYapiliyor}
+            style={{ padding: '0.6rem 1rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: islemYapiliyor ? 'not-allowed' : 'pointer' }}
+          >
+            MEB Standart Derslerini Yükle
+          </button>
         </div>
         
         {hata && <div style={{ padding: '0.75rem', background: '#FEE2E2', color: '#B91C1C', borderRadius: '8px', fontSize: '0.9rem', marginBottom: '1rem' }}>{hata}</div>}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Ders Adı</label>
-            <input 
-              type="text" value={ad} onChange={e => setAd(e.target.value)} required placeholder="Örn: Matematik"
-              style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none' }}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Ders Adı</label>
+              <input 
+                type="text" value={ad} onChange={e => setAd(e.target.value)} required placeholder="Örn: Matematik"
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Branş</label>
+              <select 
+                value={brans} onChange={e => setBrans(e.target.value)}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none' }}
+              >
+                {BRANSLAR.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Ders Tipi</label>
+              <select 
+                value={tip} onChange={e => setTip(e.target.value)}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none' }}
+              >
+                {TIPLER.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Branş</label>
-            <select 
-              value={brans} onChange={e => setBrans(e.target.value)}
-              style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none' }}
-            >
-              {BRANSLAR.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Ders Tipi</label>
-            <select 
-              value={tip} onChange={e => setTip(e.target.value)}
-              style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none' }}
-            >
-              {TIPLER.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem' }}>Haftalık Saatler (Sınıf Seviyesine Göre)</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.5rem' }}>Haftalık Saatler (Sınıf Seviyesine Göre)</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', background: '#F8FAFC', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
               {[1,2,3,4,5,6,7,8].map(lvl => (
-                <div key={lvl}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748B', textAlign: 'center', marginBottom: '2px' }}>{lvl}. Snf</div>
+                <div key={lvl} style={{ flex: '1 1 60px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '600', marginBottom: '4px' }}>{lvl}. Snf</div>
                   <input 
                     type="number" value={saatler[lvl]} onChange={e => setSaatler({...saatler, [lvl]: e.target.value})} min="0" max="20" placeholder="-"
-                    style={{ width: '100%', padding: '0.4rem', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', textAlign: 'center' }}
+                    style={{ width: '100%', maxWidth: '60px', padding: '0.5rem', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', textAlign: 'center', fontSize: '0.9rem' }}
                   />
                 </div>
               ))}
             </div>
           </div>
 
-          <button 
-            type="submit" disabled={islemYapiliyor}
-            style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#4F46E5', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: islemYapiliyor ? 'not-allowed' : 'pointer' }}
-          >
-            {islemYapiliyor ? 'Ekleniyor...' : 'Dersi Ekle'}
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button 
+              type="submit" disabled={islemYapiliyor}
+              style={{ padding: '0.75rem 2rem', background: '#4F46E5', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: islemYapiliyor ? 'not-allowed' : 'pointer' }}
+            >
+              {islemYapiliyor ? 'Ekleniyor...' : 'Dersi Kaydet'}
+            </button>
+          </div>
         </form>
-
-        <hr style={{ border: 0, borderBottom: '1px dashed #E2E8F0', margin: '1.5rem 0' }} />
-        
-        <button 
-          onClick={loadMEBCourses} disabled={islemYapiliyor}
-          style={{ width: '100%', padding: '0.75rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: islemYapiliyor ? 'not-allowed' : 'pointer' }}
-        >
-          MEB Standart Derslerini Yükle
-        </button>
-        <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.5rem', textAlign: 'center' }}>
-          * Seçtiğiniz PDF tablosundaki tüm İlkokul/Ortaokul derslerini saatleriyle birlikte sisteme basar.
-        </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: '#F8FAFC' }}>
-              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0' }}>Ders Adı</th>
-              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0' }}>Tip</th>
-              <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0' }}>Branş</th>
-              <th style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', width: '60px' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {yukleniyor ? (
-              <tr><td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Yükleniyor...</td></tr>
-            ) : dersler.length === 0 ? (
-              <tr><td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Henüz ders tanımlanmamış.</td></tr>
-            ) : (
-              dersler.map(d => (
-                <tr key={d.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                  <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', fontWeight: '600', color: '#0F172A' }}>
-                    {d.ad}
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
-                      {d.saatler && Object.keys(d.saatler).map(lvl => (
-                        <span key={lvl} style={{ background: '#E2E8F0', color: '#475569', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px' }}>
-                          {lvl}.S: {d.saatler[lvl]}s
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#334155' }}>
-                    <span style={{ background: d.tip === 'Zorunlu' ? '#DBEAFE' : d.tip === 'Seçmeli' ? '#FEF9C3' : '#F3E8FF', color: d.tip === 'Zorunlu' ? '#1D4ED8' : d.tip === 'Seçmeli' ? '#854D0E' : '#7E22CE', padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '600' }}>
-                      {d.tip || 'Zorunlu'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#475569' }}>{d.brans}</td>
-                  <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
-                    <button onClick={() => handleSil(d.id)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '0.5rem' }}>🗑️</button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {/* Ders Listesi */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        {yukleniyor ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Yükleniyor...</div>
+        ) : dersler.length === 0 ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Henüz ders tanımlanmamış.</div>
+        ) : (
+          KADEME_SIRASI.map(kademeAd => {
+            const liste = grupluDersler[kademeAd]
+            if (!liste || liste.length === 0) return null
+
+            return (
+              <div key={kademeAd} style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+                <div style={{ background: '#F1F5F9', padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0' }}>
+                  <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#334155' }}>{kademeAd} Dersleri ({liste.length})</h4>
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0' }}>Ders Adı & Saatler</th>
+                      <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0', width: '150px' }}>Tip</th>
+                      <th style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', borderBottom: '1px solid #E2E8F0', width: '200px' }}>Branş</th>
+                      <th style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0', width: '80px', textAlign: 'center' }}>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {liste.map(d => (
+                      <tr key={d.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                        <td style={{ padding: '1rem 1.5rem' }}>
+                          <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#0F172A' }}>{d.ad}</div>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                            {d.saatler && Object.keys(d.saatler).sort().map(lvl => (
+                              <span key={lvl} style={{ background: '#E2E8F0', color: '#475569', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', fontWeight: '500' }}>
+                                {lvl}.S: {d.saatler[lvl]}s
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td style={{ padding: '1rem 1.5rem' }}>
+                          <span style={{ background: d.tip === 'Zorunlu' ? '#DBEAFE' : d.tip === 'Seçmeli' ? '#FEF9C3' : '#F3E8FF', color: d.tip === 'Zorunlu' ? '#1D4ED8' : d.tip === 'Seçmeli' ? '#854D0E' : '#7E22CE', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '600' }}>
+                            {d.tip || 'Zorunlu'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#475569' }}>{d.brans}</td>
+                        <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
+                          <button onClick={() => handleSil(d.id)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '0.5rem', fontSize: '1.2rem' }} title="Sil">🗑️</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })
+        )}
       </div>
     </div>
   )
