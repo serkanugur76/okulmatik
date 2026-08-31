@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { db } from '../../../services/firebase'
-import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, onSnapshot, setDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 
 export const KADEMELER = ['Okul Öncesi', 'İlkokul', 'Ortaokul', 'Lise']
 export const BRANSLAR = [
@@ -49,8 +49,15 @@ export default function DersTanimlari() {
 
     setIslemYapiliyor(true)
     setHata(null)
+    
+    // TR karakterleri ingilizceye çevir, boşlukları alt çizgi yap
+    const charMap = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'Ç': 'c', 'Ğ': 'g', 'İ': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u' };
+    let slug = ad.trim().toLowerCase().replace(/[çğıöşü]/g, m => charMap[m]);
+    slug = slug.replace(/[^a-z0-9\s-]/g, '').replace(/[\s-]+/g, '_');
+    const docId = `${kademe.toLowerCase()}_${slug}`;
+
     try {
-      await addDoc(collection(db, 'sistemDersleri'), {
+      await setDoc(doc(db, 'sistemDersleri', docId), {
         kademe,
         ad: ad.trim(),
         brans,
