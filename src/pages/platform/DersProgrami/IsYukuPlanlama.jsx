@@ -183,7 +183,13 @@ export default function IsYukuPlanlama() {
               </tr>
             </thead>
             <tbody>
-              {['Zorunlu', 'Seçmeli', 'Kurum Dersi'].map(tipKategori => {
+              {[
+                'Zorunlu', 
+                'Seçmeli (İnsan, Toplum ve Bilim)', 
+                'Seçmeli (Din, Ahlak ve Değer)', 
+                'Seçmeli (Kültür, Sanat ve Spor)', 
+                'Kurum Dersi'
+              ].map(tipKategori => {
                 const kategoriDersleri = grupluDersler[tipKategori]
                 if (!kategoriDersleri || kategoriDersleri.length === 0) return null
 

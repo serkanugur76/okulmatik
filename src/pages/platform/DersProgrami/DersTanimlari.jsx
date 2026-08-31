@@ -8,7 +8,13 @@ export const BRANSLAR = [
   'İngilizce', 'Din Kültürü', 'Görsel Sanatlar', 'Müzik', 'Beden Eğitimi',
   'Teknoloji Tasarım', 'Bilişim Teknolojileri', 'Rehber Öğretmen'
 ]
-export const TIPLER = ['Zorunlu', 'Seçmeli', 'Kurum Dersi']
+export const TIPLER = [
+  'Zorunlu', 
+  'Seçmeli (İnsan, Toplum ve Bilim)', 
+  'Seçmeli (Din, Ahlak ve Değer)', 
+  'Seçmeli (Kültür, Sanat ve Spor)', 
+  'Kurum Dersi'
+]
 
 const MEB_COURSES = [
   // Zorunlu Dersler
@@ -31,40 +37,40 @@ const MEB_COURSES = [
   { ad: 'Rehberlik ve Yönlendirme', tip: 'Zorunlu', brans: 'Rehber Öğretmen', saatler: { "5": 1, "6": 1, "7": 1, "8": 1 } },
   
   // İnsan, Toplum ve Bilim (Seçmeli)
-  { ad: 'Matematik ve Bilim Uygulamaları', tip: 'Seçmeli', brans: 'Matematik', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Okuma Becerileri', tip: 'Seçmeli', brans: 'Türkçe', saatler: { "5": 2, "6": 2 } },
-  { ad: 'Yazarlık ve Yazma Becerileri', tip: 'Seçmeli', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Yaşayan Diller ve Lehçeler', tip: 'Seçmeli', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Yabancı Dil (Seçmeli)', tip: 'Seçmeli', brans: 'İngilizce', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Çevre Eğitimi ve İklim Değişikliği', tip: 'Seçmeli', brans: 'Fen Bilimleri', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Şehrimiz', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Hukuk ve Adalet', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Düşünme Eğitimi', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "7": 2, "8": 2 } },
-  { ad: 'Robotik Kodlama', tip: 'Seçmeli', brans: 'Bilişim Teknolojileri', saatler: { "5": 2, "6": 2 } },
-  { ad: 'Yapay Zeka Uygulamaları', tip: 'Seçmeli', brans: 'Bilişim Teknolojileri', saatler: { "7": 2, "8": 2 } },
-  { ad: 'Proje Tasarımı ve Uygulamaları', tip: 'Seçmeli', brans: 'Teknoloji Tasarım', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Okul Temelli Sosyal Sorumluluk Çalışmaları', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Medya Okuryazarlığı', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "7": 2, "8": 2 } },
-  { ad: 'Afet Bilinci', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Temel Yaşam Becerileri', tip: 'Seçmeli', brans: 'Sınıf Öğretmeni', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Türk Sosyal Hayatında Aile', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Matematik ve Bilim Uygulamaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Matematik', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Okuma Becerileri', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Türkçe', saatler: { "5": 2, "6": 2 } },
+  { ad: 'Yazarlık ve Yazma Becerileri', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Yaşayan Diller ve Lehçeler', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Yabancı Dil (Seçmeli)', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'İngilizce', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Çevre Eğitimi ve İklim Değişikliği', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Fen Bilimleri', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Şehrimiz ...', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Hukuk ve Adalet', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Düşünme Eğitimi', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "7": 2, "8": 2 } },
+  { ad: 'Robotik Kodlama', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Bilişim Teknolojileri', saatler: { "5": 2, "6": 2 } },
+  { ad: 'Yapay Zeka Uygulamaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Bilişim Teknolojileri', saatler: { "7": 2, "8": 2 } },
+  { ad: 'Proje Tasarımı ve Uygulamaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Teknoloji Tasarım', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Okul Temelli Sosyal Sorumluluk Çalışmaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Medya Okuryazarlığı', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "7": 2, "8": 2 } },
+  { ad: 'Afet Bilinci', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Temel Yaşam Becerileri', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sınıf Öğretmeni', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Türk Sosyal Hayatında Aile', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
   
   // Din, Ahlak ve Değer (Seçmeli)
-  { ad: 'Kur\'an-ı Kerim', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Peygamberimizin Hayatı', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Temel Dinî Bilgiler', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Kültür ve Medeniyetimize Yön Verenler', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Ahlak ve Vatandaşlık Eğitimi', tip: 'Seçmeli', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Kur\'an-ı Kerim', tip: 'Seçmeli (Din, Ahlak ve Değer)', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Peygamberimizin Hayatı', tip: 'Seçmeli (Din, Ahlak ve Değer)', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Temel Dinî Bilgiler', tip: 'Seçmeli (Din, Ahlak ve Değer)', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Kültür ve Medeniyetimize Yön Verenler', tip: 'Seçmeli (Din, Ahlak ve Değer)', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Ahlak ve Vatandaşlık Eğitimi', tip: 'Seçmeli (Din, Ahlak ve Değer)', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
   
   // Kültür, Sanat ve Spor (Seçmeli)
-  { ad: 'Görgü Kuralları ve Nezaket', tip: 'Seçmeli', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Müzik (Seçmeli)', tip: 'Seçmeli', brans: 'Müzik', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Spor ve Fizikî Etkinlikler', tip: 'Seçmeli', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Oyun ve Oyun Etkinlikleri', tip: 'Seçmeli', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Dijital Sanatlar', tip: 'Seçmeli', brans: 'Görsel Sanatlar', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Masal ve Destanlarımız', tip: 'Seçmeli', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Geleneksel Sanatlar', tip: 'Seçmeli', brans: 'Görsel Sanatlar', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Halk Oyunları', tip: 'Seçmeli', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } }
+  { ad: 'Görgü Kuralları ve Nezaket', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Müzik (Seçmeli)', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Müzik', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Spor ve Fizikî Etkinlikler', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Oyun ve Oyun Etkinlikleri', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Dijital Sanatlar', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Görsel Sanatlar', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Masal ve Destanlarımız', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Geleneksel Sanatlar', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Görsel Sanatlar', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Halk Oyunları', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } }
 ]
 
 const createSlug = (text) => {
@@ -275,9 +281,7 @@ export default function DersTanimlari() {
             const liste = grupluDersler[kademeAd]
             if (!liste || liste.length === 0) return null
 
-            // İçeride tipe göre grupla (Zorunlu, Seçmeli, Kurum Dersi)
-            const tipler = ['Zorunlu', 'Seçmeli', 'Kurum Dersi']
-
+            // İçeride tipe göre grupla (TIPLER listesindeki sıraya göre)
             return (
               <div key={kademeAd} style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
                 <div style={{ background: '#F1F5F9', padding: '1rem 1.5rem', borderBottom: '1px solid #E2E8F0' }}>
@@ -292,14 +296,14 @@ export default function DersTanimlari() {
                     </tr>
                   </thead>
                   <tbody>
-                    {tipler.map(tipAdi => {
+                    {TIPLER.map(tipAdi => {
                       const tipDersleri = liste.filter(d => d.tip === tipAdi)
                       if (tipDersleri.length === 0) return null
                       return (
                         <React.Fragment key={tipAdi}>
                           <tr>
                             <td colSpan={3} style={{ padding: '0.75rem 1.5rem', background: '#F8FAFC', color: '#475569', fontWeight: '700', fontSize: '0.85rem', borderBottom: '1px solid #E2E8F0' }}>
-                              {tipAdi.toUpperCase()} DERSLER
+                              {tipAdi.toUpperCase()}
                             </td>
                           </tr>
                           {tipDersleri.map(d => (
