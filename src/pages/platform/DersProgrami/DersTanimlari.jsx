@@ -110,6 +110,8 @@ export default function DersTanimlari() {
   // Düzenleme State'leri
   const [duzenlenenDersId, setDuzenlenenDersId] = useState(null)
   const [seciliBranslar, setSeciliBranslar] = useState([])
+  const [duzenlenenSaatDersId, setDuzenlenenSaatDersId] = useState(null)
+  const [geciciSaatler, setGeciciSaatler] = useState({})
 
   useEffect(() => {
     const q = collection(db, 'sistemDersleri')
@@ -188,6 +190,26 @@ export default function DersTanimlari() {
         atanabilirBranslar: seciliBranslar
       })
       setDuzenlenenDersId(null)
+    } catch (err) {
+      console.error(err)
+      alert('Güncelleme sırasında hata oluştu.')
+    } finally {
+      setIslemYapiliyor(false)
+    }
+  }
+
+  const handleSaatGuncelle = async (dersId) => {
+    setIslemYapiliyor(true)
+    try {
+      const newSaatler = { ...geciciSaatler }
+      Object.keys(newSaatler).forEach(k => {
+        if (!newSaatler[k] || newSaatler[k] <= 0) delete newSaatler[k];
+      })
+      
+      await updateDoc(doc(db, 'sistemDersleri', dersId), {
+        saatler: newSaatler
+      })
+      setDuzenlenenSaatDersId(null)
     } catch (err) {
       console.error(err)
       alert('Güncelleme sırasında hata oluştu.')
@@ -392,18 +414,50 @@ export default function DersTanimlari() {
                                     return <span style={{ color: '#64748B', fontSize: '0.8rem', background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px' }}>{uniqueHours.sort().join('-')} Kredi</span>
                                   })()}
                                 </div>
-                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                                  {d.saatler && Object.keys(d.saatler).sort().map(lvl => {
-                                    // Sadece bu kademeye ait olan saatleri göster
-                                    const l = Number(lvl)
-                                    if (kademeAd === 'İlkokul' && (l < 1 || l > 4)) return null;
-                                    if (kademeAd === 'Ortaokul' && (l < 5 || l > 8)) return null;
-                                    return (
-                                      <span key={lvl} style={{ background: '#E2E8F0', color: '#475569', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', fontWeight: '500' }}>
-                                        {lvl}.S: {d.saatler[lvl]}s
-                                      </span>
-                                    )
-                                  })}
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px', alignItems: 'center' }}>
+                                  {duzenlenenSaatDersId === d.id ? (
+                                    <>
+                                      {[1, 2, 3, 4, 5, 6, 7, 8].map(lvl => {
+                                        if (kademeAd === 'İlkokul' && (lvl < 1 || lvl > 4)) return null;
+                                        if (kademeAd === 'Ortaokul' && (lvl < 5 || lvl > 8)) return null;
+                                        return (
+                                          <div key={lvl} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fff', padding: '2px 6px', borderRadius: '4px', border: '1px solid #CBD5E1' }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#475569' }}>{lvl}.S:</span>
+                                            <input 
+                                              type="number" min="0" max="20"
+                                              value={geciciSaatler[lvl] || ''} 
+                                              onChange={e => setGeciciSaatler({...geciciSaatler, [lvl]: Number(e.target.value) || 0})}
+                                              style={{ width: '30px', padding: '2px', textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', fontSize: '0.8rem' }}
+                                            />
+                                          </div>
+                                        )
+                                      })}
+                                      <div style={{ display: 'flex', gap: '4px', marginLeft: 'auto' }}>
+                                        <button onClick={() => setDuzenlenenSaatDersId(null)} style={{ padding: '0.2rem 0.5rem', background: '#F1F5F9', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>İptal</button>
+                                        <button onClick={() => handleSaatGuncelle(d.id)} disabled={islemYapiliyor} style={{ padding: '0.2rem 0.5rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Kaydet</button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {d.saatler && Object.keys(d.saatler).sort().map(lvl => {
+                                        const l = Number(lvl)
+                                        if (kademeAd === 'İlkokul' && (l < 1 || l > 4)) return null;
+                                        if (kademeAd === 'Ortaokul' && (l < 5 || l > 8)) return null;
+                                        return (
+                                          <span key={lvl} style={{ background: '#E2E8F0', color: '#475569', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', fontWeight: '500' }}>
+                                            {lvl}.S: {d.saatler[lvl]}s
+                                          </span>
+                                        )
+                                      })}
+                                      <button 
+                                        onClick={() => { setDuzenlenenSaatDersId(d.id); setGeciciSaatler(d.saatler || {}) }}
+                                        style={{ background: 'transparent', border: 'none', color: '#3B82F6', cursor: 'pointer', fontSize: '0.8rem', marginLeft: '4px' }}
+                                        title="Kredileri Düzenle"
+                                      >
+                                        ✏️
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                               </td>
                               <td style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', color: '#475569' }}>
