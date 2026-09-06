@@ -9,9 +9,13 @@ export default function OgretmenSartlari() {
   const [ogretmenler, setOgretmenler] = useState([])
   const [sartlar, setSartlar] = useState({}) // { ogretmenId: { brans, toplamSaat, kurumKisitlari, kademeKisitlari } }
   
+  const defaultUygunluk = {
+    'Pazartesi': [1,2,3,4,5,6,7,8], 'Salı': [1,2,3,4,5,6,7,8], 'Çarşamba': [1,2,3,4,5,6,7,8], 'Perşembe': [1,2,3,4,5,6,7,8], 'Cuma': [1,2,3,4,5,6,7,8]
+  }
+
   // Panel States
   const [duzenlenenOgrId, setDuzenlenenOgrId] = useState(null)
-  const [formSartlar, setFormSartlar] = useState({ brans: 'Sınıf Öğretmenliği', toplamSaat: 20, kurumKisitlari: [], kademeKisitlari: [] })
+  const [formSartlar, setFormSartlar] = useState({ brans: 'Sınıf Öğretmenliği', toplamSaat: 20, kurumKisitlari: [], kademeKisitlari: [], uygunluk: defaultUygunluk })
   const [islemYapiliyor, setIslemYapiliyor] = useState(false)
   const [aramaMetni, setAramaMetni] = useState('')
 
@@ -42,7 +46,8 @@ export default function OgretmenSartlari() {
       brans: mevcutSart.brans || 'Sınıf Öğretmenliği',
       toplamSaat: mevcutSart.toplamSaat || 20,
       kurumKisitlari: mevcutSart.kurumKisitlari || [],
-      kademeKisitlari: mevcutSart.kademeKisitlari || []
+      kademeKisitlari: mevcutSart.kademeKisitlari || [],
+      uygunluk: mevcutSart.uygunluk || defaultUygunluk
     })
   }
 
@@ -87,6 +92,25 @@ export default function OgretmenSartlari() {
       } else {
         return { ...prev, kademeKisitlari: [...k, kademe].sort((a,b) => a-b) }
       }
+    })
+  }
+
+  const toggleUygunlukSaat = (gun, saat) => {
+    setFormSartlar(prev => {
+      const g = prev.uygunluk?.[gun] || []
+      const newG = g.includes(saat) ? g.filter(s => s !== saat) : [...g, saat].sort((a,b)=>a-b)
+      return { ...prev, uygunluk: { ...prev.uygunluk, [gun]: newG } }
+    })
+  }
+
+  const setUygunlukSablon = (gun, sablon) => {
+    setFormSartlar(prev => {
+      let arr = []
+      if (sablon === 'tum') arr = [1,2,3,4,5,6,7,8]
+      else if (sablon === 'ogleden_once') arr = [1,2,3,4]
+      else if (sablon === 'ogleden_sonra') arr = [5,6,7,8]
+      else if (sablon === 'hic') arr = []
+      return { ...prev, uygunluk: { ...prev.uygunluk, [gun]: arr } }
     })
   }
 
@@ -194,57 +218,109 @@ export default function OgretmenSartlari() {
                                 </div>
                               </div>
 
-                              <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.5rem' }}>
-                                  Derse Girebileceği Kademeler (Sınıf Seviyeleri)
-                                </label>
-                                <div style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '0.75rem' }}>
-                                  Hiçbiri seçilmezse tüm kademelerdeki derslere atanabilir. Sadece belirli sınıflara girebilecekse aşağıdan işaretleyin.
+                              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                                {/* Kademeler */}
+                                <div style={{ flex: '1 1 300px' }}>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.5rem' }}>
+                                    Derse Girebileceği Kademeler
+                                    <span title="Öğretmenin hangi sınıf seviyelerine derse girebileceğini belirler. Seçilmezse tüm seviyelere girebilir." style={{ cursor: 'help', background: '#E2E8F0', padding: '2px 6px', borderRadius: '50%', fontSize: '0.75rem' }}>?</span>
+                                  </label>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.5rem' }}>
+                                    {[1,2,3,4,5,6,7,8].map(k => (
+                                      <label key={k} style={{ 
+                                        display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem', 
+                                        background: (formSartlar.kademeKisitlari || []).includes(k) ? '#FEF3C7' : '#fff', 
+                                        border: (formSartlar.kademeKisitlari || []).includes(k) ? '1px solid #F59E0B' : '1px solid #CBD5E1', 
+                                        borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', color: '#334155'
+                                      }}>
+                                        <input 
+                                          type="checkbox" 
+                                          checked={(formSartlar.kademeKisitlari || []).includes(k)}
+                                          onChange={() => toggleKademeKisit(k)}
+                                          style={{ width: '14px', height: '14px', accentColor: '#D97706' }}
+                                        />
+                                        {k}. Sınıf
+                                      </label>
+                                    ))}
+                                  </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                  {[1,2,3,4,5,6,7,8].map(k => (
-                                    <label key={k} style={{ 
-                                      display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', 
-                                      background: (formSartlar.kademeKisitlari || []).includes(k) ? '#FEF3C7' : '#fff', 
-                                      border: (formSartlar.kademeKisitlari || []).includes(k) ? '1px solid #F59E0B' : '1px solid #CBD5E1', 
-                                      borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.85rem', fontWeight: '600', color: '#334155'
-                                    }}>
-                                      <input 
-                                        type="checkbox" 
-                                        checked={(formSartlar.kademeKisitlari || []).includes(k)}
-                                        onChange={() => toggleKademeKisit(k)}
-                                        style={{ width: '16px', height: '16px', accentColor: '#D97706' }}
-                                      />
-                                      {k}. Sınıf
-                                    </label>
-                                  ))}
+
+                                {/* Kurumlar */}
+                                <div style={{ flex: '2 1 400px' }}>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.5rem' }}>
+                                    Derse Girebileceği Kurumlar
+                                    <span title="Öğretmenin görevlendirileceği şube veya okulları seçin. Boş bırakılırsa tüm kurumlarda görev alabilir." style={{ cursor: 'help', background: '#E2E8F0', padding: '2px 6px', borderRadius: '50%', fontSize: '0.75rem' }}>?</span>
+                                  </label>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', paddingRight: '5px' }}>
+                                    {erisimKurumlar.filter(k => k.tip !== 'root').map(kurum => (
+                                      <label key={kurum.id} style={{ 
+                                        display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.6rem',
+                                        background: (formSartlar.kurumKisitlari || []).includes(kurum.id) ? '#E0E7FF' : '#fff', 
+                                        border: (formSartlar.kurumKisitlari || []).includes(kurum.id) ? '1px solid #4F46E5' : '1px solid #CBD5E1', 
+                                        borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', color: '#334155', fontWeight: '500',
+                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                                      }}>
+                                        <input 
+                                          type="checkbox" 
+                                          checked={(formSartlar.kurumKisitlari || []).includes(kurum.id)}
+                                          onChange={() => toggleKurumKisit(kurum.id)}
+                                          style={{ width: '14px', height: '14px', accentColor: '#4338CA' }}
+                                        />
+                                        {kurum.tip === 'kampus' ? '🏫' : '🎒'} {kurum.ad}
+                                      </label>
+                                    ))}
+                                  </div>
                                 </div>
                               </div>
 
                               <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.5rem' }}>
-                                  Derse Girebileceği Kurumlar
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginBottom: '0.5rem' }}>
+                                  Çalışma Günleri ve Saatleri (40 Saatlik Çizelge)
+                                  <span title="Öğretmenin okulda bulunabileceği saatleri işaretleyin. Otomatik ders programı oluşturulurken yeşil olan (müsait) saatler dikkate alınır." style={{ cursor: 'help', background: '#E2E8F0', padding: '2px 6px', borderRadius: '50%', fontSize: '0.75rem' }}>?</span>
                                 </label>
-                                <div style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '0.75rem' }}>
-                                  Hiçbiri seçilmezse tüm şubelere atanabilir sayılır. Sadece belirli şubelere atanacaksa aşağıdan işaretleyin.
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '0.75rem' }}>
-                                  {erisimKurumlar.filter(k => k.tip !== 'root').map(kurum => (
-                                    <label key={kurum.id} style={{ 
-                                      display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem',
-                                      background: (formSartlar.kurumKisitlari || []).includes(kurum.id) ? '#E0E7FF' : '#fff', 
-                                      border: (formSartlar.kurumKisitlari || []).includes(kurum.id) ? '1px solid #4F46E5' : '1px solid #CBD5E1', 
-                                      borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', transition: 'all 0.2s', color: '#334155', fontWeight: '500'
-                                    }}>
-                                      <input 
-                                        type="checkbox" 
-                                        checked={(formSartlar.kurumKisitlari || []).includes(kurum.id)}
-                                        onChange={() => toggleKurumKisit(kurum.id)}
-                                        style={{ width: '16px', height: '16px', accentColor: '#4338CA' }}
-                                      />
-                                      {kurum.tip === 'kampus' ? '🏫' : '🎒'} {kurum.ad}
-                                    </label>
-                                  ))}
+                                <div style={{ overflowX: 'auto', border: '1px solid #CBD5E1', borderRadius: '8px' }}>
+                                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.85rem' }}>
+                                    <thead>
+                                      <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #CBD5E1' }}>
+                                        <th style={{ padding: '0.5rem', borderRight: '1px solid #CBD5E1', textAlign: 'left' }}>Gün / Hızlı Seçim</th>
+                                        {[1,2,3,4,5,6,7,8].map(s => <th key={s} style={{ padding: '0.5rem', width: '40px', color: '#475569' }}>{s}.S</th>)}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'].map(gun => (
+                                        <tr key={gun} style={{ borderBottom: '1px solid #E2E8F0' }}>
+                                          <td style={{ padding: '0.5rem', borderRight: '1px solid #CBD5E1', textAlign: 'left' }}>
+                                            <div style={{ fontWeight: '600', color: '#334155', marginBottom: '4px' }}>{gun}</div>
+                                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                              <button type="button" onClick={() => setUygunlukSablon(gun, 'tum')} style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#E0E7FF', color: '#4338CA', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Tüm Gün</button>
+                                              <button type="button" onClick={() => setUygunlukSablon(gun, 'ogleden_once')} style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#FEF3C7', color: '#D97706', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>ÖÖ</button>
+                                              <button type="button" onClick={() => setUygunlukSablon(gun, 'ogleden_sonra')} style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#FCE7F3', color: '#BE185D', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>ÖS</button>
+                                              <button type="button" onClick={() => setUygunlukSablon(gun, 'hic')} style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Boşalt</button>
+                                            </div>
+                                          </td>
+                                          {[1,2,3,4,5,6,7,8].map(saat => {
+                                            const isActive = (formSartlar.uygunluk?.[gun] || []).includes(saat);
+                                            return (
+                                              <td key={saat} style={{ padding: '2px' }}>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => toggleUygunlukSaat(gun, saat)}
+                                                  style={{ 
+                                                    width: '100%', height: '40px', border: 'none', borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s',
+                                                    background: isActive ? '#10B981' : '#F1F5F9',
+                                                    color: isActive ? '#fff' : '#CBD5E1',
+                                                    fontWeight: 'bold', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                  }}
+                                                >
+                                                  {isActive ? '✓' : '×'}
+                                                </button>
+                                              </td>
+                                            )
+                                          })}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
                                 </div>
                               </div>
 
