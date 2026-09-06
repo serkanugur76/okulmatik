@@ -377,7 +377,21 @@ export default function DersTanimlari() {
                           {tipDersleri.map(d => (
                             <tr key={d.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                               <td style={{ padding: '1rem 1.5rem' }}>
-                                <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#0F172A' }}>{d.ad}</div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  {d.ad}
+                                  {(() => {
+                                    if (!d.saatler) return null;
+                                    const uniqueHours = [];
+                                    Object.keys(d.saatler).forEach(lvl => {
+                                      const l = Number(lvl);
+                                      if (kademeAd === 'İlkokul' && (l < 1 || l > 4)) return;
+                                      if (kademeAd === 'Ortaokul' && (l < 5 || l > 8)) return;
+                                      if (!uniqueHours.includes(d.saatler[lvl])) uniqueHours.push(d.saatler[lvl]);
+                                    });
+                                    if (uniqueHours.length === 0) return null;
+                                    return <span style={{ color: '#64748B', fontSize: '0.8rem', background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px' }}>{uniqueHours.sort().join('-')} Kredi</span>
+                                  })()}
+                                </div>
                                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                                   {d.saatler && Object.keys(d.saatler).sort().map(lvl => {
                                     // Sadece bu kademeye ait olan saatleri göster
