@@ -20,59 +20,59 @@ export const TIPLER = [
 
 const MEB_COURSES = [
   // Zorunlu Dersler
-  { ad: 'Türkçe', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Türkçe', saatler: { "1": 10, "2": 10, "3": 8, "4": 8, "5": 6, "6": 6, "7": 5, "8": 5 } },
-  { ad: 'Matematik', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Matematik', saatler: { "1": 5, "2": 5, "3": 5, "4": 5, "5": 5, "6": 5, "7": 5, "8": 5 } },
-  { ad: 'Hayat Bilgisi', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni', saatler: { "1": 4, "2": 4, "3": 3 } },
-  { ad: 'Fen Bilimleri', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Fen Bilimleri', saatler: { "3": 3, "4": 3, "5": 4, "6": 4, "7": 4, "8": 4 } },
-  { ad: 'Sosyal Bilgiler', tip: 'Zorunlu', brans: 'Sosyal Bilgiler', saatler: { "4": 3, "5": 3, "6": 3, "7": 3 } },
-  { ad: 'T.C. İnkılap Tarihi ve Atatürkçülük', tip: 'Zorunlu', brans: 'Sosyal Bilgiler', saatler: { "8": 2 } },
-  { ad: 'Yabancı Dil', tip: 'Zorunlu', brans: 'İngilizce', saatler: { "2": 2, "3": 2, "4": 2, "5": 3, "6": 3, "7": 4, "8": 4 } },
-  { ad: 'Din Kültürü ve Ahlak Bilgisi', tip: 'Zorunlu', brans: 'Din Kültürü', saatler: { "4": 2, "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Görsel Sanatlar', tip: 'Zorunlu', brans: 'Görsel Sanatlar', saatler: { "1": 1, "2": 1, "3": 1, "4": 1, "5": 1, "6": 1, "7": 1, "8": 1 } },
-  { ad: 'Müzik', tip: 'Zorunlu', brans: 'Müzik', saatler: { "1": 1, "2": 1, "3": 1, "4": 1, "5": 1, "6": 1, "7": 1, "8": 1 } },
-  { ad: 'Beden Eğitimi ve Oyun', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni', saatler: { "1": 5, "2": 5, "3": 5, "4": 2 } },
-  { ad: 'Beden Eğitimi ve Spor', tip: 'Zorunlu', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Teknoloji ve Tasarım', tip: 'Zorunlu', brans: 'Teknoloji Tasarım', saatler: { "7": 2, "8": 2 } },
-  { ad: 'Trafik Güvenliği', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni', saatler: { "4": 1 } },
-  { ad: 'İnsan Hakları, Vatandaşlık ve Demokrasi', tip: 'Zorunlu', brans: 'Sınıf Öğretmeni / Sosyal Bilgiler', saatler: { "4": 2 } },
-  { ad: 'Bilişim Teknolojileri ve Yazılım', tip: 'Zorunlu', brans: 'Bilişim Teknolojileri', saatler: { "5": 2, "6": 2 } },
-  { ad: 'Rehberlik ve Yönlendirme', tip: 'Zorunlu', brans: 'Rehber Öğretmen', saatler: { "5": 1, "6": 1, "7": 1, "8": 1 } },
+  { ad: 'Türkçe', tip: 'Zorunlu', atanabilirBranslar: ['Türkçe', 'Sınıf Öğretmeni / Türkçe'], saatler: { "1": 10, "2": 10, "3": 8, "4": 8, "5": 6, "6": 6, "7": 5, "8": 5 } },
+  { ad: 'Matematik', tip: 'Zorunlu', atanabilirBranslar: ['Matematik', 'İlköğretim Matematik', 'Sınıf Öğretmeni / Matematik'], saatler: { "1": 5, "2": 5, "3": 5, "4": 5, "5": 5, "6": 5, "7": 5, "8": 5 } },
+  { ad: 'Hayat Bilgisi', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni'], saatler: { "1": 4, "2": 4, "3": 3 } },
+  { ad: 'Fen Bilimleri', tip: 'Zorunlu', atanabilirBranslar: ['Fen Bilimleri', 'Sınıf Öğretmeni / Fen Bilimleri'], saatler: { "3": 3, "4": 3, "5": 4, "6": 4, "7": 4, "8": 4 } },
+  { ad: 'Sosyal Bilgiler', tip: 'Zorunlu', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "4": 3, "5": 3, "6": 3, "7": 3 } },
+  { ad: 'T.C. İnkılap Tarihi ve Atatürkçülük', tip: 'Zorunlu', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "8": 2 } },
+  { ad: 'Yabancı Dil', tip: 'Zorunlu', atanabilirBranslar: ['İngilizce'], saatler: { "2": 2, "3": 2, "4": 2, "5": 3, "6": 3, "7": 4, "8": 4 } },
+  { ad: 'Din Kültürü ve Ahlak Bilgisi', tip: 'Zorunlu', atanabilirBranslar: ['Din Kültürü'], saatler: { "4": 2, "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Görsel Sanatlar', tip: 'Zorunlu', atanabilirBranslar: ['Görsel Sanatlar'], saatler: { "1": 1, "2": 1, "3": 1, "4": 1, "5": 1, "6": 1, "7": 1, "8": 1 } },
+  { ad: 'Müzik', tip: 'Zorunlu', atanabilirBranslar: ['Müzik'], saatler: { "1": 1, "2": 1, "3": 1, "4": 1, "5": 1, "6": 1, "7": 1, "8": 1 } },
+  { ad: 'Beden Eğitimi ve Oyun', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Beden Eğitimi'], saatler: { "1": 5, "2": 5, "3": 5, "4": 2 } },
+  { ad: 'Beden Eğitimi ve Spor', tip: 'Zorunlu', atanabilirBranslar: ['Beden Eğitimi'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Teknoloji ve Tasarım', tip: 'Zorunlu', atanabilirBranslar: ['Teknoloji Tasarım'], saatler: { "7": 2, "8": 2 } },
+  { ad: 'Trafik Güvenliği', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Sosyal Bilgiler'], saatler: { "4": 1 } },
+  { ad: 'İnsan Hakları, Vatandaşlık ve Demokrasi', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Sosyal Bilgiler'], saatler: { "4": 2 } },
+  { ad: 'Bilişim Teknolojileri ve Yazılım', tip: 'Zorunlu', atanabilirBranslar: ['Bilişim Teknolojileri'], saatler: { "5": 2, "6": 2 } },
+  { ad: 'Rehberlik ve Yönlendirme', tip: 'Zorunlu', atanabilirBranslar: ['Rehber Öğretmen'], saatler: { "5": 1, "6": 1, "7": 1, "8": 1 } },
   
   // İnsan, Toplum ve Bilim (Seçmeli)
-  { ad: 'Matematik ve Bilim Uygulamaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Matematik', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Okuma Becerileri', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Türkçe', saatler: { "5": 2, "6": 2 } },
-  { ad: 'Yazarlık ve Yazma Becerileri', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Yaşayan Diller ve Lehçeler', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Yabancı Dil (Seçmeli)', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'İngilizce', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Çevre Eğitimi ve İklim Değişikliği', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Fen Bilimleri', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Şehrimiz ...', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Hukuk ve Adalet', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Düşünme Eğitimi', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "7": 2, "8": 2 } },
-  { ad: 'Robotik Kodlama', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Bilişim Teknolojileri', saatler: { "5": 2, "6": 2 } },
-  { ad: 'Yapay Zeka Uygulamaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Bilişim Teknolojileri', saatler: { "7": 2, "8": 2 } },
-  { ad: 'Proje Tasarımı ve Uygulamaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Teknoloji Tasarım', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Okul Temelli Sosyal Sorumluluk Çalışmaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Medya Okuryazarlığı', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "7": 2, "8": 2 } },
-  { ad: 'Afet Bilinci', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Temel Yaşam Becerileri', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sınıf Öğretmeni', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Türk Sosyal Hayatında Aile', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Matematik ve Bilim Uygulamaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Matematik', 'İlköğretim Matematik', 'Fen Bilimleri'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Okuma Becerileri', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Türkçe'], saatler: { "5": 2, "6": 2 } },
+  { ad: 'Yazarlık ve Yazma Becerileri', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Türkçe'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Yaşayan Diller ve Lehçeler', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Türkçe'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Yabancı Dil (Seçmeli)', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['İngilizce'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Çevre Eğitimi ve İklim Değişikliği', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Fen Bilimleri', 'Sosyal Bilgiler'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Şehrimiz ...', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Hukuk ve Adalet', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Düşünme Eğitimi', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Sosyal Bilgiler', 'Türkçe', 'Din Kültürü'], saatler: { "7": 2, "8": 2 } },
+  { ad: 'Robotik Kodlama', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Bilişim Teknolojileri', 'Matematik', 'Fen Bilimleri'], saatler: { "5": 2, "6": 2 } },
+  { ad: 'Yapay Zeka Uygulamaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Bilişim Teknolojileri', 'Matematik', 'Fen Bilimleri'], saatler: { "7": 2, "8": 2 } },
+  { ad: 'Proje Tasarımı ve Uygulamaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Teknoloji Tasarım', 'Fen Bilimleri'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Okul Temelli Sosyal Sorumluluk Çalışmaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Medya Okuryazarlığı', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Sosyal Bilgiler', 'Türkçe', 'Bilişim Teknolojileri'], saatler: { "7": 2, "8": 2 } },
+  { ad: 'Afet Bilinci', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Temel Yaşam Becerileri', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Sınıf Öğretmeni', 'Teknoloji Tasarım'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Türk Sosyal Hayatında Aile', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
   
   // Din, Ahlak ve Değer (Seçmeli)
-  { ad: 'Kur\'an-ı Kerim', tip: 'Seçmeli (Din, Ahlak ve Değer)', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Peygamberimizin Hayatı', tip: 'Seçmeli (Din, Ahlak ve Değer)', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Temel Dinî Bilgiler', tip: 'Seçmeli (Din, Ahlak ve Değer)', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Kültür ve Medeniyetimize Yön Verenler', tip: 'Seçmeli (Din, Ahlak ve Değer)', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Ahlak ve Vatandaşlık Eğitimi', tip: 'Seçmeli (Din, Ahlak ve Değer)', brans: 'Din Kültürü', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Kur\'an-ı Kerim', tip: 'Seçmeli (Din, Ahlak ve Değer)', atanabilirBranslar: ['Din Kültürü'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Peygamberimizin Hayatı', tip: 'Seçmeli (Din, Ahlak ve Değer)', atanabilirBranslar: ['Din Kültürü'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Temel Dinî Bilgiler', tip: 'Seçmeli (Din, Ahlak ve Değer)', atanabilirBranslar: ['Din Kültürü'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Kültür ve Medeniyetimize Yön Verenler', tip: 'Seçmeli (Din, Ahlak ve Değer)', atanabilirBranslar: ['Din Kültürü'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Ahlak ve Vatandaşlık Eğitimi', tip: 'Seçmeli (Din, Ahlak ve Değer)', atanabilirBranslar: ['Din Kültürü', 'Sosyal Bilgiler'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
   
   // Kültür, Sanat ve Spor (Seçmeli)
-  { ad: 'Görgü Kuralları ve Nezaket', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Sosyal Bilgiler', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Müzik (Seçmeli)', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Müzik', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Spor ve Fizikî Etkinlikler', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Oyun ve Oyun Etkinlikleri', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Dijital Sanatlar', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Görsel Sanatlar', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Masal ve Destanlarımız', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Türkçe', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Geleneksel Sanatlar', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Görsel Sanatlar', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Halk Oyunları', tip: 'Seçmeli (Kültür, Sanat ve Spor)', brans: 'Beden Eğitimi', saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } }
+  { ad: 'Görgü Kuralları ve Nezaket', tip: 'Seçmeli (Kültür, Sanat ve Spor)', atanabilirBranslar: ['Sosyal Bilgiler', 'Türkçe', 'Din Kültürü'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Müzik (Seçmeli)', tip: 'Seçmeli (Kültür, Sanat ve Spor)', atanabilirBranslar: ['Müzik'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Spor ve Fizikî Etkinlikler', tip: 'Seçmeli (Kültür, Sanat ve Spor)', atanabilirBranslar: ['Beden Eğitimi'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Oyun ve Oyun Etkinlikleri', tip: 'Seçmeli (Kültür, Sanat ve Spor)', atanabilirBranslar: ['Beden Eğitimi'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Dijital Sanatlar', tip: 'Seçmeli (Kültür, Sanat ve Spor)', atanabilirBranslar: ['Görsel Sanatlar', 'Bilişim Teknolojileri'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Masal ve Destanlarımız', tip: 'Seçmeli (Kültür, Sanat ve Spor)', atanabilirBranslar: ['Türkçe', 'Sosyal Bilgiler'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Geleneksel Sanatlar', tip: 'Seçmeli (Kültür, Sanat ve Spor)', atanabilirBranslar: ['Görsel Sanatlar'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Halk Oyunları', tip: 'Seçmeli (Kültür, Sanat ve Spor)', atanabilirBranslar: ['Beden Eğitimi'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } }
 ]
 
 const createSlug = (text) => {
@@ -137,7 +137,8 @@ export default function DersTanimlari() {
       await setDoc(doc(db, 'sistemDersleri', docId), {
         ad: ad.trim(),
         tip,
-        brans,
+        brans, // Primary
+        atanabilirBranslar: [brans], // Default fallback for custom courses
         saatler: temizSaatler,
         eklenmeTarihi: serverTimestamp()
       })
@@ -171,7 +172,8 @@ export default function DersTanimlari() {
         await setDoc(doc(db, 'sistemDersleri', docId), {
           ad: c.ad,
           tip: c.tip,
-          brans: c.brans,
+          brans: c.atanabilirBranslar[0],
+          atanabilirBranslar: c.atanabilirBranslar,
           saatler: c.saatler,
           eklenmeTarihi: serverTimestamp()
         })
@@ -343,7 +345,9 @@ export default function DersTanimlari() {
                                   })}
                                 </div>
                               </td>
-                              <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#475569' }}>{d.brans}</td>
+                              <td style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', color: '#475569' }}>
+                                {d.atanabilirBranslar ? d.atanabilirBranslar.join(', ') : d.brans}
+                              </td>
                               <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
                                 <button onClick={() => handleSil(d.id)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '0.5rem', fontSize: '1.2rem' }} title="Sil">🗑️</button>
                               </td>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { db } from '../../../services/firebase'
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { useKurumYonetim } from '../../../contexts/KurumYonetimContext'
+import IhtiyacAnaliziModal from './IhtiyacAnaliziModal'
 
 export default function IsYukuPlanlama() {
   const { erisimKurumlar } = useKurumYonetim()
@@ -17,6 +18,7 @@ export default function IsYukuPlanlama() {
 
   // Modal State
   const [modalAcik, setModalAcik] = useState(false)
+  const [analizAcik, setAnalizAcik] = useState(false)
   const [aktifHucre, setAktifHucre] = useState({ sinif: null, ders: null, atama: null })
   const [seciliOgretmenId, setSeciliOgretmenId] = useState('')
   const [planlananSaat, setPlanlananSaat] = useState(0)
@@ -170,6 +172,15 @@ export default function IsYukuPlanlama() {
           <option value="">— Planlama Yapılacak Okulu Seçin —</option>
           {okullar.map(k => <option key={k.id} value={k.id}>{k.ad}</option>)}
         </select>
+        
+        {seciliKurumId && (
+          <button 
+            onClick={() => setAnalizAcik(true)}
+            style={{ marginLeft: 'auto', padding: '0.6rem 1rem', background: '#4F46E5', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            📊 İhtiyaç / Norm Analizi
+          </button>
+        )}
       </div>
 
       {seciliKurumId && siniflar.length > 0 ? (
@@ -331,6 +342,7 @@ export default function IsYukuPlanlama() {
       {/* Modal */}
       {modalAcik && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+          {/* ... Modal content ... */}
           <div style={{ background: '#fff', padding: '2rem', borderRadius: '16px', width: '100%', maxWidth: '450px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
             <h2 style={{ margin: '0 0 1.5rem', fontSize: '1.25rem', color: '#0F172A' }}>Öğretmen Ataması</h2>
             
@@ -360,17 +372,45 @@ export default function IsYukuPlanlama() {
                   style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '1rem' }}
                 >
                   <option value="">— Öğretmen Seçin —</option>
-                  {uygunOgretmenler.map(ogr => {
-                    const s = sartlar[ogr.id]
-                    const load = getOgretmenYuk(ogr.id)
-                    const max = s?.toplamSaat || 0
-                    const isOver = load >= max && max > 0
+                  
+                  {(() => {
+                    const dersBranslar = aktifHucre?.ders?.atanabilirBranslar || [aktifHucre?.ders?.brans];
+                    const uyumluOgrs = [];
+                    const digerOgrs = [];
+                    
+                    uygunOgretmenler.forEach(ogr => {
+                      const s = sartlar[ogr.id];
+                      if (s?.brans && dersBranslar.includes(s.brans)) uyumluOgrs.push(ogr);
+                      else digerOgrs.push(ogr);
+                    });
+
+                    const renderOption = (ogr) => {
+                      const s = sartlar[ogr.id]
+                      const load = getOgretmenYuk(ogr.id)
+                      const max = s?.toplamSaat || 0
+                      const isOver = load >= max && max > 0
+                      return (
+                        <option key={ogr.id} value={ogr.id} disabled={isOver && ogr.id !== seciliOgretmenId}>
+                          {ogr.ad} - {s?.brans || 'Tanımsız'} {max > 0 ? `(Yük: ${load}/${max})` : `(Yük: ${load})`} {isOver ? ' - LİMİT DOLU' : ''}
+                        </option>
+                      )
+                    };
+
                     return (
-                      <option key={ogr.id} value={ogr.id} disabled={isOver && ogr.id !== seciliOgretmenId}>
-                        {ogr.ad} - {s?.brans || 'Tanımsız'} {max > 0 ? `(Yük: ${load}/${max})` : `(Yük: ${load})`} {isOver ? ' - LİMİT DOLU' : ''}
-                      </option>
+                      <>
+                        {uyumluOgrs.length > 0 && (
+                          <optgroup label="✨ Uygun Branşlar (MEB Onaylı)">
+                            {uyumluOgrs.map(renderOption)}
+                          </optgroup>
+                        )}
+                        {digerOgrs.length > 0 && (
+                          <optgroup label="⚠️ Diğer Branşlar">
+                            {digerOgrs.map(renderOption)}
+                          </optgroup>
+                        )}
+                      </>
                     )
-                  })}
+                  })()}
                 </select>
               </div>
             </div>
@@ -386,6 +426,19 @@ export default function IsYukuPlanlama() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* İhtiyaç Analizi Modal */}
+      {analizAcik && (
+        <IhtiyacAnaliziModal 
+          kapat={() => setAnalizAcik(false)}
+          seciliKurumId={seciliKurumId}
+          siniflar={siniflar}
+          dersler={dersler}
+          ogretmenler={ogretmenler}
+          sartlar={sartlar}
+          atamalar={atamalar}
+        />
       )}
 
     </div>
