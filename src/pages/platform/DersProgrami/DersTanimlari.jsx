@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useKurumYonetim } from '../../../contexts/KurumYonetimContext'
 import { db } from '../../../services/firebase'
-import { collection, onSnapshot, setDoc, deleteDoc, doc, serverTimestamp, getDocs } from 'firebase/firestore'
+import { collection, onSnapshot, setDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs } from 'firebase/firestore'
 
 export const BRANSLAR = [
   'Sınıf Öğretmeni', 'Sınıf Öğretmeni / Türkçe', 'Sınıf Öğretmeni / Matematik', 'Sınıf Öğretmeni / Fen Bilimleri', 'Sınıf Öğretmeni / Sosyal Bilgiler',
@@ -96,6 +96,10 @@ export default function DersTanimlari() {
   const [islemYapiliyor, setIslemYapiliyor] = useState(false)
   const [hata, setHata] = useState(null)
 
+  // Düzenleme State'leri
+  const [duzenlenenDersId, setDuzenlenenDersId] = useState(null)
+  const [seciliBranslar, setSeciliBranslar] = useState([])
+
   useEffect(() => {
     const q = collection(db, 'sistemDersleri')
     const unsub = onSnapshot(q, (snap) => {
@@ -154,7 +158,39 @@ export default function DersTanimlari() {
 
   const handleSil = async (id) => {
     if (!window.confirm('Bu dersi silmek istediğinize emin misiniz?')) return
-    await deleteDoc(doc(db, 'sistemDersleri', id))
+    try {
+      await deleteDoc(doc(db, 'sistemDersleri', id))
+    } catch (error) {
+      console.error(error)
+      alert('Silinirken hata oluştu.')
+    }
+  }
+
+  const handleBransGuncelle = async (dersId) => {
+    if (!seciliBranslar || seciliBranslar.length === 0) {
+      alert('En az bir branş seçmelisiniz.')
+      return
+    }
+    setIslemYapiliyor(true)
+    try {
+      await updateDoc(doc(db, 'sistemDersleri', dersId), {
+        atanabilirBranslar: seciliBranslar
+      })
+      setDuzenlenenDersId(null)
+    } catch (err) {
+      console.error(err)
+      alert('Güncelleme sırasında hata oluştu.')
+    } finally {
+      setIslemYapiliyor(false)
+    }
+  }
+
+  const toggleBrans = (brans) => {
+    if (seciliBranslar.includes(brans)) {
+      setSeciliBranslar(prev => prev.filter(b => b !== brans))
+    } else {
+      setSeciliBranslar(prev => [...prev, brans])
+    }
   }
 
   const loadMEBCourses = async () => {
@@ -346,7 +382,40 @@ export default function DersTanimlari() {
                                 </div>
                               </td>
                               <td style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', color: '#475569' }}>
-                                {d.atanabilirBranslar ? d.atanabilirBranslar.join(', ') : d.brans}
+                                {duzenlenenDersId === d.id ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '0.5rem', background: '#fff' }}>
+                                      {BRANSLAR.map(b => (
+                                        <label key={b} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0', cursor: 'pointer' }}>
+                                          <input 
+                                            type="checkbox" 
+                                            checked={seciliBranslar.includes(b)}
+                                            onChange={() => toggleBrans(b)}
+                                          />
+                                          {b}
+                                        </label>
+                                      ))}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                      <button onClick={() => setDuzenlenenDersId(null)} style={{ flex: 1, padding: '0.4rem', background: '#F1F5F9', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>İptal</button>
+                                      <button onClick={() => handleBransGuncelle(d.id)} disabled={islemYapiliyor} style={{ flex: 1, padding: '0.4rem', background: '#10B981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Kaydet</button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                                    <span>{d.atanabilirBranslar ? d.atanabilirBranslar.join(', ') : d.brans}</span>
+                                    <button 
+                                      onClick={() => {
+                                        setDuzenlenenDersId(d.id)
+                                        setSeciliBranslar(d.atanabilirBranslar || [d.brans])
+                                      }}
+                                      style={{ background: 'transparent', border: 'none', color: '#3B82F6', cursor: 'pointer', fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: '4px' }}
+                                      title="Düzenle"
+                                    >
+                                      ✏️ Düzenle
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                               <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
                                 <button onClick={() => handleSil(d.id)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '0.5rem', fontSize: '1.2rem' }} title="Sil">🗑️</button>
