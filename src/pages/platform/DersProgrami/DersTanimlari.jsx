@@ -19,24 +19,35 @@ export const TIPLER = [
 ]
 
 const MEB_COURSES = [
-  // Zorunlu Dersler
-  { ad: 'Türkçe', tip: 'Zorunlu', atanabilirBranslar: ['Türkçe', 'Sınıf Öğretmeni / Türkçe'], saatler: { "1": 10, "2": 10, "3": 8, "4": 8, "5": 6, "6": 6, "7": 5, "8": 5 } },
-  { ad: 'Matematik', tip: 'Zorunlu', atanabilirBranslar: ['Matematik', 'İlköğretim Matematik', 'Sınıf Öğretmeni / Matematik'], saatler: { "1": 5, "2": 5, "3": 5, "4": 5, "5": 5, "6": 5, "7": 5, "8": 5 } },
+  // Zorunlu Dersler (İlkokul)
+  { ad: 'Türkçe (İlkokul)', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Sınıf Öğretmeni / Türkçe'], saatler: { "1": 10, "2": 10, "3": 8, "4": 8 } },
+  { ad: 'Matematik (İlkokul)', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Sınıf Öğretmeni / Matematik'], saatler: { "1": 5, "2": 5, "3": 5, "4": 5 } },
   { ad: 'Hayat Bilgisi', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni'], saatler: { "1": 4, "2": 4, "3": 3 } },
-  { ad: 'Fen Bilimleri', tip: 'Zorunlu', atanabilirBranslar: ['Fen Bilimleri', 'Sınıf Öğretmeni / Fen Bilimleri'], saatler: { "3": 3, "4": 3, "5": 4, "6": 4, "7": 4, "8": 4 } },
-  { ad: 'Sosyal Bilgiler', tip: 'Zorunlu', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "4": 3, "5": 3, "6": 3, "7": 3 } },
-  { ad: 'T.C. İnkılap Tarihi ve Atatürkçülük', tip: 'Zorunlu', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "8": 2 } },
-  { ad: 'Yabancı Dil', tip: 'Zorunlu', atanabilirBranslar: ['İngilizce'], saatler: { "2": 2, "3": 2, "4": 2, "5": 3, "6": 3, "7": 4, "8": 4 } },
-  { ad: 'Din Kültürü ve Ahlak Bilgisi', tip: 'Zorunlu', atanabilirBranslar: ['Din Kültürü'], saatler: { "4": 2, "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Görsel Sanatlar', tip: 'Zorunlu', atanabilirBranslar: ['Görsel Sanatlar'], saatler: { "1": 1, "2": 1, "3": 1, "4": 1, "5": 1, "6": 1, "7": 1, "8": 1 } },
-  { ad: 'Müzik', tip: 'Zorunlu', atanabilirBranslar: ['Müzik'], saatler: { "1": 1, "2": 1, "3": 1, "4": 1, "5": 1, "6": 1, "7": 1, "8": 1 } },
+  { ad: 'Fen Bilimleri (İlkokul)', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Sınıf Öğretmeni / Fen Bilimleri'], saatler: { "3": 3, "4": 3 } },
+  { ad: 'Sosyal Bilgiler (İlkokul)', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Sınıf Öğretmeni / Sosyal Bilgiler'], saatler: { "4": 3 } },
+  { ad: 'Yabancı Dil (İlkokul)', tip: 'Zorunlu', atanabilirBranslar: ['İngilizce'], saatler: { "2": 2, "3": 2, "4": 2 } },
+  { ad: 'Din Kültürü ve Ahlak Bilgisi (İlkokul)', tip: 'Zorunlu', atanabilirBranslar: ['Din Kültürü', 'Sınıf Öğretmeni'], saatler: { "4": 2 } },
+  { ad: 'Görsel Sanatlar (İlkokul)', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Görsel Sanatlar'], saatler: { "1": 1, "2": 1, "3": 1, "4": 1 } },
+  { ad: 'Müzik (İlkokul)', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Müzik'], saatler: { "1": 1, "2": 1, "3": 1, "4": 1 } },
   { ad: 'Beden Eğitimi ve Oyun', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Beden Eğitimi'], saatler: { "1": 5, "2": 5, "3": 5, "4": 2 } },
-  { ad: 'Beden Eğitimi ve Spor', tip: 'Zorunlu', atanabilirBranslar: ['Beden Eğitimi'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
-  { ad: 'Teknoloji ve Tasarım', tip: 'Zorunlu', atanabilirBranslar: ['Teknoloji Tasarım'], saatler: { "7": 2, "8": 2 } },
   { ad: 'Trafik Güvenliği', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Sosyal Bilgiler'], saatler: { "4": 1 } },
   { ad: 'İnsan Hakları, Vatandaşlık ve Demokrasi', tip: 'Zorunlu', atanabilirBranslar: ['Sınıf Öğretmeni', 'Sosyal Bilgiler'], saatler: { "4": 2 } },
+
+  // Zorunlu Dersler (Ortaokul)
+  { ad: 'Türkçe', tip: 'Zorunlu', atanabilirBranslar: ['Türkçe'], saatler: { "5": 6, "6": 6, "7": 5, "8": 5 } },
+  { ad: 'Matematik', tip: 'Zorunlu', atanabilirBranslar: ['Matematik', 'İlköğretim Matematik'], saatler: { "5": 5, "6": 5, "7": 5, "8": 5 } },
+  { ad: 'Fen Bilimleri', tip: 'Zorunlu', atanabilirBranslar: ['Fen Bilimleri'], saatler: { "5": 4, "6": 4, "7": 4, "8": 4 } },
+  { ad: 'Sosyal Bilgiler', tip: 'Zorunlu', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "5": 3, "6": 3, "7": 3 } },
+  { ad: 'T.C. İnkılap Tarihi ve Atatürkçülük', tip: 'Zorunlu', atanabilirBranslar: ['Sosyal Bilgiler'], saatler: { "8": 2 } },
+  { ad: 'Yabancı Dil', tip: 'Zorunlu', atanabilirBranslar: ['İngilizce'], saatler: { "5": 3, "6": 3, "7": 4, "8": 4 } },
+  { ad: 'Din Kültürü ve Ahlak Bilgisi', tip: 'Zorunlu', atanabilirBranslar: ['Din Kültürü'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Görsel Sanatlar', tip: 'Zorunlu', atanabilirBranslar: ['Görsel Sanatlar'], saatler: { "5": 1, "6": 1, "7": 1, "8": 1 } },
+  { ad: 'Müzik', tip: 'Zorunlu', atanabilirBranslar: ['Müzik'], saatler: { "5": 1, "6": 1, "7": 1, "8": 1 } },
+  { ad: 'Beden Eğitimi ve Spor', tip: 'Zorunlu', atanabilirBranslar: ['Beden Eğitimi'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
+  { ad: 'Teknoloji ve Tasarım', tip: 'Zorunlu', atanabilirBranslar: ['Teknoloji Tasarım'], saatler: { "7": 2, "8": 2 } },
   { ad: 'Bilişim Teknolojileri ve Yazılım', tip: 'Zorunlu', atanabilirBranslar: ['Bilişim Teknolojileri'], saatler: { "5": 2, "6": 2 } },
   { ad: 'Rehberlik ve Yönlendirme', tip: 'Zorunlu', atanabilirBranslar: ['Rehber Öğretmen'], saatler: { "5": 1, "6": 1, "7": 1, "8": 1 } },
+
   
   // İnsan, Toplum ve Bilim (Seçmeli)
   { ad: 'Matematik ve Bilim Uygulamaları', tip: 'Seçmeli (İnsan, Toplum ve Bilim)', atanabilirBranslar: ['Matematik', 'İlköğretim Matematik', 'Fen Bilimleri'], saatler: { "5": 2, "6": 2, "7": 2, "8": 2 } },
