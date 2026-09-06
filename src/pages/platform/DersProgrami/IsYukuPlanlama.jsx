@@ -140,6 +140,18 @@ export default function IsYukuPlanlama() {
   }
 
   const grupluDersler = dersler.reduce((acc, ders) => {
+    if (siniflar.length > 0) {
+      const isApplicableForAnyClass = siniflar.some(sinif => 
+        (ders.saatler?.[sinif.seviye] > 0) || 
+        atamalar.find(a => a.sinifId === sinif.id && a.dersId === ders.id)
+      )
+      
+      // Sınıflar yüklüyse ve bu ders mevcut sınıfların hiçbiri için geçerli (veya atanmış) değilse matriste gösterme.
+      if (!isApplicableForAnyClass && ders.tip !== 'Kurum Dersi') {
+        return acc
+      }
+    }
+
     const tip = ders.tip || 'Zorunlu'
     if (!acc[tip]) acc[tip] = []
     acc[tip].push(ders)

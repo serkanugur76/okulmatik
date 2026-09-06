@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useKurumYonetim } from '../../../contexts/KurumYonetimContext'
 import { db } from '../../../services/firebase'
 import { collection, onSnapshot, setDoc, deleteDoc, doc, serverTimestamp, getDocs } from 'firebase/firestore'
 
@@ -82,6 +83,7 @@ const createSlug = (text) => {
 }
 
 export default function DersTanimlari() {
+  const { secilenKurum } = useKurumYonetim()
   const [dersler, setDersler] = useState([])
   const [yukleniyor, setYukleniyor] = useState(true)
 
@@ -196,7 +198,23 @@ export default function DersTanimlari() {
   })
 
   // Gösterim sırası
-  const KADEME_SIRASI = ['İlkokul', 'Ortaokul', 'Tanımsız Kademe']
+  const getKurumKademeleri = (kurum) => {
+    if (!kurum || !kurum.ad) return ['İlkokul', 'Ortaokul', 'Lise']
+    const ad = kurum.ad.toLocaleLowerCase('tr')
+    const kademeler = []
+    if (ad.includes('ilkokul')) kademeler.push('İlkokul')
+    if (ad.includes('ortaokul')) kademeler.push('Ortaokul')
+    if (ad.includes('lise')) kademeler.push('Lise')
+    
+    if (kademeler.length === 0) return ['İlkokul', 'Ortaokul', 'Lise']
+    return kademeler
+  }
+
+  const aktifKademeler = getKurumKademeleri(secilenKurum)
+  
+  const KADEME_SIRASI = ['İlkokul', 'Ortaokul', 'Tanımsız Kademe'].filter(k => 
+    aktifKademeler.includes(k) || k === 'Tanımsız Kademe'
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
